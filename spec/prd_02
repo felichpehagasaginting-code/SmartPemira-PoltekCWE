@@ -1,0 +1,150 @@
+---
+
+## 8. Arsitektur Teknis & Rekomendasi Teknologi
+
+Sistem dirancang dengan arsitektur modern, tangguh, dan mudah dirawat oleh Tim ITPO Poltek CWE:
+
+```
++-----------------------------------------------------------------------------------+
+|                                 CLIENT LAYER                                      |
+|  +--------------------+   +--------------------+   +---------------------------+  |
+|  | Meja PPUR (Admin)  |   | Kiosk Bilik Suara  |   | Portal Pengawas & Publik  |  |
+|  | (Chrome/Firefox)   |   | (Kiosk App/Tablet) |   | (Responsive Web)          |  |
++--+--------------------+---+--------------------+---+---------------------------+--+
+                                      |
+                                      | HTTPS / WSS
+                                      v
++-----------------------------------------------------------------------------------+
+|                         APPLICATION LAYER (GATEWAY & API)                         |
+|  +-----------------------------------------------------------------------------+  |
+|  | Reverse Proxy (Nginx) + SSL Termination + Rate Limiting                     |  |
+|  +-----------------------------------------------------------------------------+  |
+|  | Backend Engine (Next.js / Node.js Express / NestJS / Go)                    |  |
+|  |   - Auth & RBAC Service (JWT + Session Guard)                               |  |
+|  |   - Voter Token Issuer (Crypto CSPRNG, TTL 10m)                             |  |
+|  |   - Ballot Processing Engine (Zero-Knowledge Isolation)                     |  |
+|  |   - Tally & Audit Logger (SHA-256 Hash Chained Events)                      |  |
++--+-----------------------------------------------------------------------------+--+
+                                      |
+                                      v
++-----------------------------------------------------------------------------------+
+|                                  DATA LAYER                                       |
+|  +-------------------------------------+   +-----------------------------------+  |
+|  | Relational DB (PostgreSQL / MySQL)  |   | In-Memory Cache (Redis)           |  |
+|  | - Data DPT, Paslon, Berita Acara    |   | - Token Ephemeral (TTL Expire)    |  |
+|  | - Encrypted Shuffled Ballots        |   | - Realtime Attendance Counter     |  |
++--+-------------------------------------+---+-----------------------------------+--+
+```
+
+### 8.1 Rekomendasi Stack Teknologi
+1. **Frontend**:
+   * **Framework**: React / Next.js atau Vite + Tailwind CSS.
+   * **UI/UX**: Mengikuti kaidah *antislop* & *web-design-guidelines* — antarmuka bersih, kontras tinggi (aksesibilitas penuh), bebas distorsi visual, responsif, dan mudah dipahami pemilih awam.
+   * **State Management**: Zustand / TanStack Query untuk komunikasi server yang andal.
+2. **Backend**:
+   * **Runtime**: Node.js (TypeScript) dengan Express/NestJS, atau Next.js App Router API.
+   * **Keamanan Kriptografi**: Node Crypto / Web Crypto API (penerbitan token acak, hashing, tanda tangan digital).
+3. **Database**:
+   * **Primary Database**: PostgreSQL (mendukung relasi data yang kuat, transaksi ACID, dan tipe data JSONB untuk audit trail).
+   * **Caching & Queue**: Redis (untuk manajemen token antrean bilik dengan TTL otomatis).
+4. **Deployment & Jaringan**:
+   * Docker & Docker Compose untuk kemudahan instalasi di server lokal kampus atau VPS.
+   * Dapat dijalankan pada jaringan lokal tertutup (LAN Kampus) tanpa internet publik untuk menjamin keamanan dari serangan siber eksternal pada hari-H pemilihan.
+
+---
+
+## 9. Model Data Konseptual & Keamanan Suara
+
+### 9.1 Pemisahan Domain Database (Core Security Design)
+
+Struktur tabel memisahkan secara fisik entitas data pemilih dari data hasil suara:
+
+#### A. Domain Pemilih (Voter Identification)
+* `voters`
+  * `id` (UUID, PK)
+  * `nim` (VARCHAR, Unique, Indexed)
+  * `name` (VARCHAR)
+  * `study_program_id` (FK to `study_programs`)
+  * `angkatan` (INT)
+  * `tps_id` (FK to `tps`)
+  * `has_voted` (BOOLEAN, Default: `FALSE`)
+  * `voted_at` (TIMESTAMP, Nullable)
+  * `status` (ENUM: `UNREGISTERED`, `CHECKED_IN`, `COMPLETED`)
+
+#### B. Domain Otentikasi Sesi TPS (Ephemeral Token)
+* `voting_tokens`
+  * `id` (UUID, PK)
+  * `token_hash` (VARCHAR, Unique - SHA-256 Hash dari token asli yang dipegang pemilih)
+  * `tps_id` (FK to `tps`)
+  * `study_program_id` (Untuk penentuan filter surat suara prodi)
+  * `status` (ENUM: `ACTIVE`, `USED`, `EXPIRED`)
+  * `expires_at` (TIMESTAMP, TTL 10 Menit)
+  * *Catatan: Tidak menyimpan voter_id untuk menjamin kerahasiaan pilihan.*
+
+#### C. Domain Surat Suara & Kotak Suara (Anonymous Ballots)
+* `ballot_boxes`
+  * `id` (UUID, PK)
+  * `category_id` (FK to `election_categories`: PRESMA / DPM / HIMA)
+  * `candidate_id` (FK to `candidates` atau `NULL` untuk kotak kosong)
+  * `is_empty_box` (BOOLEAN, Default: `FALSE`)
+  * `tps_id` (FK to `tps`)
+  * `created_at` (TIMESTAMP dengan acakan jitter mikro-detik agar urutan waktu tidak dapat disandingkan dengan urutan check-in DPT)
+  * `ballot_hash` (SHA-256 hash gabungan ID + Salt TPS untuk audit integritas)
+
+#### D. Domain Pengawasan & Laporan Sengketa
+* `election_incidents`
+  * `id` (UUID, PK)
+  * `ticket_number` (VARCHAR, Unique)
+  * `reporter_name` (VARCHAR)
+  * `reporter_nim` (VARCHAR)
+  * `incident_type` (ENUM: `PELANGGARAN_KAMPANYE`, `KECURANGAN_TPS`, `MALFUNGSI_SISTEM`, `LAINNYA`)
+  * `location` (VARCHAR)
+  * `occurred_at` (TIMESTAMP)
+  * `description` (TEXT)
+  * `evidence_url` (VARCHAR)
+  * `status` (ENUM: `SUBMITTED`, `IN_REVIEW`, `RESOLVED`, `REJECTED`)
+  * `verdict` (TEXT)
+
+---
+
+## 10. Rencana Implementasi & Roadmap Pengembangan
+
+Pengembangan sistem Smart Pemira dibagi ke dalam 5 tahapan kerja terukur:
+
+```mermaid
+flowchart TD
+    M1["Fase 1: Inisialisasi Arsitektur & Database Core"] --> M2["Fase 2: Modul KPUM, DPT & Profil Calon"]
+    M2 --> M3["Fase 3: Modul Kiosk TPS, Token & Pemungutan Suara"]
+    M3 --> M4["Fase 4: Rekapitulasi, Berita Acara & Pengawasan Panwaslu"]
+    M4 --> M5["Fase 5: Simulasi, Penetration Testing & UAT Kampus"]
+```
+
+### Milestone & Jadwal
+1. **Fase 1: Pondasi & Desain Basis Data (Sprint 1)**
+   * Setup repositori, linter, formatting, dan arsitektur modular.
+   * Perancangan skema database PostgreSQL (DPT, Kategori, Paslon, Token, Ballot Box).
+   * Implementasi modul otentikasi peran (RBAC) dan enkripsi dasar.
+2. **Fase 2: Manajemen Data & Portal Publik (Sprint 2)**
+   * Portal Admin KPUM: Fitur import data DPT dari BAAK dan validasi filter prodi.
+   * Manajemen data paslon (Presma, DPM, Hima Prodi) dan profil visi misi.
+   * Portal informasi publik calon untuk masa kampanye mahasiswa.
+3. **Fase 3: Mesin Bilik Suara TPS (Sprint 3)**
+   * Modul Meja PPUR: Check-in pemilih, scan KTM, dan generator token bilateral (TTL 10m).
+   * Modul Bilik Kiosk: Layar pemungutan suara aman (multi-ballot wizard, skenario calon tunggal vs kotak kosong, konfirmasi akhir).
+   * Implementasi pemutus relasi identitas suara (*Zero-Knowledge Ballot Storage*).
+4. **Fase 4: Tallying, Berita Acara & Audit Panwaslu (Sprint 4)**
+   * Modul dekripsi & perhitungan suara real-time saat pleno dibuka.
+   * Otomasi generator Berita Acara PDF bertanda tangan digital saksi & penyelenggara.
+   * Dashboard pengawasan Panwaslu dan modul pengaduan sengketa.
+5. **Fase 5: Uji Coba, Security Hardening & UAT (Sprint 5)**
+   * Simulasi gladi resik pemilihan skala penuh bersama KPUM, DPM, dan perwakilan mahasiswa.
+   * Uji penetrasi (*penetration test*): proteksi brute force token, SQLi, XSS, simulasi mati lampu/koneksi LAN.
+   * Final sign-off oleh Penanggung Jawab Pemira (DPM Poltek CWE).
+
+---
+
+## 11. Kesimpulan & Rekomendasi Tindak Lanjut
+
+Dokumen PRD ini telah mensintesis secara komprehensif seluruh prinsip, norma, dan mekanisme yang diatur dalam **Undang-Undang Dasar IKM Politeknik Kelapa Sawit Citra Widya Edukasi** serta **Ketetapan DPM No. 005/DPM-CWE/KEP/VII/2024 (RUU Pemira)**.
+
+Dokumen ini menjadi rujukan tunggal (*Single Source of Truth*) bagi Tim Pengembang ITPO dalam mengimplementasikan basis kode aplikasi **Smart Pemira** pada direktori proyek `f:\Projects\Smart_Pemira`.

@@ -1,0 +1,150 @@
+# DESIGN SYSTEM & UI/UX SPECIFICATION (`DESIGN.md`)
+## SISTEM E-VOTING SMART PEMIRA (SMART PEMILIHAN UMUM RAYA)
+### Politeknik Kelapa Sawit Citra Widya Edukasi (Poltek CWE)
+
+---
+
+| Atribut Dokumen | Keterangan |
+| :--- | :--- |
+| **Nama Proyek** | Smart Pemira (Sistem Informasi Pemilihan Umum Raya Terintegrasi) |
+| **Versi Desain** | 1.0.0 (Master Design System) |
+| **Arah Estetika** | *Neo-Editorial Botanical* + *Hybrid Bento & Tactile Neo-Brutalism* |
+| **Standar Kualitas** | *Anti-AI Slop*, *High-Craft UI*, WCAG AAA Contrast Compliance |
+| **Referensi Dokumen** | `PRD.md` v1.0.0 (Ketetapan DPM No. 005/DPM-CWE/KEP/VII/2024) |
+| **Target Implementasi** | Next.js / Vite + Tailwind CSS + Radix UI / Custom Primitives |
+
+---
+
+## DAFTAR ISI
+1. [Filosofi Desain & Manifesto Anti-AI Slop](#1-filosofi-desain--manifesto-anti-ai-slop)
+2. [Arsitektur Tema Ganda (Dual-Environment Theme)](#2-arsitektur-tema-ganda-dual-environment-theme)
+3. [Sistem Warna & Token Palet (Neo-Editorial Botanical)](#3-sistem-warna--token-palet-neo-editorial-botanical)
+4. [Color-Coding Surat Suara (Multi-Ballot Identity)](#4-color-coding-surat-suara-multi-ballot-identity)
+5. [Tipografi & Hierarki Skala Teks](#5-tipografi--hierarki-skala-teks)
+6. [Aturan Layout, Grid & Spasi](#6-aturan-layout-grid--spasi)
+7. [Gaya Komponen Hybrid (Bento Editorial vs Tactile Neo-Brutalism)](#7-gaya-komponen-hybrid-bento-editorial-vs-tactile-neo-brutalism)
+8. [Spesifikasi Antarmuka per Modul (End-to-End Screens)](#8-spesifikasi-antarmuka-per-modul-end-to-end-screens)
+9. [Interaksi, Transisi & Micro-States](#9-interaksi-transisi--micro-states)
+10. [Konfigurasi CSS Variables & Tailwind Token](#10-konfigurasi-css-variables--tailwind-token)
+
+---
+
+## 1. Filosofi Desain & Manifesto Anti-AI Slop
+
+Desain **Smart Pemira Poltek CWE** dirancang untuk memancarkan **kredibilitas konstitusional**, **transparansi kriptografis**, dan **energi demokrasi mahasiswa Gen Z** yang segar, berani, serta berkelas.
+
+### 1.1 Empat Pilar Estetika
+1. **Warm Botanical Editorial**: Mengangkat identitas kampus kelapa sawit (Poltek CWE) ke level desain modern melalui kanvas kertas hangat (*Warm Oat Milk*), tinta hijau gelap pekat (*Deep Espresso Ink*), dan aksen tropis yang kaya—tanpa kesan kuno atau birokratis.
+2. **Tactile Confidence pada Bilik Suara**: Memberikan sensasi fisik yang nyata saat mahasiswa mencoblos di layar sentuh (*Kiosk*). Tombol dan kartu kandidat menggunakan *crisp ink border* dan *tactile offset shadow* agar setiap ketukan terasa mantap, pasti, dan bebas salah pencet.
+3. **Bento Clarity pada Dashboard**: Menyajikan data berdensitas tinggi di meja PPUR, KPUM, dan Panwaslu menggunakan *Bento Grid* yang bersih, terstruktur, dan bebas gangguan visual (*zero visual clutter*).
+4. **Zero-Knowledge Transparency**: Menampilkan proses enkripsi suara, masa aktif token (TTL 10 menit), dan rantai hash (*SHA-256*) melalui tipografi *monospace* yang presisi sehingga menumbuhkan rasa percaya penuh pada sistem.
+
+### 1.2 Pantangan Mutlak (Anti-AI Slop Rules)
+Tim pengembang (ITPO) **dilarang keras** menggunakan pola visual generik berikut:
+* ❌ **DILARANG** menggunakan gradasi biru-ungu/neon (*cyberpunk/SaaS AI gradients*) pada *background*, tombol, maupun teks.
+* ❌ **DILARANG** menggunakan warna latar putih buta mutlak (`#FFFFFF`) sebagai kanvas utama halaman karena menyilaukan mata di bilik TPS. Gunakan `#FFFFFF` **hanya** untuk permukaan kartu (*elevated card surface*) di atas latar *Warm Oat Milk* (`#F6F4EE`).
+* ❌ **DILARANG** menggunakan *blurry drop-shadow* tebal yang kotor (`box-shadow: 0 20px 25px rgba(0,0,0,0.15)`).
+* ❌ **DILARANG** menggunakan *font* sistem membosankan tanpa kurasi atau memasang ikon dekoratif tanpa fungsi di setiap judul kartu.
+* ❌ **DILARANG** membuat tampilan halaman yang seragam tanpa kontras ukuran tipografi antara judul utama, metrik angka, dan label pendukung.
+
+---
+
+## 2. Arsitektur Tema Ganda (Dual-Environment Theme)
+
+Sesuai kebutuhan operasional lapangan pada Hari-H Pemungutan Suara dan Sidang Pleno, sistem mengimplementasikan **dua polaritas tema yang dikunci berdasarkan konteks ruang**:
+
+| Lingkungan / Modul | Tema Default | Alasan Ergonomis & Visual |
+| :--- | :--- | :--- |
+| **1. Kiosk Bilik Suara (FR-05)** | **Warm Light Mode** (*Locked*) | Mencegah pantulan bayangan wajah pemilih di layar tablet/monitor TPS, menjaga keterbacaan foto paslon secara akurat, dan ramah bagi semua kondisi mata. |
+| **2. Meja Registrasi PPUR (FR-04)** | **Warm Light Mode** (*Default*) | Ruangan TPS kampus memiliki pencahayaan terang; kanvas *Warm Oat Milk* mengurangi kelelahan mata panitia yang bertugas berjam-jam memverifikasi KTM. |
+| **3. Portal Publik & Kampanye** | **Warm Light Mode** | Memberikan kesan inklusif, hangat, editorial, dan mudah dibaca di perangkat *mobile* mahasiswa. |
+| **4. Dashboard Admin KPUM** | **Warm Light Mode** (*Switchable*) | Mengutamakan kejelasan tabel DPT, verifikasi berkas paslon, dan manajemen dokumen Berita Acara. |
+| **5. Live Audit Panwaslu & Layar Sidang Pleno (FR-06 & FR-08)** | **High-Craft Dark Mode** (*Obsidian Forest*) | Dirancang khusus untuk proyektor ruang sidang pleno dan layar monitor pengawasan. Memberikan kesan sinematik, berwibawa, dan membuat grafik perhitungan suara (*Quick Count / Real Count*) tampil mencolok tanpa menyilaukan ruangan. |
+
+---
+
+## 3. Sistem Warna & Token Palet (*Neo-Editorial Botanical*)
+
+Seluruh warna dikurasi dengan *undertone* organik yang hangat dan tegas (bukan warna neon/stabilo).
+
+### 3.1 Palet Utama — Warm Light Mode (Kiosk, PPUR, KPUM, Publik)
+
+| Kategori Token | Nama Warna | HEX | Penggunaan Spesifik |
+| :--- | :--- | :--- | :--- |
+| `--bg-canvas` | **Warm Oat Milk** | `#F6F4EE` | Background utama seluruh halaman aplikasi. |
+| `--bg-surface` | **Pure Alabaster** | `#FFFFFF` | Permukaan *Card* paslon, tabel DPT, dan modal konfirmasi. |
+| `--bg-subtle` | **Soft Parchment** | `#EAE6DF` | Area sekunder, *header* tabel, *input field disabled*, dan *skeleton loader*. |
+| `--text-primary` | **Deep Espresso Ink** | `#141E19` | Warna teks judul, nama paslon, NIM, dan warna garis *border* utama. |
+| `--text-secondary` | **Muted Forest Slate** | `#4A5851` | Teks deskripsi visi-misi, sub-label, dan keterangan waktu. |
+| `--text-muted` | **Dry Sage Grey** | `#7A8881` | *Placeholder* form pencarian, *caption* kaki halaman, dan teks non-aktif. |
+| `--accent-primary` | **Tropic Palm Green** | `#1B7F4E` | Identitas utama Smart Pemira, tombol CTA primer, dan status *Active/Valid*. |
+| `--accent-primary-hover`| **Deep Canopy Green** | `#13613B` | *Hover/Active state* untuk tombol primer. |
+| `--accent-secondary` | **Sunbaked Terracotta**| `#E05A47` | Aksen sekunder yang *eye-catchy*, *badge* peringatan, *countdown* TTL Token. |
+| `--accent-highlight` | **Warm Marigold** | `#F2B705` | *Highlight* nomor urut paslon, *badge* tahapan aktif, dan aksen sorotan. |
+| `--border-subtle` | **Warm Stone Border** | `#D8D3C8` | Garis pemisah tabel dan *border card* pada Dashboard Bento (`1px solid`). |
+| `--border-strong` | **Espresso Ink Line** | `#141E19` | Garis tegas pada kartu Kiosk & tombol *Tactile Neo-Brutalist* (`1.5px - 2px solid`). |
+
+### 3.2 Palet Khusus — High-Craft Dark Mode (Live Audit Monitor & Layar Pleno)
+
+| Kategori Token | Nama Warna | HEX | Penggunaan Spesifik |
+| :--- | :--- | :--- | :--- |
+| `--pleno-bg-canvas` | **Obsidian Forest** | `#0D1512` | Kanvas gelap utama layar proyektor pleno & dashboard live Panwaslu. |
+| `--pleno-bg-surface` | **Deep Pine Slate** | `#15221D` | Permukaan kartu metrik *live turnout*, grafik bar, dan log aktivitas. |
+| `--pleno-bg-elevated` | **Elevated Moss** | `#1D2E27` | *Hover state* baris tabel dan *header* panel pengawasan. |
+| `--pleno-text-primary` | **Crisp Alabaster** | `#F4F1EA` | Teks utama dan angka persentase perolehan suara. |
+| `--pleno-text-secondary`| **Sage Mist** | `#9EB0A7` | Label keterangan prodi, waktu log, dan metadata hash. |
+| `--pleno-accent-green` | **Luminous Tropic** | `#28A769` | Indikator *live pulse*, progres suara masuk, dan status server *Online*. |
+| `--pleno-accent-amber` | **Glowing Marigold** | `#F5C431` | Sorotan pemenang sementara & indikator ambang batas 50% Calon Tunggal. |
+| `--pleno-border` | **Subtle Pine Line** | `#263B33` | Garis tepi *Bento Box* pada layar gelap (`1px solid`). |
+
+### 3.3 Warna Semantik & Status Operasional (RBAC & DPT Status)
+
+* **Status `BELUM_MEMILIH` (Neutral)**: Teks `#4A5851` di atas latar `#EAE6DF` dengan border `#D8D3C8`.
+* **Status `DALAM_ANTREAN` / Token Aktif (Warning/In-Progress)**: Teks `#8A5200` di atas latar `#FEF5D6` dengan aksen *Warm Marigold* `#F2B705`.
+* **Status `SUDAH_MEMILIH` / Terverifikasi (Success)**: Teks `#0F5132` di atas latar `#DCFCE7` dengan aksen *Tropic Palm Green* `#1B7F4E`.
+* **Status `TOKEN_EXPIRED` / Sengketa / Emergency Freeze (Danger)**: Teks `#842029` di atas latar `#FDE8E5` dengan aksen *Sunbaked Terracotta* `#E05A47`.
+
+---
+
+## 4. Color-Coding Surat Suara (Multi-Ballot Identity)
+
+Sesuai **FR-03.1** dan **FR-05.2**, setiap pemilih akan melewati 3 tahap surat suara di bilik Kiosk. Agar mahasiswa **tidak bingung atau salah mengenali kategori pemilihan**, setiap surat suara wajib memiliki identitas warna (*Header Banner*, *Step Pill*, dan *Card Accent Ring*) yang berbeda dan eksklusif:
+
+### 4.1 Kategori Tingkat Institusi (Seluruh Mahasiswa)
+1. **SURAT SUARA 1: Pemilihan Presma & Wapresma (BEM)**
+   * **Identitas Warna**: **Tropic Green**
+   * **Primary HEX**: `#1B7F4E` | **Soft Tint Surface**: `#E6F4EC` | **Text on Badge**: `#FFFFFF`
+   * **Karakter**: Hijau tropis yang tegas, melambangkan kepemimpinan eksekutif tertinggi kampus.
+2. **SURAT SUARA 2: Pemilihan Pimpinan DPM (Legislatif)**
+   * **Identitas Warna**: **Tropic Jade**
+   * **Primary HEX**: `#0F766E` | **Soft Tint Surface**: `#E2F3F1` | **Text on Badge**: `#FFFFFF`
+   * **Karakter**: *Deep Teal-Jade* yang tenang, konstitusional, dan berbeda jelas dari hijau BEM.
+
+### 4.2 Kategori Tingkat Program Studi — Hima Prodi (Server-Side Filtered)
+Berdasarkan **Aturan Bisnis 7.2**, surat suara ke-3 otomatis menyesuaikan Program Studi pemilih dengan kode warna unik per jurusan agar tidak ada yang sama:
+
+| Program Studi / Hima | Nama Aksen Warna | Primary HEX | Soft Tint Surface | Karakter Visual |
+| :--- | :--- | :--- | :--- | :--- |
+| **Hima Budidaya Perkebunan Kelapa Sawit (BKS)** | **Spiced Terracotta** | `#D95338` | `#FCECE8` | Merah bata agraris yang hangat dan berani. |
+| **Hima Teknologi Pengolahan Hasil Perkebunan (TPHP)** | **Golden Ochre** | `#D9822B` | `#FDF2E4` | Jingga keemasan industrial yang enerjik. |
+| **Hima Manajemen Logistik / Perkebunan** | **Royal Cobalt** | `#2B50AA` | `#E8EEF9` | Biru kobalt struktural dan presisi. |
+| **Hima Teknologi Rekayasa Perangkat Lunak (TRPL)** | **Electric Plum** | `#6D28D9` | `#F1E9FD` | Ungu tua *deep-tech* yang modern dan ekspresif. |
+| **Opsi Khusus: KOTAK KOSONG (Calon Tunggal)** | **Neutral Slate Ink** | `#3F4743` | `#ECEAE4` | Abu-abu arang netral tanpa bias visual (Pasal 9 ayat 3 UUD IKM). |
+
+---
+
+## 5. Tipografi & Hierarki Skala Teks
+
+Kombinasi tipografi menggunakan pasangan **Geometric & Punchy** yang memberikan karakter Gen Z yang kuat pada judul, keterbacaan maksimal pada antarmuka, dan presisi teknis pada data kriptografi.
+
+### 5.1 Font Family Stack
+* **`--font-display` (Heading & Nomor Urut Paslon)**: `'Bricolage Grotesque', sans-serif`
+  * *Karakter*: Unik, ekspresif, sedikit *quirky* namun sangat berwibawa pada bobot `700 (Bold)` dan `800 (ExtraBold)`.
+* **`--font-sans` (UI Controls, Body, Tabel DPT, Visi-Misi)**: `'Geist', 'Inter', system-ui, sans-serif`
+  * *Karakter*: Neo-grotesque modern yang super jernih, netral, dan nyaman dibaca cepat.
+* **`--font-mono` (Token 6-Digit, NIM, Countdown, SHA-256 Hash)**: `'Geist Mono', monospace`
+  * *Karakter*: Memastikan angka `0` vs huruf `O`, serta angka `1` vs huruf `I` pada **Token Bilik Suara** terbedakan secara mutlak. Wajib mengaktifkan `font-variant-numeric: tabular-nums`.
+
+### 5.2 Skala Tipografi (Typographic Scale)
+
+| Level / Peran UI | Font Family | Ukuran (`rem` / `px`) | Weight | Line Height | Tracking |

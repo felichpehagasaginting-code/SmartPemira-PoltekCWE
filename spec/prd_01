@@ -1,0 +1,150 @@
+Proses pemira dibagi menjadi 3 fase utama:
+
+### 5.1 Fase Pra-Pemungutan Suara (Pre-Voting)
+1. **Penyusunan DPT**:
+   * Admin KPUM mengunggah data master mahasiswa aktif dari BAAK (Format: CSV/XLSX mencakup NIM, Nama, Program Studi, Angkatan, Email Institusi).
+   * Sistem memvalidasi duplikasi data dan mengkategorikan hak suara berdasarkan Program Studi.
+   * DPT ditetapkan, diuji publik, dan dikunci (*freeze*).
+2. **Pendaftaran & Penetapan Calon**:
+   * Pendaftaran bakal calon (Presma-Wapresma, DPM, Ketua Hima).
+   * Verifikasi berkas administrasi dan sidang penetapan nomor urut.
+   * Input profil calon, visi, misi, program kerja, dan foto resmi ke sistem.
+3. **Audit Kesiapan Sistem**:
+   * KPUM, Panwaslu, dan Saksi memeriksa bahwa seluruh tabel suara (`votes`) berstatus **0 (Nol)** melalui fungsi uji integritas sebelum TPS dibuka.
+
+### 5.2 Fase Hari Pemungutan Suara (Voting Day - TPS Kiosk Workflow)
+1. **Tahap 1: Registrasi Pemilih di Meja PPUR**:
+   * Mahasiswa datang ke TPS membawa KTM/KRS fisik.
+   * Petugas PPUR mencari data mahasiswa di sistem via NIM atau scan barcode KTM.
+   * Sistem memeriksa syarat:
+     * Apakah mahasiswa terdaftar di DPT?
+     * Apakah kolom `has_voted` masih `FALSE`?
+   * Jika valid, PPUR menekan tombol *"Terbitkan Token Bilik"*. Sistem mencetak/menampilkan **Token 6 Digit** (masa berlaku 10 menit).
+   * Status pemilih di DPT otomatis berubah menjadi `in_progress`.
+2. **Tahap 2: Pemberian Suara di Bilik Kiosk**:
+   * Pemilih memasuki bilik suara yang telah disediakan perangkat komputer/tablet dalam mode *Kiosk Browser*.
+   * Layar bilik suara meminta input Token.
+   * Sistem memverifikasi token dan langsung memuat antarmuka surat suara sesuai profil hak pilih mahasiswa:
+     * **Surat Suara 1**: Pemilihan Presma & Wapresma (Seluruh mahasiswa).
+     * **Surat Suara 2**: Pemilihan Pimpinan DPM (Seluruh mahasiswa).
+     * **Surat Suara 3**: Pemilihan Ketua Hima Prodi (Hanya mahasiswa prodi yang sesuai).
+   * Pemilih memilih kandidat pada masing-masing surat suara (disediakan dialog konfirmasi sebelum submit).
+   * Pemilih menekan *"Kirim Suara"*.
+   * Sistem mengenkripsi suara, menyimpannya ke tabel `ballots` secara acak, mematikan token (`token_status = USED`), dan mengubah status pemilih di DPT menjadi `has_voted = TRUE`.
+   * Layar bilik suara menampilkan pesan *"Terima kasih, suara Anda telah tersimpan secara rahasia"* selama 3 detik, lalu kembali ke layar input token awal.
+3. **Tahap 3: Pencelupan Tinta**:
+   * Pemilih keluar dari bilik suara menuju meja akhir untuk mencelupkan jari ke tinta pemira sebagai tanda fisik telah memberikan suara.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor M as Mahasiswa
+    actor P as Petugas PPUR
+    participant S as Server Smart Pemira
+    actor K as Kiosk Bilik Suara
+    actor W as Panwaslu / Saksi
+
+    M->>P: Tunjukkan KTM / KRS
+    P->>S: Input NIM & Cek DPT
+    S-->>P: Data Valid (Belum Memilih)
+    P->>S: Request Generate Token
+    S-->>P: Terbitkan Token (TTL 10m)
+    P->>M: Berikan Slip Token
+    M->>K: Masukkan Token di Bilik
+    K->>S: Validasi Token & Ambil Daftar Surat Suara
+    S-->>K: Tampilkan Surat Suara (Presma, DPM, Hima Prodi)
+    M->>K: Klik Pilihan Calon & Konfirmasi
+    K->>S: Submit Suara Terenkripsi (Anonim)
+    S->>S: Simpan Suara, Hanguskan Token, Tandai DPT = Has Voted
+    S-->>K: Suara Berhasil Disimpan
+    K-->>M: Tampilkan Layar Sukses (Auto Reset)
+    M->>P: Celup Tinta di Meja Keluar
+    W-->>S: Pantau Live Turnout (Audit Monitor)
+```
+
+### 5.3 Fase Pasca-Pemungutan Suara (Post-Voting)
+1. **Penutupan TPS**:
+   * KPUM menetapkan waktu pemungutan suara berakhir di sistem. Fitur generate token di PPUR otomatis terkunci.
+2. **Dekripsi & Agregasi Suara (Tallying)**:
+   * Sistem membuka kotak suara digital dan menghitung total suara sah, suara tidak sah/kotak kosong, serta perolehan suara masing-masing kandidat.
+3. **Penerbitan Berita Acara Digital**:
+   * Sistem menyusun dokumen Berita Acara Model C-KWE (lengkap dengan angka partisipasi, rekapitulasi suara per TPS dan per program studi).
+   * Saksi paslon dan Panwaslu memverifikasi kesesuaian dan menandatangani secara digital via portal masing-masing.
+4. **Publikasi Resmi**:
+   * Hasil akhir ditayangkan di portal publik dan diekspor dalam format dokumen resmi bertandatangan untuk Sidang Pleno Penetapan oleh KPUM.
+
+---
+
+## 6. Spesifikasi Kebutuhan Fungsional (Functional Requirements)
+
+### Modul 1: Manajemen Konfigurasi & Tahapan (FR-01)
+* **FR-01.1**: Sistem mampu mengatur rentang waktu aktif untuk setiap tahapan (Pendaftaran, Verifikasi, Kampanye, Masa Tenang, Pemungutan Suara, Rekapitulasi).
+* **FR-01.2**: Sistem mampu mengaktifkan/menonaktifkan fungsi *Emergency Freeze* oleh Super Admin jika terjadi kendala teknis atau sengketa luar biasa atas instruksi Panwaslu/KPUM.
+
+### Modul 2: Manajemen Daftar Pemilih Tetap / DPT (FR-02)
+* **FR-02.1**: Import massal data mahasiswa dari file Excel/CSV dengan field: NIM (Primary Key), Nama Lengkap, Program Studi (D3 Kelapa Sawit, D4 Manajemen Perkebunan, D4 Teknologi Pengolahan Sawit, dll), Angkatan, Status Akademik, dan Lokasi TPS yang ditugaskan.
+* **FR-02.2**: Pencegahan entri ganda berbasis nomor induk mahasiswa unik.
+* **FR-02.3**: Pencarian data pemilih real-time di meja PPUR berdasarkan NIM atau Nama.
+* **FR-02.4**: Pelacakan status pemilih: `BELUM_MEMILIH`, `DALAM_ANTREAN` (Token terbit), dan `SUDAH_MEMILIH`.
+
+### Modul 3: Manajemen Kandidat & Surat Suara (FR-03)
+* **FR-03.1**: Sistem mendukung manajemen 3 kategori pemilihan:
+  1. **Pemilihan Presma & Wapresma** (Tingkat Institusi).
+  2. **Pemilihan Pimpinan DPM** (Ketua Umum, Wakil Ketua I, Wakil Ketua II).
+  3. **Pemilihan Gubernur/Ketua Hima Prodi** (Tingkat Program Studi).
+* **FR-03.2**: Manajemen profil kandidat: Foto resolusi tinggi, nomor urut, visi, misi, daftar program unggulan, dan berkas persyaratan terverifikasi.
+* **FR-03.3**: Fitur otomatis pembuatan opsi **"Kotak Kosong" / Pilihan Tidak Setuju** jika dalam suatu kategori hanya terdapat calon tunggal.
+
+### Modul 4: Otentikasi & Penerbitan Token TPS (FR-04)
+* **FR-04.1**: Operator PPUR memiliki akun terotentikasi yang terikat dengan ID TPS tertentu.
+* **FR-04.2**: Sistem men-generate token acak alphanumerik 6 karakter saat pemilih terverifikasi di meja registrasi.
+* **FR-04.3**: Token memiliki masa aktif terbatas (*Time-To-Live / TTL* selama 10 menit). Jika kedaluwarsa sebelum dipakai, pemilih wajib meminta pembatalan dan token ulang di meja PPUR dengan pencatatan log alasan.
+* **FR-04.4**: Token berstatus *single-use*: begitu suara dikirim di bilik suara, status token langsung berubah menjadi `EXPIRED/USED` dan tidak dapat dipakai kembali.
+
+### Modul 5: Antarmuka Kiosk Bilik Suara (FR-05)
+* **FR-05.1**: Antarmuka *full-screen*, bebas navigasi URL eksternal, anti-inspect element, dan ergonomis untuk perangkat desktop maupun tablet layar sentuh (*touchscreen*).
+* **FR-05.2**: Pemilih disuguhkan alur bertahap (*step-by-step wizard*) untuk setiap surat suara yang menjadi haknya:
+  * Tahap 1: Surat Suara Presma-Wapresma.
+  * Tahap 2: Surat Suara Pimpinan DPM.
+  * Tahap 3: Surat Suara Ketua Hima (otomatis disesuaikan dengan program studi pemilih).
+* **FR-05.3**: Tombol pilihan visual yang jelas, disertai foto paslon dan nomor urut.
+* **FR-05.4**: Layar konfirmasi akhir (*Review Selections*) sebelum suara disubmit secara permanen. Pemilih dapat mengubah pilihan sebelum konfirmasi akhir diklik.
+
+### Modul 6: Kotak Suara Digital & Rekapitulasi (FR-06)
+* **FR-06.1**: Suara yang masuk disimpan dalam format acak (*shuffled timestamp & ID*) untuk memutus relasi temporal dengan waktu check-in di meja PPUR.
+* **FR-06.2**: Dashboard rekapitulasi terkunci secara default selama periode pemungutan suara berlangsung untuk mencegah kebocoran tren suara yang dapat memengaruhi pemilih lain.
+* **FR-06.3**: Fitur pembukaan hasil suara secara serentak (*Pleno Unlocking*) oleh Ketua KPUM disaksikan oleh Panwaslu dan Saksi.
+* **FR-06.4**: Perhitungan otomatis persentase suara sah, suara kotak kosong, dan penentuan pemenang berdasarkan regulasi.
+
+### Modul 7: Berita Acara & Pelaporan Hukum (FR-07)
+* **FR-07.1**: Otomasi pembuatan dokumen digital Berita Acara Hasil Pemira sesuai standar RUU Pemira Pasal 64.
+* **FR-07.2**: Modul penandatanganan Berita Acara digital oleh Ketua PPUR, Ketua KPUM, Ketua Panwaslu, dan saksi masing-masing pasangan calon.
+* **FR-07.3**: Fitur catatan keberatan saksi terintegrasi dalam formulir berita acara.
+* **FR-07.4**: Ekspor Berita Acara ke format PDF yang dilengkapi QR Code verifikasi keaslian dokumen (*cryptographic seal*).
+
+### Modul 8: Pengawasan, Sengketa & Audit Log (FR-08)
+* **FR-08.1**: Portal khusus Panwaslu untuk memantau metrik operasional TPS: jumlah DPT hadir, sisa pemilih, laju kedatangan pemilih per jam, dan insiden token kedaluwarsa.
+* **FR-08.2**: Formulir pelaporan sengketa/pelanggaran pemira secara daring (Pasal 65 RUU Pemira), mencakup: identitas pelapor, terlapor, waktu/tempat kejadian, deskripsi peristiwa, dan upload berkas bukti foto/dokumen.
+* **FR-08.3**: Modul pencatatan sanksi: Jika calon dijatuhi sanksi pengurangan suara oleh Panwaslu/DKPPR (Pasal 67), sistem menyediakan fitur input pemotongan suara resmi yang terdokumentasi dalam Berita Acara.
+* **FR-08.4**: Penyimpanan riwayat log aktivitas pengguna secara immutable (*tamper-evident log*).
+
+---
+
+## 7. Aturan Bisnis & Logika Pemilihan Khusus
+
+### 7.1 Penanganan Skenario Calon Tunggal (UUD IKM Pasal 9 ayat 3)
+* Jika hingga batas akhir masa perpanjangan pendaftaran hanya terdapat **1 (satu) pasangan calon** yang lolos verifikasi:
+  1. Sistem secara otomatis membuat antarmuka surat suara tandingan berlabel **"KOTAK KOSONG"** atau opsi **"SETUJU / TIDAK SETUJU"**.
+  2. Rumus Kemenangan:
+     $$\text{Persentase Suara Paslon} = \frac{\text{Suara Paslon Tunggal}}{\text{Total Suara Sah (Paslon + Kotak Kosong)}} \times 100\%$$
+  3. **Ambang Batas**: Paslon tunggal dinyatakan terpilih HANYA JIKA $\text{Persentase Suara} > 50\%$ dari total suara sah.
+  4. Jika suara paslon $\le 50\%$, sistem menetapkan status kategori sebagai **"MANDAT KEMBALI KE MUSYAWARAH MAHASISWA"** sesuai Pasal 9 ayat (4) UUD IKM.
+
+### 7.2 Multi-Ballot Berdasarkan Wilayah Program Studi
+* Setiap mahasiswa Poltek CWE yang hadir berhak menerima kombinasi surat suara:
+  $$\text{Daftar Surat Suara} = \{\text{Presma-Wapresma}\} \cup \{\text{Pimpinan DPM}\} \cup \{\text{Hima Prodi Mahasiswa Terkait}\}$$
+* Mahasiswa Program Studi Budidaya Kelapa Sawit (BKS) **tidak boleh dan tidak dapat** melihat atau memilih calon Himpunan Mahasiswa Manajemen Logistik/Teknologi Pengolahan, dan sebaliknya. Sistem memfilter *options list* secara ketat di sisi server (*server-side assertion*).
+
+### 7.3 Penanganan Skenario Suara Seri (Tie-Break)
+* Apabila dua calon teratas memperoleh jumlah suara yang sama persis dalam rekapitulasi akhir, sistem menandai kategori tersebut berstatus `STATUS_SERI_PENDING_PLENO` dan menerbitkan lampiran Berita Acara Khusus untuk diselesaikan melalui mekanisme musyawarah/sidang pleno KPUM bersama DKPPR dan Musyawarah Mahasiswa.
+

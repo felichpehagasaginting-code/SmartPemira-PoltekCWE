@@ -1,0 +1,52 @@
+
+    --ballot-dpm: #0F766E;
+    --ballot-dpm-tint: #E2F3F1;
+
+    --ballot-hima-bks: #D95338;
+    --ballot-hima-bks-tint: #FCECE8;
+
+    --ballot-hima-tphp: #D9822B;
+    --ballot-hima-tphp-tint: #FDF2E4;
+
+    --ballot-hima-logistik: #2B50AA;
+    --ballot-hima-logistik-tint: #E8EEF9;
+
+    --ballot-hima-trpl: #6D28D9;
+    --ballot-hima-trpl-tint: #F1E9FD;
+
+    --ballot-empty-box: #3F4743;
+    --ballot-empty-box-tint: #ECEAE4;
+
+    /* === TYPOGRAPHY === */
+    --font-display: 'Bricolage Grotesque', sans-serif;
+    --font-sans: 'Geist', 'Inter', system-ui, sans-serif;
+    --font-mono: 'Geist Mono', monospace;
+
+    /* === TACTILE NEO-BRUTALIST SHADOWS (KIOSK & PUBLIC) === */
+    --shadow-tactile-sm: 2px 2px 0px #141E19;
+    --shadow-tactile-md: 4px 4px 0px #141E19;
+    --shadow-tactile-lg: 6px 6px 0px #141E19;
+    --shadow-tactile-selected-bem: 6px 6px 0px #1B7F4E;
+    --shadow-tactile-selected-dpm: 6px 6px 0px #0F766E;
+  }
+
+  /* === HIGH-CRAFT DARK MODE (PLENO & PANWASLU LIVE MONITOR) === */
+  .theme-pleno-dark {
+    --bg-canvas: #0D1512;
+    --bg-surface: #15221D;
+    --bg-subtle: #1D2E27;
+
+    --text-primary: #F4F1EA;
+    --text-secondary: #9EB0A7;
+    --text-muted: #64786F;
+
+    --accent-primary: #28A769;
+    --accent-primary-hover: #34C77E;
+    --accent-secondary: #E05A47;
+    --accent-highlight: #F5C431;
+
+    --border-subtle: #263B33;
+    --border-strong: #39564A;
+  }
+}
+```

@@ -1,0 +1,150 @@
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Kiosk Ballot Number** (Nomor Urut `01`, `02`) | `--font-display` | `3.5rem` (56px) | `800` | `1.0` | `-0.04em` |
+| **Token Display Giant** (Kode Token 6 Karakter) | `--font-mono` | `3.0rem` (48px) | `700` | `1.1` | `0.18em` |
+| **H1 / Page Hero & Pleno Title** | `--font-display` | `2.25rem` (36px) | `700` | `1.15` | `-0.03em` |
+| **H2 / Section & Ballot Header** | `--font-display` | `1.5rem` (24px) | `700` | `1.25` | `-0.02em` |
+| **H3 / Candidate Name on Card** | `--font-display` | `1.25rem` (20px) | `700` | `1.3` | `-0.01em` |
+| **Body Large (Kiosk Instructions)** | `--font-sans` | `1.125rem` (18px) | `500` | `1.5` | `0em` |
+| **Body Base (Tabel DPT, Visi-Misi)** | `--font-sans` | `1.0rem` (16px) | `400` | `1.6` | `0em` |
+| **UI Label & Button Text** | `--font-sans` | `0.875rem` (14px) | `600` | `1.2` | `0.01em` |
+| **Mono Data (NIM, Timestamp, Hash)** | `--font-mono` | `0.8125rem` (13px) | `500` | `1.4` | `0.02em` |
+
+---
+
+## 6. Aturan Layout, Grid & Spasi
+
+1. **Base Spacing Unit**: Menggunakan kelipatan `4px` (`0.25rem`) dengan ritme spasi utama `8px`, `16px`, `24px`, `32px`, dan `48px`.
+2. **Whitespace Mandate**: Minimal **25% dari total layar** wajib berupa area kosong (*breathing room* berwarna `--bg-canvas` `#F6F4EE`) agar pemilih di bilik Kiosk tidak merasa terintimidasi atau bingung.
+3. **Ukuran Kontainer Maksimum**:
+   * **Kiosk Bilik Suara**: `max-width: 1280px` (terpusat secara vertikal dan horizontal di layar penuh `100dvh`, **tanpa scroll vertikal** jika memungkinkan agar seluruh kandidat terlihat sekaligus).
+   * **Dashboard Admin / PPUR / Panwaslu**: Fluid Bento Layout dengan `max-width: 1600px`, *sidebar* navigasi ramping (`260px`), dan *padding* konten utama `24px–32px`.
+4. **Touch Target Ergonomics (Khusus Kiosk FR-05)**:
+   * Seluruh tombol interaktif di Kiosk Bilik Suara wajib memiliki tinggi minimal **`56px`** dengan area sentuh yang luas agar nyaman ditekan menggunakan jari di layar tablet maupun klik *mouse*.
+
+---
+
+## 7. Gaya Komponen Hybrid (Bento Editorial vs Tactile Neo-Brutalism)
+
+Sistem menerapkan strategi visual **Hybrid** yang membedakan komponen **interaksi pemilihan (Kiosk & Publik)** dengan komponen **manajemen administratif (PPUR, KPUM, Panwaslu)**:
+
+### 7.1 Mode A: *Tactile Neo-Brutalism* (Khusus Kiosk Bilik Suara & Portal Publik)
+Digunakan untuk membangun rasa antusiasme, kejelasan fisik, dan kepastian saat memilih:
+* **Surface & Border**: Latar kartu `#FFFFFF` dengan garis tepi tegas `2px solid #141E19` (`--border-strong`).
+* **Tactile Shadow**: Menggunakan *hard offset shadow* yang rapi dan berkelas:
+  * Default Card: `box-shadow: 4px 4px 0px #141E19;`
+  * Hover / Focus State: `transform: translate(-2px, -2px); box-shadow: 6px 6px 0px #141E19;`
+  * Active / Pressed State: `transform: translate(2px, 2px); box-shadow: 2px 2px 0px #141E19;`
+* **Selected Candidate Card**: Saat paslon diklik di bilik suara, *border* berubah menjadi `3px solid` mengikuti warna kategori surat suara (misal `#1B7F4E` untuk BEM), *offset shadow* berubah mengikuti warna kategori (`6px 6px 0px #1B7F4E`), dan muncul lencana **"✓ PILIHAN ANDA"** di sudut kanan atas kartu.
+* **Border Radius**: `14px` untuk kartu kandidat, `10px` untuk tombol utama, dan `9999px` (*full pill*) untuk *badge* nomor urut & kategori.
+
+### 7.2 Mode B: *Bento Editorial* (Khusus Dashboard KPUM, Meja PPUR, & Panwaslu)
+Digunakan untuk efisiensi kerja tinggi, fokus pembacaan tabel ribuan baris DPT, dan ketenangan visual:
+* **Surface & Border**: Latar kartu `#FFFFFF` (Light) atau `#15221D` (Dark Pleno) dengan garis tepi halus `1px solid #D8D3C8` (Light) / `#263B33` (Dark).
+* **Shadow**: Tanpa *hard offset shadow*. Menggunakan elevasi super halus (`0 1px 3px rgba(20, 30, 25, 0.04)`) dan mengandalkan kontras warna kanvas `#F6F4EE` vs permukaan kartu `#FFFFFF`.
+* **Border Radius**: `12px` untuk panel *Bento*, `8px` untuk baris input dan tombol tabel.
+* **Data Alignment**: Seluruh kolom angka, NIM, waktu kehadiran, dan jumlah suara wajib rata kanan (`text-align: right`) atau menggunakan `tabular-nums` agar lurus sempurna dari atas ke bawah.
+
+---
+
+## 8. Spesifikasi Antarmuka per Modul (End-to-End Screens)
+
+Berikut adalah panduan desain spesifik untuk setiap modul yang diamanatkan dalam `PRD.md`:
+
+### 8.1 Modul Meja Registrasi PPUR (FR-04: Token Issuer)
+* **Tujuan Utama**: Kecepatan pencarian NIM/Scan KTM (< 3 detik) dan penerbitan Token 6 Digit.
+* **Struktur Layout (Split Bento 60:40)**:
+  * **Panel Kiri (60%) — Pencarian & Tabel DPT TPS**:
+    * *Search Bar* berukuran besar di bagian atas (`height: 52px`), otomatis *autofocus* untuk menerima input *Barcode Scanner* KTM atau ketikan NIM.
+    * Filter cepat berbentuk *Pill Tabs*: `Semua DPT`, `Belum Memilih`, `Dalam Antrean (Token Aktif)`, `Sudah Memilih`.
+  * **Panel Kanan (40%) — Kartu Verifikasi & Generator Token**:
+    * Menampilkan detail mahasiswa yang dipilih (Nama Lengkap, NIM dengan `--font-mono`, Program Studi dengan *badge* warna prodinya, dan Status Hak Pilih).
+    * Tombol aksi primer lebar penuh: **"TERBITKAN TOKEN BILIK SUARA"** (`#1B7F4E`).
+    * **Modal / Kartu Token Terbit**: Menampilkan **6 Karakter Alfanumerik** dalam ukuran raksasa (`48px Geist Mono Bold`, spasi antar huruf lebar) di atas latar *Warm Marigold Tint* (`#FEF5D6`), dilengkapi *progress bar* hitung mundur **10:00 menit** dan tombol *"Cetak Slip Token"*.
+
+### 8.2 Modul Kiosk Bilik Suara (FR-05: Multi-Ballot Wizard)
+Antarmuka terkunci dalam *Fullscreen Kiosk Mode*, bebas *navbar* eksternal, bebas *footer* berantakan.
+
+#### Layar 1: Gate Input Token
+* Terpusat di tengah kanvas `#F6F4EE`.
+* Menampilkan logo resmi IKM Poltek CWE & KPUM, judul `"BILIK SUARA DIGITAL SMART PEMIRA"`, dan **6 Kotak Input Karakter** bergaya *Tactile Neo-Brutalist* (`64px x 76px` per kotak, border `2px solid #141E19`).
+* Dilengkapi *Virtual On-Screen Keypad* (angka `0-9` dan huruf `A-Z`) berukuran besar di layar untuk memudahkan bilik suara yang menggunakan tablet layar sentuh tanpa *keyboard* fisik.
+
+#### Layar 2: Wizard Surat Suara Bertahap (Step 1, 2, 3)
+* **Top Stepper Bar**: Menampilkan posisi pemilih saat ini secara jelas:
+  * `[ 1. PRESMA & WAPRESMA ] ─── [ 2. PIMPINAN DPM ] ─── [ 3. KETUA HIMA PRODI ]`
+  * *Header Banner* di bagian atas berubah warna secara dinamis mengikuti surat suara aktif:
+    * Tahap 1 (BEM): Banner **Tropic Green** (`#1B7F4E`)
+    * Tahap 2 (DPM): Banner **Tropic Jade** (`#0F766E`)
+    * Tahap 3 (Hima): Banner warna Prodi pemilih (misal **Electric Plum** `#6D28D9` untuk TRPL).
+* **Grid Kartu Paslon**:
+  * Maksimal 2 hingga 3 kartu berjejer horizontal.
+  * Setiap kartu menampilkan: **Badge Nomor Urut** (`Bricolage Grotesque 56px`) di pojok kiri atas, **Foto Resmi Paslon** dengan rasio `4:3` atau `1:1` berbingkai rapi, **Nama Pasangan Calon**, dan ringkasan 3 poin **Visi Utama**.
+* **Desain Khusus Skenario Calon Tunggal vs Kotak Kosong (Aturan Bisnis 7.1)**:
+  * Jika kategori hanya memiliki 1 paslon, layar wajib membagi ruang **50% : 50% secara simetris dan adil**.
+  * Kartu Kiri: Pasangan Calon Tunggal (Nomor Urut `01`).
+  * Kartu Kanan: **KOTAK KOSONG (Kolom Tidak Setuju)** dengan ilustrasi kotak suara netral berarsir bersih, judul tegas `"KOTAK KOSONG"`, dan penjelasan singkat: *"Pilih kotak ini apabila Anda tidak menyetujui pasangan calon tunggal."*
+
+#### Layar 3: Konfirmasi Akhir (*Review Selections* - FR-05.4)
+* Menampilkan ringkasan 3 kartu pilihan mahasiswa secara berdampingan (Pilihan BEM, Pilihan DPM, Pilihan Hima Prodi) lengkap dengan warna *badge* masing-masing.
+* Setiap kartu ringkasan memiliki tombol sekunder `"Ubah Pilihan"` untuk kembali ke surat suara terkait.
+* Di bagian bawah terdapat *callout* jaminan keamanan: `"🔒 Zero-Knowledge Ballot: Pilihan Anda dienkripsi secara acak dan dipisahkan sepenuhnya dari identitas NIM Anda."`
+* Tombol aksi final berukuran ekstra besar (`height: 64px`) dengan gaya *Tactile Neo-Brutalist*: **"KIRIM SUARA SEKARANG"** (`#1B7F4E` dengan *offset shadow* `#141E19`).
+
+#### Layar 4: Sukses & Auto-Reset (3 Detik)
+* Menampilkan animasi centang hijau *Tropic Green*, pesan apresiasi, pengingat untuk **mencelupkan jari ke tinta di meja keluar TPS**, dan *countdown bar* 3 detik sebelum layar otomatis kembali ke *Gate Input Token*.
+
+### 8.3 Modul Live Audit Panwaslu & Sidang Pleno (FR-06 & FR-08)
+Menggunakan **High-Craft Dark Mode (`#0D1512`)**:
+* **Bento Row Atas (4 KPI Cards)**:
+  1. *Total DPT Terdaftar* (Angka besar `Bricolage Grotesque`).
+  2. *Total Suara Masuk / Turnout (%)* dilengkapi *progress bar* hijau `#28A769`.
+  3. *Token Aktif di Bilik Saat Ini* (Indikator *real-time*).
+  4. *Status Integritas Hash Chain* (Badge `"✓ SHA-256 VERIFIED"` dengan font `Geist Mono`).
+* **Pleno Unlocking Gate (FR-06.3)**:
+  * Sebelum pemungutan suara ditutup, area grafik perolehan suara tertutup oleh **Cryptographic Vault Overlay** (panel terkunci dengan ikon gembok kriptografis).
+  * Saat Sidang Pleno dimulai, Ketua KPUM menekan tombol `"BUKA KOTAK SUARA DIGITAL (PLENO UNLOCK)"` yang menampilkan animasi dekripsi *hash* dan langsung merender grafik perolehan suara *real-time* beserta indikator kelulusan ambang batas `> 50%` (untuk skenario Calon Tunggal).
+
+### 8.4 Modul Berita Acara Digital Model C-KWE (FR-07)
+* Dirancang dengan estetika **Swiss Legal Document** di atas kertas putih `#FFFFFF`.
+* Menampilkan tabel rekapitulasi presisi tinggi, kolom catatan keberatan saksi (FR-07.3), serta **Panel Status Tanda Tangan Digital** (Ketua KPUM, Ketua PPUR, Ketua Panwaslu, dan Saksi Paslon) lengkap dengan cap waktu (*timestamp*) dan **QR Code Cryptographic Seal** di pojok kanan bawah untuk ekspor PDF.
+
+---
+
+## 9. Interaksi, Transisi & Micro-States
+
+1. **Kecepatan Respons Kiosk (< 500ms - NFR 4.2.3)**:
+   * Transisi antar surat suara (BEM -> DPM -> Hima) menggunakan animasi *horizontal slide & fade* berdurasi `180ms cubic-bezier(0.22, 1, 0.36, 1)`—terasa instan, lincah, dan tidak membuat pemilih menunggu.
+2. **Pencegahan Double-Submit**:
+   * Saat tombol `"KIRIM SUARA SEKARANG"` ditekan, tombol langsung terkunci (`disabled`), menampilkan status `"Mengenkripsi & Mengacak Suara..."` dengan ikon *spinner* minimal, mencegah pengiriman suara ganda.
+3. **Indikator Countdown Token**:
+   * Di pojok kanan atas layar Kiosk, terdapat *pill timer* (`⏱ 09:42`) dengan font `Geist Mono`. Jika waktu tersisa kurang dari **2 menit**, warna *pill* berubah menjadi **Sunbaked Terracotta (`#E05A47`)** dengan efek *gentle pulse* agar pemilih segera menyelesaikan pilihannya.
+
+---
+
+## 10. Konfigurasi CSS Variables & Tailwind Token
+
+Tim pengembang ITPO dapat langsung menyalin konfigurasi variabel CSS berikut ke dalam file `globals.css` proyek **Smart Pemira**:
+
+```css
+@layer base {
+  :root {
+    /* === WARM LIGHT MODE (DEFAULT: KIOSK, PPUR, KPUM, PUBLIK) === */
+    --bg-canvas: #F6F4EE;
+    --bg-surface: #FFFFFF;
+    --bg-subtle: #EAE6DF;
+
+    --text-primary: #141E19;
+    --text-secondary: #4A5851;
+    --text-muted: #7A8881;
+
+    --accent-primary: #1B7F4E;
+    --accent-primary-hover: #13613B;
+    --accent-secondary: #E05A47;
+    --accent-highlight: #F2B705;
+
+    --border-subtle: #D8D3C8;
+    --border-strong: #141E19;
+
+    /* === MULTI-BALLOT CATEGORY COLORS === */
+    --ballot-bem: #1B7F4E;
+    --ballot-bem-tint: #E6F4EC;

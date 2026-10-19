@@ -1,0 +1,402 @@
+     1→    30→---
+     2→    31→
+     3→    32→## 1. Ringkasan Eksekutif & Visi Produk
+     4→    33→
+     5→    34→### 1.1 Latar Belakang
+     6→    35→Pemilihan Umum Raya (Pemira) di lingkungan Politeknik Kelapa Sawit Citra Widya Edukasi merupakan sarana utama pelaksanaan kedaulatan mahasiswa guna memilih pimpinan eksekutif dan legislatif. Transformasi dari sistem konvensional (kertas suara manual) menuju sistem digital terpadu (**Smart Pemira**) diamanatkan oleh regulasi kemahasiswaan guna menjamin asas LUBER JURDIL (Langsung, Umum, Bebas, Rahasia, Jujur, dan Adil), menekan potensi kecurangan, mengoptimalkan transparansi, serta mempercepat proses rekapitulasi perolehan suara secara akuntabel.
+     7→    36→
+     8→    37→### 1.2 Visi & Tujuan Produk
+     9→    38→* **Integritas & Kerahasiaan Mutlak**: Menerapkan pemisahan mutlak antara identitas pemilih (*voter identity*) dan pilihan suara (*ballot record*) sehingga suara tidak dapat dilacak kembali ke pemilih (*Zero Knowledge Anonymity*).
+    10→    39→* **Kepatuhan Regulasi Penuh**: Mengakomodasi seluruh amanat UUD IKM dan RUU Pemira, termasuk skema pemilihan serentak 3 kategori surat suara (Presma-Wapresma, DPM, dan Hima Prodi) serta skenario khusus (Calon Tunggal vs Kotak Kosong).
+    11→    40→* **Model Pemungutan Suara Hibrida On-Premise (TPS Diam)**: Mengimplementasikan sistem online terkontrol di mana pemilih tetap hadir secara fisik di bilik suara TPS kampus dengan otentikasi token sekali pakai (*single-use ephemeral token*).
+    12→    41→* **Otomasi Audit & Pelaporan**: Menghasilkan Berita Acara Pemungutan dan Penghitungan Suara secara otomatis, tersertifikasi tanda tangan digital/kriptografis para pihak (KPUM, PPUR, Panwaslu, Saksi).
+    13→    42→
+    14→    43→---
+    15→    44→
+    16→    45→## 2. Landasan Yuridis & Konstitusional
+    17→    46→
+    18→    47→Sistem Smart Pemira dibangun dan wajib tunduk tanpa pengecualian pada dua instrumen hukum tertinggi mahasiswa Poltek CWE:
+    19→    48→
+    20→    49→```
+    21→    50→               +----------------------------------------------------+
+    22→    51→               |           UNDANG-UNDANG DASAR IKM CWE              |
+    23→    52→               | (Konstitusi Induk Federasi Kemahasiswaan Kampus)   |
+    24→    53→               +-------------------------+--------------------------+
+    25→    54→                                         |
+    26→    55→                                         v
+    27→    56→               +----------------------------------------------------+
+    28→    57→               |      KETETAPAN DPM / UU PEMIRA IKM POLTEK CWE      |
+    29→    58→               | (Regulasi Penyelenggaraan Pemilu Raya Mahasiswa)   |
+    30→    59→               +-------------------------+--------------------------+
+    31→    60→                                         |
+    32→    61→                                         v
+    33→    62→               +----------------------------------------------------+
+    34→    63→               |           SISTEM INFORMASI SMART PEMIRA            |
+    35→    64→               | (Implementasi Teknis Perangkat Lunak oleh ITPO)    |
+    36→    65→               +----------------------------------------------------+
+    37→    66→```
+    38→    67→
+    39→    68→### 2.1 Rujukan Klausul UUD IKM Poltek CWE
+    40→    69→1. **Pasal 1 ayat (2)**: Kedaulatan IKM berada di tangan mahasiswa dan dijalankan menurut UUD.
+    41→    70→2. **Pasal 9 ayat (1) - (5)**: 
+    42→    71→   * Pasangan Calon Presiden dan Wakil Presiden Mahasiswa dipilih langsung dalam satu pasangan melalui Pemira.
+    43→    72→   * Paslon peraih suara terbanyak dilantik oleh Musyawarah Mahasiswa.
+    44→    73→   * **Klausul Calon Tunggal**: Jika hanya ada satu pasangan calon, paslon dinyatakan terpilih jika memperoleh suara **lebih dari 50%** dari total suara sah Pemira.
+    45→    74→3. **Pasal 13 ayat (2)**: Otonomi pemilihan eksekutif Himpunan Mahasiswa Program Studi (Gubernur/Wakil Gubernur Mahasiswa) yang difasilitasi dalam kerangka federasi.
+    46→    75→4. **Pasal 19 ayat (2) & (4)**:
+    47→    76→   * Pimpinan DPM (Ketua Umum, Wakil Ketua I, Wakil Ketua II) dipilih melalui Pemira.
+    48→    77→   * Komposisi wajib menjamin keterwakilan setiap program studi di kampus.
+    49→    78→5. **Pasal 27 ayat (1) - (6)**: 
+    50→    79→   * Asas LUBER JURDIL, dilaksanakan sekali dalam satu tahun kepengurusan.
+    51→    80→   * Diselenggarakan oleh Komisi Pemilihan Umum Mahasiswa (KPUM) dan diawasi oleh Badan Pengawas (Panwaslu) yang independen.
+    52→    81→
+    53→    82→### 2.2 Rujukan Klausul RUU Pemira IKM Poltek CWE
+    54→    83→1. **Pasal 1 & Pasal 3**: Penyelenggaraan Pemira menggunakan **sistem online** yang dikembangkan dan dioperasikan oleh **Tim Informasi dan Teknologi Pemira Online (Tim ITPO)**.
+    55→    84→2. **Pasal 6 & Pasal 61**: Pemungutan suara diselenggarakan di **TPS Diam (berlokasi tetap)** di lingkungan kampus dengan metode *one person one vote* tanpa perwakilan.
+    56→    85→3. **Pasal 42**: Syarat pemilih adalah mahasiswa aktif terdaftar di BAAK Poltek CWE (dibuktikan dengan KTM/KRS).
+    57→    86→4. **Pasal 58 & 59**: Batasan dana kampanye maksimal Rp 10.000.000 (maksimal donasi perorangan Rp 1.000.000) dan larangan donor dari parpol/korporasi terlarang/asing.
+    58→    87→5. **Pasal 64 & 67**: Tata laksana berita acara, hak saksi paslon, serta klasifikasi sanksi (ringan, pemotongan suara, diskualifikasi).
+    59→    88→
+    60→    89→---
+    61→    90→
+    62→    91→## 3. Stakeholder & Matriks Hak Akses (RBAC)
+    63→    92→
+    64→    93→Sistem membagi hak akses ke dalam peran-peran spesifik (*Role-Based Access Control*):
+    65→    94→
+    66→    95→| Peran | Deskripsi Aktor | Kewenangan Utama dalam Sistem |
+    67→    96→| :--- | :--- | :--- |
+    68→    97→| **Super Admin / Tim ITPO** | Tim IT resmi pemira beranggotakan pengembang & teknisi jaringan | * Konfigurasi sistem, server, database, dan kunci enkripsi.<br>* Pengaturan sesi waktu tahapan pemilihan.<br>* Monitoring throughput & health check sistem.<br>* Backup data & audit log teknis. |
+    69→    98→| **Komisioner KPUM** | Penyelenggara Pemira tingkat politeknik & jurusan | * Manajemen master data calon & penetapan nomor urut.<br>* Pengesahan & penguncian Daftar Pemilih Tetap (DPT).<br>* Penerbitan jadwal kampanye & verifikasi berkas.<br>* Rekapitulasi suara tingkat politeknik & pengesahan hasil akhir. |
+    70→    99→| **Petugas TPS (PPUR)** | Panitia pelaksana di meja registrasi bilik TPS | * Pencarian data mahasiswa pada DPT di TPS.<br>* Verifikasi identitas fisik mahasiswa (KTM/KRS).<br>* *Check-in* pemilih dan pen-generate-an **Token Bilik Suara** sekali pakai.<br>* Memonitor status antrean bilik suara. |
+    71→   100→| **Pemilih (Mahasiswa)** | Seluruh mahasiswa aktif IKM Poltek CWE | * Melakukan login di Kiosk Bilik Suara menggunakan Token.<br>* Melakukan *voting* pada 3 kategori surat suara.<br>* Menerima bukti digital bahwa hak suara telah digunakan. |
+    72→   101→| **Panwaslu (Pengawas)** | Komisioner Badan Pengawas Pemira | * Memantau *live audit trail* (waktu masuk pemilih, status TPS, tanpa melihat pilihan suara).<br>* Pencatatan dan verifikasi laporan pelanggaran digital.<br>* Menyetujui/menandatangani Berita Acara elektronik. |
+    73→   102→| **Saksi Paslon** | Perwakilan resmi kandidat dengan surat mandat | * Mengawasi pembukaan TPS (verifikasi surat suara awal = 0).<br>* Mengawasi proses rekapitulasi suara di TPS.<br>* Menandatangani Berita Acara elektronik atau membubuhkan catatan keberatan. |
+    74→   103→| **Publik (Mahasiswa Umum)** | Mahasiswa dan civitas akademika umum | * Mengakses portal informasi calon, profil visi-misi.<br>* Mengakses laman hitung cepat (*quick count*) setelah pemungutan suara ditutup resmi oleh KPUM. |
+    75→   104→
+    76→   105→---
+    77→   106→
+    78→   107→## 4. Prinsip Sistem & Kebutuhan Non-Fungsional (NFR)
+    79→   108→
+    80→   109→### 4.1 Prinsip Rahasia & Anonimitas (Zero-Knowledge Ballot)
+    81→   110→* **Pemisahan Identitas dan Suara**: Sistem secara arsitektural dilarang keras menyimpan relasi *foreign key* langsung antara tabel pemilih (`voters`) dan tabel rekaman suara (`votes`).
+    82→   111→* **Mekanisme Token Blind**: Pemilih diverifikasi identitasnya di meja PPUR, kemudian sistem menerbitkan token acak terenkripsi dengan masa kedaluwarsa pendek (misal: 10 menit). Setelah token digunakan di bilik suara, token langsung dimusnahkan/ditandai *used* dan suara dilempar ke wadah agregat acak (*shuffled ballot box*).
+    83→   112→
+    84→   113→```
+    85→   114→   [Mahasiswa / KTM] 
+    86→   115→          |
+    87→   116→          v
+    88→   117→   +--------------------+          Token Acak Sekali Pakai (TTL 10 Menit)
+    89→   118→   | Meja PPUR:         | ------------------------------------+
+    90→   119→   | Verifikasi DPT     |                                     |
+    91→   120→   +--------------------+                                     v
+    92→   121→          |                                        +--------------------+
+    93→   122→          | Ditandai: `has_voted = TRUE`           | Kiosk Bilik Suara: |
+    94→   123→          v                                        | Masukkan Token     |
+    95→   124→   [Tabel DPT Terverifikasi]                       +--------------------+
+    96→   125→   (Hanya mencatat bahwa                                      |
+    97→   126→    NIM telah memilih, TANPA                                  v
+    98→   127→    mencatat pilihan suaranya)                     [Surat Suara Anonim]
+    99→   128→                                                   (Pilihan paslon dienkripsi
+   100→   129→                                                    & masuk ke kotak suara tanpa ID)
+   101→   130→```
+   102→   131→
+   103→   132→### 4.2 Kebutuhan Non-Fungsional (NFR)
+   104→   133→1. **Keamanan (Security)**:
+   105→   134→   * Proteksi terhadap serangan Web Standard: SQL Injection, XSS, CSRF, Session Hijacking, dan MITM.
+   106→   135→   * Seluruh lalu lintas data wajib menggunakan SSL/TLS (HTTPS).
+   107→   136→   * Password dan token sensitif di-hash menggunakan algoritma *Argon2id* atau *Bcrypt* dengan salt unik.
+   108→   137→   * Integritas data suara menggunakan rantai hash (*cryptographic hash chaining*) per TPS guna mendeteksi manipulasi suara pada level database.
+   109→   138→2. **Ketersediaan & Keandalan (Availability & Reliability)**:
+   110→   139→   * Sistem beroperasi dengan uptime 99.9% selama jam pemungutan suara berlangsung.
+   111→   140→   * Mode *failover* lokal: Aplikasi mampu berjalan di lingkungan *Local Area Network (LAN)* tertutup antar meja PPUR dan bilik Kiosk jika koneksi internet publik kampus mengalami gangguan.
+   112→   141→3. **Kinerja & Skalabilitas (Performance)**:
+   113→   142→   * Waktu respon input suara di bilik Kiosk tidak melebihi **500 milidetik**.
+   114→   143→   * Sistem sanggup melayani *concurrency* pemilih di seluruh bilik suara secara bersamaan tanpa degradasi performa.
+   115→   144→4. **Auditabilitas (Auditability)**:
+   116→   145→   * Sistem mencatat seluruh *audit log* kejadian (kapan pemilih check-in, kapan bilik dibuka, kapan suara masuk, siapa operator yang melayani) secara *append-only* (tidak dapat diubah atau dihapus).
+   117→   146→
+   118→   147→---
+   119→   148→
+   120→   149→## 5. Arsitektur Alur Kerja Pemira (End-to-End Workflow)
+   121→   150→
+   122→   151→Proses pemira dibagi menjadi 3 fase utama:
+   123→   152→
+   124→   153→### 5.1 Fase Pra-Pemungutan Suara (Pre-Voting)
+   125→   154→1. **Penyusunan DPT**:
+   126→   155→   * Admin KPUM mengunggah data master mahasiswa aktif dari BAAK (Format: CSV/XLSX mencakup NIM, Nama, Program Studi, Angkatan, Email Institusi).
+   127→   156→   * Sistem memvalidasi duplikasi data dan mengkategorikan hak suara berdasarkan Program Studi.
+   128→   157→   * DPT ditetapkan, diuji publik, dan dikunci (*freeze*).
+   129→   158→2. **Pendaftaran & Penetapan Calon**:
+   130→   159→   * Pendaftaran bakal calon (Presma-Wapresma, DPM, Ketua Hima).
+   131→   160→   * Verifikasi berkas administrasi dan sidang penetapan nomor urut.
+   132→   161→   * Input profil calon, visi, misi, program kerja, dan foto resmi ke sistem.
+   133→   162→3. **Audit Kesiapan Sistem**:
+   134→   163→   * KPUM, Panwaslu, dan Saksi memeriksa bahwa seluruh tabel suara (`votes`) berstatus **0 (Nol)** melalui fungsi uji integritas sebelum TPS dibuka.
+   135→   164→
+   136→   165→### 5.2 Fase Hari Pemungutan Suara (Voting Day - TPS Kiosk Workflow)
+   137→   166→1. **Tahap 1: Registrasi Pemilih di Meja PPUR**:
+   138→   167→   * Mahasiswa datang ke TPS membawa KTM/KRS fisik.
+   139→   168→   * Petugas PPUR mencari data mahasiswa di sistem via NIM atau scan barcode KTM.
+   140→   169→   * Sistem memeriksa syarat:
+   141→   170→     * Apakah mahasiswa terdaftar di DPT?
+   142→   171→     * Apakah kolom `has_voted` masih `FALSE`?
+   143→   172→   * Jika valid, PPUR menekan tombol *"Terbitkan Token Bilik"*. Sistem mencetak/menampilkan **Token 6 Digit** (masa berlaku 10 menit).
+   144→   173→   * Status pemilih di DPT otomatis berubah menjadi `in_progress`.
+   145→   174→2. **Tahap 2: Pemberian Suara di Bilik Kiosk**:
+   146→   175→   * Pemilih memasuki bilik suara yang telah disediakan perangkat komputer/tablet dalam mode *Kiosk Browser*.
+   147→   176→   * Layar bilik suara meminta input Token.
+   148→   177→   * Sistem memverifikasi token dan langsung memuat antarmuka surat suara sesuai profil hak pilih mahasiswa:
+   149→   178→     * **Surat Suara 1**: Pemilihan Presma & Wapresma (Seluruh mahasiswa).
+   150→   179→     * **Surat Suara 2**: Pemilihan Pimpinan DPM (Seluruh mahasiswa).
+   151→   180→     * **Surat Suara 3**: Pemilihan Ketua Hima Prodi (Hanya mahasiswa prodi yang sesuai).
+   152→   181→   * Pemilih memilih kandidat pada masing-masing surat suara (disediakan dialog konfirmasi sebelum submit).
+   153→   182→   * Pemilih menekan *"Kirim Suara"*.
+   154→   183→   * Sistem mengenkripsi suara, menyimpannya ke tabel `ballots` secara acak, mematikan token (`token_status = USED`), dan mengubah status pemilih di DPT menjadi `has_voted = TRUE`.
+   155→   184→   * Layar bilik suara menampilkan pesan *"Terima kasih, suara Anda telah tersimpan secara rahasia"* selama 3 detik, lalu kembali ke layar input token awal.
+   156→   185→3. **Tahap 3: Pencelupan Tinta**:
+   157→   186→   * Pemilih keluar dari bilik suara menuju meja akhir untuk mencelupkan jari ke tinta pemira sebagai tanda fisik telah memberikan suara.
+   158→   187→
+   159→   188→```mermaid
+   160→   189→sequenceDiagram
+   161→   190→    autonumber
+   162→   191→    actor M as Mahasiswa
+   163→   192→    actor P as Petugas PPUR
+   164→   193→    participant S as Server Smart Pemira
+   165→   194→    actor K as Kiosk Bilik Suara
+   166→   195→    actor W as Panwaslu / Saksi
+   167→   196→
+   168→   197→    M->>P: Tunjukkan KTM / KRS
+   169→   198→    P->>S: Input NIM & Cek DPT
+   170→   199→    S-->>P: Data Valid (Belum Memilih)
+   171→   200→    P->>S: Request Generate Token
+   172→   201→    S-->>P: Terbitkan Token (TTL 10m)
+   173→   202→    P->>M: Berikan Slip Token
+   174→   203→    M->>K: Masukkan Token di Bilik
+   175→   204→    K->>S: Validasi Token & Ambil Daftar Surat Suara
+   176→   205→    S-->>K: Tampilkan Surat Suara (Presma, DPM, Hima Prodi)
+   177→   206→    M->>K: Klik Pilihan Calon & Konfirmasi
+   178→   207→    K->>S: Submit Suara Terenkripsi (Anonim)
+   179→   208→    S->>S: Simpan Suara, Hanguskan Token, Tandai DPT = Has Voted
+   180→   209→    S-->>K: Suara Berhasil Disimpan
+   181→   210→    K-->>M: Tampilkan Layar Sukses (Auto Reset)
+   182→   211→    M->>P: Celup Tinta di Meja Keluar
+   183→   212→    W-->>S: Pantau Live Turnout (Audit Monitor)
+   184→   213→```
+   185→   214→
+   186→   215→### 5.3 Fase Pasca-Pemungutan Suara (Post-Voting)
+   187→   216→1. **Penutupan TPS**:
+   188→   217→   * KPUM menetapkan waktu pemungutan suara berakhir di sistem. Fitur generate token di PPUR otomatis terkunci.
+   189→   218→2. **Dekripsi & Agregasi Suara (Tallying)**:
+   190→   219→   * Sistem membuka kotak suara digital dan menghitung total suara sah, suara tidak sah/kotak kosong, serta perolehan suara masing-masing kandidat.
+   191→   220→3. **Penerbitan Berita Acara Digital**:
+   192→   221→   * Sistem menyusun dokumen Berita Acara Model C-KWE (lengkap dengan angka partisipasi, rekapitulasi suara per TPS dan per program studi).
+   193→   222→   * Saksi paslon dan Panwaslu memverifikasi kesesuaian dan menandatangani secara digital via portal masing-masing.
+   194→   223→4. **Publikasi Resmi**:
+   195→   224→   * Hasil akhir ditayangkan di portal publik dan diekspor dalam format dokumen resmi bertandatangan untuk Sidang Pleno Penetapan oleh KPUM.
+   196→   225→
+   197→   226→---
+   198→   227→
+   199→   228→## 6. Spesifikasi Kebutuhan Fungsional (Functional Requirements)
+   200→   229→
+   201→   230→### Modul 1: Manajemen Konfigurasi & Tahapan (FR-01)
+   202→   231→* **FR-01.1**: Sistem mampu mengatur rentang waktu aktif untuk setiap tahapan (Pendaftaran, Verifikasi, Kampanye, Masa Tenang, Pemungutan Suara, Rekapitulasi).
+   203→   232→* **FR-01.2**: Sistem mampu mengaktifkan/menonaktifkan fungsi *Emergency Freeze* oleh Super Admin jika terjadi kendala teknis atau sengketa luar biasa atas instruksi Panwaslu/KPUM.
+   204→   233→
+   205→   234→### Modul 2: Manajemen Daftar Pemilih Tetap / DPT (FR-02)
+   206→   235→* **FR-02.1**: Import massal data mahasiswa dari file Excel/CSV dengan field: NIM (Primary Key), Nama Lengkap, Program Studi (D3 Kelapa Sawit, D4 Manajemen Perkebunan, D4 Teknologi Pengolahan Sawit, dll), Angkatan, Status Akademik, dan Lokasi TPS yang ditugaskan.
+   207→   236→* **FR-02.2**: Pencegahan entri ganda berbasis nomor induk mahasiswa unik.
+   208→   237→* **FR-02.3**: Pencarian data pemilih real-time di meja PPUR berdasarkan NIM atau Nama.
+   209→   238→* **FR-02.4**: Pelacakan status pemilih: `BELUM_MEMILIH`, `DALAM_ANTREAN` (Token terbit), dan `SUDAH_MEMILIH`.
+   210→   239→
+   211→   240→### Modul 3: Manajemen Kandidat & Surat Suara (FR-03)
+   212→   241→* **FR-03.1**: Sistem mendukung manajemen 3 kategori pemilihan:
+   213→   242→  1. **Pemilihan Presma & Wapresma** (Tingkat Institusi).
+   214→   243→  2. **Pemilihan Pimpinan DPM** (Ketua Umum, Wakil Ketua I, Wakil Ketua II).
+   215→   244→  3. **Pemilihan Gubernur/Ketua Hima Prodi** (Tingkat Program Studi).
+   216→   245→* **FR-03.2**: Manajemen profil kandidat: Foto resolusi tinggi, nomor urut, visi, misi, daftar program unggulan, dan berkas persyaratan terverifikasi.
+   217→   246→* **FR-03.3**: Fitur otomatis pembuatan opsi **"Kotak Kosong" / Pilihan Tidak Setuju** jika dalam suatu kategori hanya terdapat calon tunggal.
+   218→   247→
+   219→   248→### Modul 4: Otentikasi & Penerbitan Token TPS (FR-04)
+   220→   249→* **FR-04.1**: Operator PPUR memiliki akun terotentikasi yang terikat dengan ID TPS tertentu.
+   221→   250→* **FR-04.2**: Sistem men-generate token acak alphanumerik 6 karakter saat pemilih terverifikasi di meja registrasi.
+   222→   251→* **FR-04.3**: Token memiliki masa aktif terbatas (*Time-To-Live / TTL* selama 10 menit). Jika kedaluwarsa sebelum dipakai, pemilih wajib meminta pembatalan dan token ulang di meja PPUR dengan pencatatan log alasan.
+   223→   252→* **FR-04.4**: Token berstatus *single-use*: begitu suara dikirim di bilik suara, status token langsung berubah menjadi `EXPIRED/USED` dan tidak dapat dipakai kembali.
+   224→   253→
+   225→   254→### Modul 5: Antarmuka Kiosk Bilik Suara (FR-05)
+   226→   255→* **FR-05.1**: Antarmuka *full-screen*, bebas navigasi URL eksternal, anti-inspect element, dan ergonomis untuk perangkat desktop maupun tablet layar sentuh (*touchscreen*).
+   227→   256→* **FR-05.2**: Pemilih disuguhkan alur bertahap (*step-by-step wizard*) untuk setiap surat suara yang menjadi haknya:
+   228→   257→  * Tahap 1: Surat Suara Presma-Wapresma.
+   229→   258→  * Tahap 2: Surat Suara Pimpinan DPM.
+   230→   259→  * Tahap 3: Surat Suara Ketua Hima (otomatis disesuaikan dengan program studi pemilih).
+   231→   260→* **FR-05.3**: Tombol pilihan visual yang jelas, disertai foto paslon dan nomor urut.
+   232→   261→* **FR-05.4**: Layar konfirmasi akhir (*Review Selections*) sebelum suara disubmit secara permanen. Pemilih dapat mengubah pilihan sebelum konfirmasi akhir diklik.
+   233→   262→
+   234→   263→### Modul 6: Kotak Suara Digital & Rekapitulasi (FR-06)
+   235→   264→* **FR-06.1**: Suara yang masuk disimpan dalam format acak (*shuffled timestamp & ID*) untuk memutus relasi temporal dengan waktu check-in di meja PPUR.
+   236→   265→* **FR-06.2**: Dashboard rekapitulasi terkunci secara default selama periode pemungutan suara berlangsung untuk mencegah kebocoran tren suara yang dapat memengaruhi pemilih lain.
+   237→   266→* **FR-06.3**: Fitur pembukaan hasil suara secara serentak (*Pleno Unlocking*) oleh Ketua KPUM disaksikan oleh Panwaslu dan Saksi.
+   238→   267→* **FR-06.4**: Perhitungan otomatis persentase suara sah, suara kotak kosong, dan penentuan pemenang berdasarkan regulasi.
+   239→   268→
+   240→   269→### Modul 7: Berita Acara & Pelaporan Hukum (FR-07)
+   241→   270→* **FR-07.1**: Otomasi pembuatan dokumen digital Berita Acara Hasil Pemira sesuai standar RUU Pemira Pasal 64.
+   242→   271→* **FR-07.2**: Modul penandatanganan Berita Acara digital oleh Ketua PPUR, Ketua KPUM, Ketua Panwaslu, dan saksi masing-masing pasangan calon.
+   243→   272→* **FR-07.3**: Fitur catatan keberatan saksi terintegrasi dalam formulir berita acara.
+   244→   273→* **FR-07.4**: Ekspor Berita Acara ke format PDF yang dilengkapi QR Code verifikasi keaslian dokumen (*cryptographic seal*).
+   245→   274→
+   246→   275→### Modul 8: Pengawasan, Sengketa & Audit Log (FR-08)
+   247→   276→* **FR-08.1**: Portal khusus Panwaslu untuk memantau metrik operasional TPS: jumlah DPT hadir, sisa pemilih, laju kedatangan pemilih per jam, dan insiden token kedaluwarsa.
+   248→   277→* **FR-08.2**: Formulir pelaporan sengketa/pelanggaran pemira secara daring (Pasal 65 RUU Pemira), mencakup: identitas pelapor, terlapor, waktu/tempat kejadian, deskripsi peristiwa, dan upload berkas bukti foto/dokumen.
+   249→   278→* **FR-08.3**: Modul pencatatan sanksi: Jika calon dijatuhi sanksi pengurangan suara oleh Panwaslu/DKPPR (Pasal 67), sistem menyediakan fitur input pemotongan suara resmi yang terdokumentasi dalam Berita Acara.
+   250→   279→* **FR-08.4**: Penyimpanan riwayat log aktivitas pengguna secara immutable (*tamper-evident log*).
+   251→   280→
+   252→   281→---
+   253→   282→
+   254→   283→## 7. Aturan Bisnis & Logika Pemilihan Khusus
+   255→   284→
+   256→   285→### 7.1 Penanganan Skenario Calon Tunggal (UUD IKM Pasal 9 ayat 3)
+   257→   286→* Jika hingga batas akhir masa perpanjangan pendaftaran hanya terdapat **1 (satu) pasangan calon** yang lolos verifikasi:
+   258→   287→  1. Sistem secara otomatis membuat antarmuka surat suara tandingan berlabel **"KOTAK KOSONG"** atau opsi **"SETUJU / TIDAK SETUJU"**.
+   259→   288→  2. Rumus Kemenangan:
+   260→   289→     $$\text{Persentase Suara Paslon} = \frac{\text{Suara Paslon Tunggal}}{\text{Total Suara Sah (Paslon + Kotak Kosong)}} \times 100\%$$
+   261→   290→  3. **Ambang Batas**: Paslon tunggal dinyatakan terpilih HANYA JIKA $\text{Persentase Suara} > 50\%$ dari total suara sah.
+   262→   291→  4. Jika suara paslon $\le 50\%$, sistem menetapkan status kategori sebagai **"MANDAT KEMBALI KE MUSYAWARAH MAHASISWA"** sesuai Pasal 9 ayat (4) UUD IKM.
+   263→   292→
+   264→   293→### 7.2 Multi-Ballot Berdasarkan Wilayah Program Studi
+   265→   294→* Setiap mahasiswa Poltek CWE yang hadir berhak menerima kombinasi surat suara:
+   266→   295→  $$\text{Daftar Surat Suara} = \{\text{Presma-Wapresma}\} \cup \{\text{Pimpinan DPM}\} \cup \{\text{Hima Prodi Mahasiswa Terkait}\}$$
+   267→   296→* Mahasiswa Program Studi Budidaya Kelapa Sawit (BKS) **tidak boleh dan tidak dapat** melihat atau memilih calon Himpunan Mahasiswa Manajemen Logistik/Teknologi Pengolahan, dan sebaliknya. Sistem memfilter *options list* secara ketat di sisi server (*server-side assertion*).
+   268→   297→
+   269→   298→### 7.3 Penanganan Skenario Suara Seri (Tie-Break)
+   270→   299→* Apabila dua calon teratas memperoleh jumlah suara yang sama persis dalam rekapitulasi akhir, sistem menandai kategori tersebut berstatus `STATUS_SERI_PENDING_PLENO` dan menerbitkan lampiran Berita Acara Khusus untuk diselesaikan melalui mekanisme musyawarah/sidang pleno KPUM bersama DKPPR dan Musyawarah Mahasiswa.
+   271→   300→
+   272→   301→---
+   273→   302→
+   274→   303→## 8. Arsitektur Teknis & Rekomendasi Teknologi
+   275→   304→
+   276→   305→Sistem dirancang dengan arsitektur modern, tangguh, dan mudah dirawat oleh Tim ITPO Poltek CWE:
+   277→   306→
+   278→   307→```
+   279→   308→+-----------------------------------------------------------------------------------+
+   280→   309→|                                 CLIENT LAYER                                      |
+   281→   310→|  +--------------------+   +--------------------+   +---------------------------+  |
+   282→   311→|  | Meja PPUR (Admin)  |   | Kiosk Bilik Suara  |   | Portal Pengawas & Publik  |  |
+   283→   312→|  | (Chrome/Firefox)   |   | (Kiosk App/Tablet) |   | (Responsive Web)          |  |
+   284→   313→+--+--------------------+---+--------------------+---+---------------------------+--+
+   285→   314→                                      |
+   286→   315→                                      | HTTPS / WSS
+   287→   316→                                      v
+   288→   317→+-----------------------------------------------------------------------------------+
+   289→   318→|                         APPLICATION LAYER (GATEWAY & API)                         |
+   290→   319→|  +-----------------------------------------------------------------------------+  |
+   291→   320→|  | Reverse Proxy (Nginx) + SSL Termination + Rate Limiting                     |  |
+   292→   321→|  +-----------------------------------------------------------------------------+  |
+   293→   322→|  | Backend Engine (Next.js / Node.js Express / NestJS / Go)                    |  |
+   294→   323→|  |   - Auth & RBAC Service (JWT + Session Guard)                               |  |
+   295→   324→|  |   - Voter Token Issuer (Crypto CSPRNG, TTL 10m)                             |  |
+   296→   325→|  |   - Ballot Processing Engine (Zero-Knowledge Isolation)                     |  |
+   297→   326→|  |   - Tally & Audit Logger (SHA-256 Hash Chained Events)                      |  |
+   298→   327→+--+-----------------------------------------------------------------------------+--+
+   299→   328→                                      |
+   300→   329→                                      v
+   301→   330→+-----------------------------------------------------------------------------------+
+   302→   331→|                                  DATA LAYER                                       |
+   303→   332→|  +-------------------------------------+   +-----------------------------------+  |
+   304→   333→|  | Relational DB (PostgreSQL / MySQL)  |   | In-Memory Cache (Redis)           |  |
+   305→   334→|  | - Data DPT, Paslon, Berita Acara    |   | - Token Ephemeral (TTL Expire)    |  |
+   306→   335→|  | - Encrypted Shuffled Ballots        |   | - Realtime Attendance Counter     |  |
+   307→   336→+--+-------------------------------------+---+-----------------------------------+--+
+   308→   337→```
+   309→   338→
+   310→   339→### 8.1 Rekomendasi Stack Teknologi
+   311→   340→1. **Frontend**:
+   312→   341→   * **Framework**: React / Next.js atau Vite + Tailwind CSS.
+   313→   342→   * **UI/UX**: Mengikuti kaidah *antislop* & *web-design-guidelines* — antarmuka bersih, kontras tinggi (aksesibilitas penuh), bebas distorsi visual, responsif, dan mudah dipahami pemilih awam.
+   314→   343→   * **State Management**: Zustand / TanStack Query untuk komunikasi server yang andal.
+   315→   344→2. **Backend**:
+   316→   345→   * **Runtime**: Node.js (TypeScript) dengan Express/NestJS, atau Next.js App Router API.
+   317→   346→   * **Keamanan Kriptografi**: Node Crypto / Web Crypto API (penerbitan token acak, hashing, tanda tangan digital).
+   318→   347→3. **Database**:
+   319→   348→   * **Primary Database**: PostgreSQL (mendukung relasi data yang kuat, transaksi ACID, dan tipe data JSONB untuk audit trail).
+   320→   349→   * **Caching & Queue**: Redis (untuk manajemen token antrean bilik dengan TTL otomatis).
+   321→   350→4. **Deployment & Jaringan**:
+   322→   351→   * Docker & Docker Compose untuk kemudahan instalasi di server lokal kampus atau VPS.
+   323→   352→   * Dapat dijalankan pada jaringan lokal tertutup (LAN Kampus) tanpa internet publik untuk menjamin keamanan dari serangan siber eksternal pada hari-H pemilihan.
+   324→   353→
+   325→   354→---
+   326→   355→
+   327→   356→## 9. Model Data Konseptual & Keamanan Suara
+   328→   357→
+   329→   358→### 9.1 Pemisahan Domain Database (Core Security Design)
+   330→   359→
+   331→   360→Struktur tabel memisahkan secara fisik entitas data pemilih dari data hasil suara:
+   332→   361→
+   333→   362→#### A. Domain Pemilih (Voter Identification)
+   334→   363→* `voters`
+   335→   364→  * `id` (UUID, PK)
+   336→   365→  * `nim` (VARCHAR, Unique, Indexed)
+   337→   366→  * `name` (VARCHAR)
+   338→   367→  * `study_program_id` (FK to `study_programs`)
+   339→   368→  * `angkatan` (INT)
+   340→   369→  * `tps_id` (FK to `tps`)
+   341→   370→  * `has_voted` (BOOLEAN, Default: `FALSE`)
+   342→   371→  * `voted_at` (TIMESTAMP, Nullable)
+   343→   372→  * `status` (ENUM: `UNREGISTERED`, `CHECKED_IN`, `COMPLETED`)
+   344→   373→
+   345→   374→#### B. Domain Otentikasi Sesi TPS (Ephemeral Token)
+   346→   375→* `voting_tokens`
+   347→   376→  * `id` (UUID, PK)
+   348→   377→  * `token_hash` (VARCHAR, Unique - SHA-256 Hash dari token asli yang dipegang pemilih)
+   349→   378→  * `tps_id` (FK to `tps`)
+   350→   379→  * `study_program_id` (Untuk penentuan filter surat suara prodi)
+   351→   380→  * `status` (ENUM: `ACTIVE`, `USED`, `EXPIRED`)
+   352→   381→  * `expires_at` (TIMESTAMP, TTL 10 Menit)
+   353→   382→  * *Catatan: Tidak menyimpan voter_id untuk menjamin kerahasiaan pilihan.*
+   354→   383→
+   355→   384→#### C. Domain Surat Suara & Kotak Suara (Anonymous Ballots)
+   356→   385→* `ballot_boxes`
+   357→   386→  * `id` (UUID, PK)
+   358→   387→  * `category_id` (FK to `election_categories`: PRESMA / DPM / HIMA)
+   359→   388→  * `candidate_id` (FK to `candidates` atau `NULL` untuk kotak kosong)
+   360→   389→  * `is_empty_box` (BOOLEAN, Default: `FALSE`)
+   361→   390→  * `tps_id` (FK to `tps`)
+   362→   391→  * `created_at` (TIMESTAMP dengan acakan jitter mikro-detik agar urutan waktu tidak dapat disandingkan dengan urutan check-in DPT)
+   363→   392→  * `ballot_hash` (SHA-256 hash gabungan ID + Salt TPS untuk audit integritas)
+   364→   393→
+   365→   394→#### D. Domain Pengawasan & Laporan Sengketa
+   366→   395→* `election_incidents`
+   367→   396→  * `id` (UUID, PK)
+   368→   397→  * `ticket_number` (VARCHAR, Unique)
+   369→   398→  * `reporter_name` (VARCHAR)
+   370→   399→  * `reporter_nim` (VARCHAR)
+   371→   400→  * `incident_type` (ENUM: `PELANGGARAN_KAMPANYE`, `KECURANGAN_TPS`, `MALFUNGSI_SISTEM`, `LAINNYA`)
+   372→   401→  * `location` (VARCHAR)
+   373→   402→  * `occurred_at` (TIMESTAMP)
+   374→   403→  * `description` (TEXT)
+   375→   404→  * `evidence_url` (VARCHAR)
+   376→   405→  * `status` (ENUM: `SUBMITTED`, `IN_REVIEW`, `RESOLVED`, `REJECTED`)
+   377→   406→  * `verdict` (TEXT)
+   378→   407→
+   379→   408→---
+   380→   409→
+   381→   410→## 10. Rencana Implementasi & Roadmap Pengembangan
+   382→   411→
+   383→   412→Pengembangan sistem Smart Pemira dibagi ke dalam 5 tahapan kerja terukur:
+   384→   413→
+   385→   414→```mermaid
+   386→   415→flowchart TD
+   387→   416→    M1["Fase 1: Inisialisasi Arsitektur & Database Core"] --> M2["Fase 2: Modul KPUM, DPT & Profil Calon"]
+   388→   417→    M2 --> M3["Fase 3: Modul Kiosk TPS, Token & Pemungutan Suara"]
+   389→   418→    M3 --> M4["Fase 4: Rekapitulasi, Berita Acara & Pengawasan Panwaslu"]
+   390→   419→    M4 --> M5["Fase 5: Simulasi, Penetration Testing & UAT Kampus"]
+   391→   420→```
+   392→   421→
+   393→   422→### Milestone & Jadwal
+   394→   423→1. **Fase 1: Pondasi & Desain Basis Data (Sprint 1)**
+   395→   424→   * Setup repositori, linter, formatting, dan arsitektur modular.
+   396→   425→   * Perancangan skema database PostgreSQL (DPT, Kategori, Paslon, Token, Ballot Box).
+   397→   426→   * Implementasi modul otentikasi peran (RBAC) dan enkripsi dasar.
+   398→   427→2. **Fase 2: Manajemen Data & Portal Publik (Sprint 2)**
+   399→   428→   * Portal Admin KPUM: Fitur import data DPT dari BAAK dan validasi filter prodi.
+   400→   429→   * Manajemen data paslon (Presma, DPM, Hima Prodi) dan profil visi misi.
+   401→
+   402→[showing lines 30-429 of 455; use offset=430 with limit to continue reading]
