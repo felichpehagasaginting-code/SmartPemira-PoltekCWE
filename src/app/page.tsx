@@ -8,6 +8,7 @@
 // server-side (requireRole → 401/403) sebagai lapisan kedua.
 // ============================================================
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ChangePasswordDialog } from "@/components/auth/change-password-dialog";
 import { KioskTerminal } from "@/components/kiosk/kiosk-terminal";
 import { KpumDashboard } from "@/components/kpum/kpum-dashboard";
 import { LoginScreen, type DemoAccount } from "@/components/auth/login-screen";
@@ -15,7 +16,7 @@ import { PanwasluMonitor } from "@/components/pleno/panwaslu-monitor";
 import { PublicPortal } from "@/components/public-portal/public-portal";
 import { PpurDesk } from "@/components/ppur/ppur-desk";
 import { APP_CONSTANTS } from "@/lib/constants/election";
-import { Ban, Landmark, LogOut, MonitorCheck, ScanBarcode, ShieldHalf, Vote } from "lucide-react";
+import { Ban, KeyRound, Landmark, LogOut, MonitorCheck, ScanBarcode, ShieldHalf, Vote } from "lucide-react";
 
 type ModuleKey = "public" | "ppur" | "kiosk" | "kpum" | "panwaslu";
 
@@ -63,6 +64,7 @@ export default function Home() {
   const [active, setActive] = useState<ModuleKey>("public");
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [sessionLoaded, setSessionLoaded] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
   const landedFor = useRef<string | null>(null); // agar auto-landing hanya sekali per login
   const current = MODULES.find((m) => m.key === active)!;
 
@@ -208,6 +210,18 @@ export default function Home() {
             </div>
             <button
               type="button"
+              onClick={() => setPwOpen(true)}
+              title="Ganti password akun ini"
+              aria-label="Ganti password"
+              className={`flex h-9 items-center gap-1.5 rounded-full border-2 border-[#141E19] px-3 text-[11px] font-extrabold transition-all hover:-translate-y-0.5 ${
+                current.dark ? "bg-[#15221D] text-[#F4F1EA] shadow-[2px_2px_0px_#39564A]" : "bg-white text-[#141E19] shadow-[2px_2px_0px_#141E19]"
+              } active:translate-y-0`}
+            >
+              <KeyRound className="h-3.5 w-3.5" aria-hidden />
+              <span className="hidden sm:inline">SANDI</span>
+            </button>
+            <button
+              type="button"
               onClick={logout}
               className={`flex h-9 items-center gap-1.5 rounded-full border-2 border-[#141E19] px-3 text-[11px] font-extrabold transition-all hover:-translate-y-0.5 ${
                 current.dark ? "bg-[#15221D] text-[#F4F1EA] shadow-[2px_2px_0px_#39564A]" : "bg-white text-[#141E19] shadow-[2px_2px_0px_#141E19]"
@@ -299,6 +313,15 @@ export default function Home() {
           </p>
         </div>
       </footer>
+
+      {/* Dialog ganti password (semua peran, butuh sesi aktif) */}
+      <ChangePasswordDialog
+        open={pwOpen}
+        onOpenChange={setPwOpen}
+        fullName={session.fullName}
+        role={session.role}
+        onPasswordChanged={refreshSession}
+      />
     </div>
   );
 }

@@ -22,6 +22,7 @@ import {
   Hourglass,
   Lock,
   LockOpen,
+  LogIn,
   Send,
   ShieldCheck,
   Users,
@@ -38,7 +39,19 @@ const EVENT_META: Record<string, { label: string; cls: string }> = {
   DPT_LOCKED: { label: "DPT DIKUNCI", cls: "bg-[#1D2E27] text-[#9EB0A7]" },
   TPS_OPENED: { label: "TPS DIBUKA", cls: "bg-[#163325] text-[#28A769]" },
   INCIDENT_REPORTED: { label: "SENGKETA", cls: "bg-[#2A1B18] text-[#E05A47]" },
+  OPERATOR_LOGIN: { label: "LOGIN OK", cls: "bg-[#163325] text-[#28A769]" },
+  OPERATOR_LOGIN_FAILED: { label: "LOGIN GAGAL", cls: "bg-[#2A1B18] text-[#E05A47]" },
+  OPERATOR_LOGOUT: { label: "LOGOUT", cls: "bg-[#1D2E27] text-[#9EB0A7]" },
+  OPERATOR_PASSWORD_CHANGED: { label: "SANDI DIGANTI", cls: "bg-[#3A3113] text-[#F5C431]" },
+  OPERATOR_PASSWORD_CHANGE_FAILED: { label: "SANDI DITOLAK", cls: "bg-[#2A1B18] text-[#E05A47]" },
 };
+
+interface LoginLogEvent {
+  id: string;
+  event: string;
+  detail: string;
+  createdAt: string;
+}
 
 function KpiCard({ label, value, sub, icon, accent }: { label: string; value: string; sub?: string; icon: React.ReactNode; accent: string }) {
   return (
@@ -57,9 +70,12 @@ function KpiCard({ label, value, sub, icon, accent }: { label: string; value: st
 
 export function PanwasluMonitor({ operatorRole }: { operatorRole?: string | null }) {
   const canManageIncidents = operatorRole === "PANWASLU" || operatorRole === "ITPO";
+  // Log aktivitas login: khusus PANWASLU / ITPO / KPUM (SAKSI ditolak 403 oleh server)
+  const canViewLoginLog = operatorRole === "PANWASLU" || operatorRole === "ITPO" || operatorRole === "KPUM";
   const monitor = usePolling<MonitorLiveResponse>("/api/monitor/live", 4000);
   const tally = usePolling<TallyResponse>("/api/tally", 6000);
   const incidents = usePolling<{ incidents: IncidentRow[] }>("/api/monitor/incidents", 10000);
+  const loginLog = usePolling<{ ok: boolean; events: LoginLogEvent[] }>("/api/auth/login-log", 8000, { enabled: canViewLoginLog });
 
   const [form, setForm] = useState({ reporterName: "", reporterNim: "", incidentType: "KECURANGAN_TPS", location: "", description: "" });
   const [sendState, setSendState] = useState<"idle" | "sending" | "sent" | "error">("idle");
@@ -195,6 +211,44 @@ export function PanwasluMonitor({ operatorRole }: { operatorRole?: string | null
               })}
             </div>
           </div>
+
+          {/* Log aktivitas login operator — khusus PANWASLU / ITPO / KPUM */}
+          {canViewLoginLog && (
+            <div className="bento-card p-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="flex items-center gap-2 font-display text-base font-bold text-[#F4F1EA]">
+                  <LogIn className="h-4 w-4 text-[#28A769]" /> Log Aktivitas Login — Operator
+                </h3>
+                <span className="rounded-full border border-[#39564A] bg-[#15221D] px-2.5 py-0.5 font-mono-tabular text-[9.5px] font-bold tracking-wide text-[#9EB0A7]">
+                  RBAC: PANWASLU • ITPO • KPUM — SAKSI 403
+                </span>
+              </div>
+              <p className="mt-1 text-[11.5px] leading-relaxed text-[#9EB0A7]">
+                Jejak otentikasi append-only: login sukses, percobaan gagal, logout, dan pergantian password (menu SANDI di navbar).
+              </p>
+              <div className="nice-scroll mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
+                {loginLog.loading && !loginLog.data ? (
+                  <p className="px-1 py-2 text-[12px] text-[#64786F]">Memuat log otentikasi…</p>
+                ) : (loginLog.data?.events.length ?? 0) === 0 ? (
+                  <p className="px-1 py-2 text-[12px] text-[#64786F]">Belum ada aktivitas login tercatat.</p>
+                ) : (
+                  loginLog.data!.events.map((ev) => {
+                    const meta = EVENT_META[ev.event] ?? { label: ev.event, cls: "bg-[#1D2E27] text-[#9EB0A7]" };
+                    const d = new Date(ev.createdAt);
+                    return (
+                      <div key={ev.id} className="flex items-start gap-3 rounded-[8px] bg-[#1D2E27]/50 px-3.5 py-2.5">
+                        <span className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[9px] font-extrabold tracking-wide ${meta.cls}`}>{meta.label}</span>
+                        <p className="flex-1 text-[12px] leading-relaxed text-[#C9D4CE]">{ev.detail}</p>
+                        <span className="shrink-0 font-mono-tabular text-[10px] text-[#64786F]">
+                          {d.toLocaleDateString("id-ID", { day: "2-digit", month: "short" })} {d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ---------- Kolom kanan: vault + sengketa ---------- */}

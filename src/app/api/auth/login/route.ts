@@ -13,8 +13,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, message: "Username dan password wajib diisi." }, { status: 400 });
     }
 
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "lokal";
     const operator = await db.operator.findUnique({ where: { username: username.trim().toLowerCase() } });
     if (!operator || !operator.isActive || !verifyPassword(password, operator.passwordHash)) {
+      // Audit keamanan: percobaan login gagal tercatat append-only (FR-08.4)
+      await db.auditLog.create({
+        data: {
+          event: "OPERATOR_LOGIN_FAILED",
+          detail: `Percobaan login GAGAL untuk username "${username.trim()}" dari ${ip} — kredensial tidak valid / akun nonaktif.`,
+        },
+      });
       return NextResponse.json(
         { ok: false, message: "Kredensial tidak valid. Periksa username/password petugas." },
         { status: 401 }
@@ -33,7 +41,7 @@ export async function POST(req: NextRequest) {
     await db.auditLog.create({
       data: {
         event: "OPERATOR_LOGIN",
-        detail: `Petugas ${operator.fullName} (${operator.role}) login melalui portal modul.`,
+        detail: `Petugas ${operator.fullName} (${operator.role}) login dari ${ip} — diarahkan ke terminal sesuai peran (RBAC PRD Bab 3).`,
         tpsId: operator.tpsId,
       },
     });

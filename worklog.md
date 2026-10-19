@@ -83,3 +83,24 @@ Stage Summary:
 - Sistem kini berpola LOGIN-FIRST: / selalu dimulai dari halaman login; konten hanya muncul setelah sesi operator valid
 - Routing RBAC: ITPO→Publik(5 tab), KPUM→Dashboard KPUM, PPUR→Meja PPUR, PANWASLU/SAKSI→Monitor Panwaslu; tab modul lain disembunyikan bila tak berwenang
 - Dua lapis penegakan: UI filter navigasi + requireRole server-side (401/403) tetap dijaga
+
+---
+Task ID: 4 (Fitur Ganti Password + Log Aktivitas Login)
+Agent: main (Z.ai)
+Task: Permintaan user — tambah fitur ganti password dan log aktivitas login
+
+Work Log:
+- API POST /api/auth/change-password: requireRole semua peran, verifikasi password lama (scrypt timing-safe), validasi min 8 karakter + konfirmasi + tolak sandi sama, hash baru, audit OPERATOR_PASSWORD_CHANGED / OPERATOR_PASSWORD_CHANGE_FAILED, sesi diakhiri (cookie dibersihkan → wajib login ulang)
+- API GET /api/auth/login-log: requireRole PANWASLU/ITPO/KPUM (SAKSI 403), 60 event otentikasi terbaru dari AuditLog
+- Route login: log OPERATOR_LOGIN_FAILED (username dicoba + IP) saat kredensial salah; detail OPERATOR_LOGIN kini memuat IP asal
+- Route logout: log OPERATOR_LOGOUT sebelum sesi dihapus
+- Komponen ChangePasswordDialog: form 3 kolom dengan validasi live, state sukses → kembali ke halaman login; dipasang di navbar (tombol SANDI) untuk semua peran
+- PanwasluMonitor: kartu "Log Aktivitas Login — Operator" (badge berwarna: LOGIN OK/HIJAU, LOGIN GAGAL/MERAH, LOGOUT/ABU, SANDI DIGANTI/KUNING, SANDI DITOLAK/MERAH) hanya untuk PANWASLU/ITPO/KPUM; usePolling diperluas opsi enabled
+- Verifikasi curl: 401 tanpa sesi, 403 SAKSI, 400 sandi lama salah/pendek, 200 ganti sukses → sesi mati → sandi lama ditolak → sandi baru diterima
+- Verifikasi browser: kartu log tampil utk PANWASLU, dialog SANDI berfungsi, auto-logout ke login page, login sandi baru OK, SAKSI tidak melihat kartu
+- E2E suite lulus penuh (setelah seed memulihkan password default); DB di-reset ke demo segar
+
+Stage Summary:
+- Fitur ganti password aman: verifikasi sandi lama + audit + terminasi sesi otomatis
+- Log aktivitas login append-only dapat diaudit Panwaslu/ITPO/KPUM; SAKSI diblokir 403 (server) dan kartu disembunyikan (UI)
+- Kredensial demo kembali ke default seed (ppur123, panwaslu123, dst.)
