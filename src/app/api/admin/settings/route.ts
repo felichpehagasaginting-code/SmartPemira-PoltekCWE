@@ -1,8 +1,12 @@
 // POST /api/admin/settings — Toggle tahapan eleksi (FR-01.1, FR-01.2, Hukum 5)
+// RBAC (PRD Bab 3): TOGGLE_VOTING & TOGGLE_FREEZE → KPUM / ITPO.
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireRole } from "@/lib/server/auth";
 
 export async function POST(req: NextRequest) {
+  const gate = await requireRole(["KPUM", "ITPO"]);
+  if ("error" in gate) return gate.error;
   try {
     const body = await req.json();
     const { action } = body as { action?: string };
@@ -15,6 +19,8 @@ export async function POST(req: NextRequest) {
     let message = "";
     switch (action) {
       case "TOGGLE_FREEZE": {
+        // FR-01.2: Emergency Freeze adalah kewenangan Super Admin (ITPO),
+        // atas instruksi Panwaslu/KPUM — KPUM tetap dapat mengeksekusi.
         const next = !setting.emergencyFreeze;
         await db.electionSetting.update({ where: { id: "main" }, data: { emergencyFreeze: next } });
         await db.auditLog.create({

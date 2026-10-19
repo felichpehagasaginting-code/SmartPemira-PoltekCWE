@@ -1,9 +1,13 @@
 // GET /api/ppur/voters?q=&filter= — Pencarian DPT meja PPUR (FR-02.3)
+// RBAC: hanya PPUR & ITPO (PRD Bab 3).
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { expireStaleTokens } from "@/lib/db/ballot-service";
+import { requireRole } from "@/lib/server/auth";
 
 export async function GET(req: NextRequest) {
+  const gate = await requireRole(["PPUR", "ITPO"]);
+  if ("error" in gate) return gate.error;
   try {
     await expireStaleTokens();
     const { searchParams } = new URL(req.url);

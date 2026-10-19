@@ -42,3 +42,25 @@ Work Log:
 Stage Summary:
 - Sistem Smart Pemira LENGKAP, TERVERIFIKASI penuh (API + browser), dan siap demo dalam kondisi awal yang bersih.
 - Kelima Hukum Arsitektur PROMPT.md tervalidasi otomatis; seluruh FR kunci (FR-01.2, FR-04, FR-05, FR-06.3, FR-07, FR-08) berfungsi; design system Neo-Editorial Botanical + Tactile Neo-Brutalism + Pleno Dark terimplementasi sesuai DESIGN.md.
+
+---
+Task ID: 3
+Agent: Main Agent (Z.ai)
+Task: Implementasi RBAC penuh (PRD Bab 3 — Matriks Hak Akses) atas pertanyaan user "nah itu untuk RBAC nya gimana?"
+
+Work Log:
+- Diagnosa: implementasi awal = mode simulator terbuka (5 terminal tanpa login; API tanpa guard). Sesuai PRD, perlu RBAC 7 peran → diimplementasikan 5 peran operator: ITPO (Super Admin), KPUM, PPUR, PANWASLU, SAKSI (+ Pemilih via token kiosk, + Publik tanpa sesi).
+- Schema: model Operator (username unique, passwordHash scrypt, role, fullName, tpsId terikat FR-04.1, isActive) + ElectionSetting.sessionSecret (HMAC). db push sukses.
+- src/lib/server/auth.ts: scrypt N=16384 + salt, HMAC-SHA256 cookie httpOnly (TTL 8 jam shift), timingSafeEqual, getSession(), requireRole() yang mengembalikan 401 (UNAUTHENTICATED) / 403 (FORBIDDEN + peran yang dibutuhkan).
+- API baru: POST /api/auth/login (audit OPERATOR_LOGIN + lastLoginAt), /api/auth/logout, GET /api/auth/me.
+- Guard terpasang: /api/ppur/* → PPUR|ITPO; /api/admin/* → KPUM|ITPO; /api/monitor/live → PANWASLU|SAKSI|KPUM|ITPO; /api/monitor/incidents POST → PANWASLU|ITPO (GET semua peran pengawasan); /api/tally/unlock → KPUM SAJA (ITPO pun 403 — pemisahan kewenangan FR-06.3). Kiosk & Portal Publik tetap terbuka (kiosk = token pemilih, Hukum 1).
+- Seed: 5 akun operator (itpo/itpo123, kpum/kpum123, ppur/ppur123, panwaslu/panwaslu123, saksi01/saksi123) + audit RBAC_PROVISIONED + sessionSecret acak per seed.
+- Frontend: komponen LoginGate (Tactile Neo-Brutalism, chip peran yang diizinkan, matriks akun demo klik-untuk-isi, catatan pemisahan kewenangan; varian dark untuk Panwaslu); shell page.tsx kini sesi-aware — badge sesi + KELUAR di navbar, titik kunci kuning pada tab yang butuh login, gate per terminal, chip "SESI AKTIF" di header halaman.
+- UI kewenangan: tombol Pleno Unlock disabled + peringatan merah bila sesi bukan KPUM; form sengketa Panwaslu dim + catatan pemantau bila sesi bukan PANWASLU/ITPO.
+- Debug: Prisma client lama di-cache Next.js → db.operator undefined → fix: kill semua proses next + rm -rf .next + restart dev.sh. dev.log bersih setelahnya.
+- E2E test diperluas (scripts/e2e-test.ts): 30/30 LULUS — 10 asersi RBAC (401 anonim, password salah 401, cross-role 403: KPUM→PPUR module, ITPO→unlock, SAKSI→incidents; SAKSI→monitor 200; login semua peran OK) + 20 asersi alur inti (semua lulus).
+- Browser verification (6 screenshot rbac-01..06): gerbang login PPUR render sempurna; login PPUR → badge sesi + desk; PPUR buka Dashboard KPUM → digate; login KPUM → unlock button aktif; Panwaslu via KPUM → form insiden read-only + audit log mencatat OPERATOR_LOGIN/RBAC_PROVISIONED; logout → badge MODE PUBLIK; Kiosk tetap dapat diakses tanpa sesi. Console bersih.
+- Reset demo state: voting aktif, pleno terkunci, 44 DPT, 9 sudah memilih, 5 akun operator siap.
+
+Stage Summary:
+- RBAC 5 peran + matriks kewenangan terimplementasi penuh di API (401/403) dan UI (gate, badge, disable per kewenangan); kredensial demo dipublikasikan di kartu login untuk kemudahan demo.

@@ -1,9 +1,13 @@
 // POST /api/admin/dpt-import — Import massal DPT dari CSV/XLSX paste (FR-02.1, FR-02.2)
 // Format baris: NIM,Nama,ProdiID,Angkatan  → contoh: 22111005,Ahmad Saputra,BKS,2022
+// RBAC: hanya KPUM & ITPO (PRD Bab 3).
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireRole } from "@/lib/server/auth";
 
 export async function POST(req: NextRequest) {
+  const gate = await requireRole(["KPUM", "ITPO"]);
+  if ("error" in gate) return gate.error;
   try {
     const body = await req.json();
     const csv = String(body?.csv ?? "").trim();

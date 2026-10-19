@@ -55,7 +55,8 @@ function KpiCard({ label, value, sub, icon, accent }: { label: string; value: st
   );
 }
 
-export function PanwasluMonitor() {
+export function PanwasluMonitor({ operatorRole }: { operatorRole?: string | null }) {
+  const canManageIncidents = operatorRole === "PANWASLU" || operatorRole === "ITPO";
   const monitor = usePolling<MonitorLiveResponse>("/api/monitor/live", 4000);
   const tally = usePolling<TallyResponse>("/api/tally", 6000);
   const incidents = usePolling<{ incidents: IncidentRow[] }>("/api/monitor/incidents", 10000);
@@ -284,12 +285,17 @@ export function PanwasluMonitor() {
             )}
           </div>
 
-          {/* Formulir Sengketa (FR-08.2) */}
+          {/* Formulir Sengketa (FR-08.2) — RBAC: PANWASLU/ITPO */}
           <div className="bento-card p-5">
             <h3 className="flex items-center gap-2 font-display text-base font-bold text-[#F4F1EA]">
               <FileWarning className="h-4 w-4 text-[#E05A47]" /> Laporan Sengketa &amp; Pelanggaran
             </h3>
-            <div className="mt-3 space-y-2.5">
+            {operatorRole && !canManageIncidents && (
+              <p className="mt-3 rounded-[8px] border border-[#39564A] bg-[#0D1512] px-3 py-2 text-[12px] leading-relaxed text-[#9EB0A7]">
+                Sesi Anda <span className="font-mono font-bold text-[#F5C431]">{operatorRole}</span> bersifat pemantau — pencatatan sengketa hanya kewenangan Panwaslu (PRD Bab 3 / FR-08.2).
+              </p>
+            )}
+            <div className={`mt-3 space-y-2.5 ${canManageIncidents ? "" : "pointer-events-none opacity-40"}`} aria-hidden={!canManageIncidents}>
               <Input
                 value={form.reporterName}
                 onChange={(e) => setForm((f) => ({ ...f, reporterName: e.target.value }))}

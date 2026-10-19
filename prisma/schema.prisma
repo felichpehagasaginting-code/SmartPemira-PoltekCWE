@@ -132,5 +132,20 @@ model ElectionSetting {
   emergencyFreeze Boolean  @default(false)
   plenoUnlocked   Boolean  @default(false) // HUKUM 5: Pleno Vault Lock
   plenoUnlockedAt DateTime?
+  sessionSecret   String   @default("") // HMAC secret untuk sesi operator (RBAC)
   updatedAt       DateTime @updatedAt
+}
+
+// ---------- DOMAIN OTENTIKASI PETUGAS (RBAC — PRD Bab 3) ----------
+// Hukum 1 tetap berlaku: Operator TIDAK berelasi ke BallotBox/VotingToken.
+model Operator {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String // scrypt: salt:hash (hex)
+  role         String // KPUM | PPUR | PANWASLU | SAKSI | ITPO
+  fullName     String
+  tpsId        String? // operator PPUR terikat TPS tertentu (FR-04.1)
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
 }

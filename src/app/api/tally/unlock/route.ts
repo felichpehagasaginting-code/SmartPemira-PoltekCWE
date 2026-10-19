@@ -1,10 +1,14 @@
 // POST /api/tally/unlock — Pleno Unlocking (FR-06.3, Hukum 5)
 // Hanya dieksekusi oleh Ketua KPUM disaksikan Panwaslu & Saksi.
+// RBAC: KPUM SAJA (super admin pun tidak — prinsip pemisahan kewenangan penyelenggara).
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getTallyReport } from "@/lib/db/tally-service";
+import { requireRole } from "@/lib/server/auth";
 
 export async function POST() {
+  const gate = await requireRole(["KPUM"]);
+  if ("error" in gate) return gate.error;
   try {
     const setting = await db.electionSetting.findUnique({ where: { id: "main" } });
     if (!setting) {

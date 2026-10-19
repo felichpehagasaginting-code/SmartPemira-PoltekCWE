@@ -4,7 +4,7 @@
 // Jalankan: bun run scripts/seed.ts
 // ============================================================
 import { PrismaClient } from "@prisma/client";
-import { createHash, randomUUID } from "crypto";
+import { createHash, randomBytes, randomUUID, scryptSync } from "crypto";
 
 const db = new PrismaClient();
 
@@ -51,7 +51,32 @@ async function main() {
 
   // ---------- Setting ----------
   await db.electionSetting.create({
-    data: { id: "main", votingOpen: true, emergencyFreeze: false, plenoUnlocked: false },
+    data: { id: "main", votingOpen: true, emergencyFreeze: false, plenoUnlocked: false, sessionSecret: randomBytes(32).toString("hex") },
+  });
+
+  // ---------- Operator RBAC (PRD Bab 3: Matriks Hak Akses) ----------
+  // Password demo dipublikasikan di kartu login — sistem DEMO, hash scrypt tetap nyata.
+  const operators: Array<{ username: string; password: string; role: string; fullName: string; tpsId?: string }> = [
+    { username: "itpo", password: "itpo123", role: "ITPO", fullName: "Rizky Ananda — Koordinator Tim ITPO" },
+    { username: "kpum", password: "kpum123", role: "KPUM", fullName: "Alifia Rahmadani — Ketua KPUM" },
+    { username: "ppur", password: "ppur123", role: "PPUR", fullName: "Bagas Setiawan — Petugas Meja PPUR TPS 01", tpsId: "TPS01" },
+    { username: "panwaslu", password: "panwaslu123", role: "PANWASLU", fullName: "Citra Amelia — Ketua Panwaslu" },
+    { username: "saksi01", password: "saksi123", role: "SAKSI", fullName: "Dimas Prakoso — Saksi Paslon Presma 01" },
+  ];
+  for (const op of operators) {
+    const salt = randomBytes(16).toString("hex");
+    const hash = scryptSync(op.password, salt, 64, { N: 16384, r: 8, p: 1 }).toString("hex");
+    const created = await db.operator.upsert({
+      where: { username: op.username },
+      update: { passwordHash: `${salt}:${hash}`, role: op.role, fullName: op.fullName, tpsId: op.tpsId ?? null, isActive: true },
+      create: { username: op.username, passwordHash: `${salt}:${hash}`, role: op.role, fullName: op.fullName, tpsId: op.tpsId ?? null },
+    });
+  }
+  await db.auditLog.create({
+    data: {
+      event: "RBAC_PROVISIONED",
+      detail: `Provisioning akun operator RBAC: ${operators.map((o) => `${o.username} (${o.role})`).join(", ")}.`,
+    },
   });
 
   // ---------- TPS ----------

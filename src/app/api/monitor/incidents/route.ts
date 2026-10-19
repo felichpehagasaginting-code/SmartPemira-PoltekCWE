@@ -1,8 +1,12 @@
 // GET/POST /api/monitor/incidents — Laporan Sengketa (FR-08.2)
+// RBAC (PRD Bab 3): GET → PANWASLU/SAKSI/KPUM/ITPO; POST (bikin laporan) → PANWASLU/ITPO.
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireRole } from "@/lib/server/auth";
 
 export async function GET() {
+  const gate = await requireRole(["PANWASLU", "SAKSI", "KPUM", "ITPO"]);
+  if ("error" in gate) return gate.error;
   try {
     const incidents = await db.electionIncident.findMany({
       orderBy: { createdAt: "desc" },
@@ -15,6 +19,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const gate = await requireRole(["PANWASLU", "ITPO"]);
+  if ("error" in gate) return gate.error;
   try {
     const body = await req.json();
     const { reporterName, reporterNim, incidentType, location, description } = body ?? {};

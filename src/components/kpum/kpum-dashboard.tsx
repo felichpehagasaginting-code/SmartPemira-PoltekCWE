@@ -48,7 +48,7 @@ function useMemoSeal(hash: string): boolean[] {
   return cells;
 }
 
-export function KpumDashboard() {
+export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }) {
   const { data, loading, refresh } = usePolling<AdminOverviewResponse>("/api/admin/overview", 6000);
   const [tab, setTab] = useState<TabKey>("tahapan");
   const [busy, setBusy] = useState(false);
@@ -242,15 +242,22 @@ export function KpumDashboard() {
                 </div>
               </div>
             ) : (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => doAction("UNLOCK_PLENO")}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-[10px] border-2 border-[#141E19] bg-[#F2B705] py-4 text-sm font-extrabold tracking-wide text-[#141E19] shadow-[5px_5px_0px_#141E19] transition-all enabled:hover:-translate-y-0.5 enabled:hover:shadow-[6px_6px_0px_#141E19] enabled:active:translate-y-0.5 enabled:active:shadow-none"
-              >
-                <LockOpen className="h-5 w-5" />
-                BUKA KOTAK SUARA DIGITAL (PLENO UNLOCK)
-              </button>
+              <>
+                <button
+                  type="button"
+                  disabled={busy || operatorRole !== "KPUM"}
+                  onClick={() => doAction("UNLOCK_PLENO")}
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-[10px] border-2 border-[#141E19] bg-[#F2B705] py-4 text-sm font-extrabold tracking-wide text-[#141E19] shadow-[5px_5px_0px_#141E19] transition-all enabled:hover:-translate-y-0.5 enabled:hover:shadow-[6px_6px_0px_#141E19] enabled:active:translate-y-0.5 enabled:active:shadow-none disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <LockOpen className="h-5 w-5" />
+                  BUKA KOTAK SUARA DIGITAL (PLENO UNLOCK)
+                </button>
+                {operatorRole && operatorRole !== "KPUM" && (
+                  <p className="mt-2 rounded-[8px] border border-[#E05A47] bg-[#FDE8E5] px-3 py-2 text-[12px] font-semibold text-[#842029]">
+                    Sesi Anda {operatorRole} — Pleno Unlocking hanya kewenangan Ketua KPUM (FR-06.3). Login sebagai <span className="font-mono">kpum</span> untuk mengeksekusi.
+                  </p>
+                )}
+              </>
             )}
             <p className="mt-3 text-[11px] leading-relaxed text-[#7A8881]">
               ⚠️ Aksi ini menutup pemungutan suara secara permanen dan mendekripsi distribusi suara untuk rekapitulasi sidang pleno.

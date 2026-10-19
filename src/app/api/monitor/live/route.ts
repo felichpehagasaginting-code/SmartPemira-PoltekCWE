@@ -1,11 +1,15 @@
 // GET /api/monitor/live — Live Audit Panwaslu (FR-08.1)
 // Metrik operasional TPS TANPA membocorkan isi suara.
+// RBAC (PRD Bab 3): PANWASLU / SAKSI / KPUM / ITPO.
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { expireStaleTokens } from "@/lib/db/ballot-service";
 import { verifyChain } from "@/lib/crypto/ballot-hash-chain";
+import { requireRole } from "@/lib/server/auth";
 
 export async function GET() {
+  const gate = await requireRole(["PANWASLU", "SAKSI", "KPUM", "ITPO"]);
+  if ("error" in gate) return gate.error;
   try {
     await expireStaleTokens();
     const [setting, tps] = await Promise.all([

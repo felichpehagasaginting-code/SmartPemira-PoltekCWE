@@ -1,9 +1,13 @@
 // GET /api/admin/overview — Dashboard KPUM: DPT, kandidat, log, berita acara (FR-01..FR-03, FR-07)
+// RBAC: hanya KPUM & ITPO (PRD Bab 3).
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { expireStaleTokens } from "@/lib/db/ballot-service";
+import { requireRole } from "@/lib/server/auth";
 
 export async function GET() {
+  const gate = await requireRole(["KPUM", "ITPO"]);
+  if ("error" in gate) return gate.error;
   try {
     await expireStaleTokens();
     const [setting, candidates, prodis, tps] = await Promise.all([
