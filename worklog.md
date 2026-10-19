@@ -104,3 +104,24 @@ Stage Summary:
 - Fitur ganti password aman: verifikasi sandi lama + audit + terminasi sesi otomatis
 - Log aktivitas login append-only dapat diaudit Panwaslu/ITPO/KPUM; SAKSI diblokir 403 (server) dan kartu disembunyikan (UI)
 - Kredensial demo kembali ke default seed (ppur123, panwaslu123, dst.)
+
+---
+Task ID: 5 (Eksekusi 6 Rekomendasi Upgrade: #1 #2 #6 #8 #9 #10)
+Agent: main (Z.ai)
+Task: Eksekusi rekomendasi prioritas pilihan user — rate limiting, manajemen operator, digital receipt, realtime SSE, BA bertanda tangan + QR, load test/monitoring/CI
+
+Work Log:
+- #1 Rate limiting: lib/server/rate-limit.ts (login throttle 5 gagal → lock 15 mnt eskalatif ×2 maks 24 jam per username+IP; fixed-window umum); diterapkan di login/kiosk validate/kiosk submit/change-password/receipt/verify-ba + audit OPERATOR_ACCOUNT_LOCKED + header Retry-After; security headers di next.config (X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy, HSTS)
+- #2 Manajemen operator: kolom Operator.mustChangePassword (db push); API GET/POST /api/admin/operators + PATCH /[id] + POST /[id]/reset-password (ITPO-only, guard anti-lockout akun sendiri, sandi sementara tampil sekali); UI tab "Manajemen Operator" (khusus ITPO) dengan tabel + dialog buat akun + dialog sandi sementara; login membawa flag mustChangePassword → dialog ganti sandi mode wajib (tak bisa ditutup) terbuka otomatis
+- #6 Digital receipt: lib/crypto/receipt.ts (12 hex pertama ballotHash → XXXX-XXXX-XXXX); submitBallots mengembalikan receiptCode + tpsName; API GET /api/public/receipt (prefix search hash, blok seq, rate-limited); kiosk layar sukses menampilkan kartu struk; portal publik kartu "Cek Struk Suara"
+- #8 Realtime SSE: lib/server/bus.ts (EventEmitter global); API /api/realtime/monitor (snapshot monitor+tally+loginLog dikirim saat berubah tiap 4 dtk, event auth di-push seketika, keepalive 20 dtk, cleanup abort); hook use-sse.ts dengan reconnect; monitor-service.ts payload builder bersama; PanwasluMonitor: badge REALTIME SSE/POLLING + banner alarm "N percobaan login gagal 5 mnt" + kartu log login kini realtime; polling tinggal fallback
+- #9 Berita Acara: API GET /api/kpum/berita-acara (signature SHA-256 deterministik atas kanonikal rekap + chain head, signatories KPUM+Panwaslu); API publik /api/public/verify-ba (hitung ulang + banding); halaman publik /verify?sig=…; tab BA KPUM: QR asli (lib qrcode) encode URL verifikasi + blok tanda tangan + tombol salin tautan; portal publik kartu verifikasi BA
+- #10 Load test + monitoring + CI: API /api/health (db counts, uptime, mem); scripts/load-test.ts (4 fase, ringkasan p50/p95/p99); temuan nyata: SQLite lock kontensi saat tulis paralel → fase alur suara diserialisasi (catatan → Postgres #4); .github/workflows/ci.yml (bun, prisma, seed, lint, tsc, health-wait, 2 suite E2E)
+- Verifikasi: lint bersih; E2E fitur baru scripts/e2e-features-test.ts 37/37 lulus; E2E lama 22 asersi tetap lulus (jalan sekali per seed — pemilih yang sudah memilih tak bisa terbit token ulang); load test 4/4 fase lulus (400 baca publik p50 267ms; 90 login; 12 alur suara; 36 verifikasi struk); browser 10 screenshot: panel operator, dialog buat akun, kartu verifikasi portal, struk terverifikasi, SSE badge + kartu log realtime, alert login gagal seketika, QR BA + TTD elektronik, halaman /verify SAH, layar sukses kiosk dengan struk 9FC3-D6B5-927C
+- Bug diperbaiki saat verifikasi: duplikasi const data di PanwasluMonitor; akses logData.data (bentuk merged SSE/polling beda); Retry-After hilang di cabang justLocked; filter voter E2E (tab→filter=BELUM_MEMILIH); idempotensi akun uji e2e_ppur
+- Database di-reset ke demo segar (44 DPT, 9 voted, pleno terkunci, password default)
+
+Stage Summary:
+- 6 rekomendasi terimplementasi penuh + terverifikasi berlapis (API E2E 37 asersi + E2E lama + load test + browser)
+- Keamanan: brute force terhalang lockout eskalatif; siklus hidup akun lengkap di tangan ITPO; struk memberi E2E verifiability tanpa bocor identitas; BA anti-pemalsuan dengan verifikasi publik via QR; monitoring/CI siap
+- Catatan desain: SSE dipilih utk realtime (1 origin, auth cookie, tanpa port baru); SQLite serial write → PostgreSQL tetap rekomendasi #4 utk produksi

@@ -124,6 +124,8 @@ export interface MonitorLiveResponse {
   integrity: { valid: boolean; checkedCount: number; brokenAtIndex: number | null; headHash: string };
   attendanceByHour: Array<{ hour: number; count: number }>;
   logs: Array<{ id: string; event: string; detail: string; createdAt: string }>;
+  /** Rekomendasi #8: jumlah percobaan login gagal/lockout dalam 5 menit terakhir */
+  failedLogins5m?: number;
 }
 
 export interface AdminOverviewResponse {

@@ -13,6 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { usePolling } from "@/hooks/use-polling";
+import { useSSE } from "@/hooks/use-sse";
+import type { RealtimeSnapshot } from "@/lib/db/monitor-service";
 import type { IncidentRow, MonitorLiveResponse, TallyResponse } from "@/lib/types";
 import {
   Activity,
@@ -24,9 +26,12 @@ import {
   LockOpen,
   LogIn,
   Send,
+  ShieldAlert,
   ShieldCheck,
   Users,
   Vote,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 
 const EVENT_META: Record<string, { label: string; cls: string }> = {
@@ -72,15 +77,25 @@ export function PanwasluMonitor({ operatorRole }: { operatorRole?: string | null
   const canManageIncidents = operatorRole === "PANWASLU" || operatorRole === "ITPO";
   // Log aktivitas login: khusus PANWASLU / ITPO / KPUM (SAKSI ditolak 403 oleh server)
   const canViewLoginLog = operatorRole === "PANWASLU" || operatorRole === "ITPO" || operatorRole === "KPUM";
-  const monitor = usePolling<MonitorLiveResponse>("/api/monitor/live", 4000);
-  const tally = usePolling<TallyResponse>("/api/tally", 6000);
+
+  // ---------- REALTIME SSE (Rekomendasi #8) — polling hanya fallback ----------
+  const sse = useSSE<RealtimeSnapshot>("/api/realtime/monitor");
+  const sseActive = sse.connected && !!sse.data;
+  const monitor = usePolling<MonitorLiveResponse>("/api/monitor/live", 8000, { enabled: !sseActive });
+  const tally = usePolling<TallyResponse>("/api/tally", 10000, { enabled: !sseActive });
   const incidents = usePolling<{ incidents: IncidentRow[] }>("/api/monitor/incidents", 10000);
-  const loginLog = usePolling<{ ok: boolean; events: LoginLogEvent[] }>("/api/auth/login-log", 8000, { enabled: canViewLoginLog });
+  const loginLog = usePolling<{ ok: boolean; events: LoginLogEvent[] }>("/api/auth/login-log", 8000, {
+    enabled: canViewLoginLog && !sseActive,
+  });
+
+  // Sumber data: SSE dulu, fallback polling
+  const monData = (sseActive ? sse.data?.monitor : null) ?? monitor.data;
+  const talData: TallyResponse | null = (sseActive ? sse.data?.tally : null) ?? tally.data;
+  const logData = (sseActive && canViewLoginLog ? sse.data?.loginLog : null) ?? loginLog.data;
+  const failedLogins5m = monData?.failedLogins5m ?? 0;
 
   const [form, setForm] = useState({ reporterName: "", reporterNim: "", incidentType: "KECURANGAN_TPS", location: "", description: "" });
   const [sendState, setSendState] = useState<"idle" | "sending" | "sent" | "error">("idle");
-
-  const data = monitor.data;
 
   const submitIncident = async () => {
     if (!form.reporterName || !form.location || !form.description) return;
@@ -102,7 +117,7 @@ export function PanwasluMonitor({ operatorRole }: { operatorRole?: string | null
     }
   };
 
-  if (monitor.loading && !data) {
+  if (monitor.loading && !monData) {
     return (
       <div className="space-y-4">
         <div className="grid gap-4 md:grid-cols-4">
@@ -112,7 +127,9 @@ export function PanwasluMonitor({ operatorRole }: { operatorRole?: string | null
       </div>
     );
   }
-  if (!data) return <p className="text-sm text-[#9EB0A7]">Monitor gagal terhubung.</p>;
+  if (!monData) return <p className="text-sm text-[#9EB0A7]">Monitor gagal terhubung.</p>;
+
+  const data = monData;
 
   const turnout = Math.round(data.kpis.turnoutPct * 10) / 10;
   const maxHour = Math.max(1, ...data.attendanceByHour.map((h) => h.count));
@@ -130,6 +147,11 @@ export function PanwasluMonitor({ operatorRole }: { operatorRole?: string | null
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {/* Indikator koneksi realtime (Rekomendasi #8) */}
+          <Badge variant="outline" className={`gap-1.5 rounded-full border ${sseActive ? "border-[#28A769] text-[#28A769]" : "border-[#64786F] text-[#9EB0A7]"}`}>
+            {sseActive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+            {sseActive ? "REALTIME SSE" : "MODE POLLING"}
+          </Badge>
           <Badge variant="outline" className={`gap-1.5 rounded-full border ${data.votingOpen && !data.emergencyFreeze ? "border-[#28A769] text-[#28A769]" : "border-[#64786F] text-[#9EB0A7]"}`}>
             <span className={`h-1.5 w-1.5 rounded-full ${data.votingOpen && !data.emergencyFreeze ? "bg-[#28A769] live-dot" : "bg-[#64786F]"}`} />
             {data.emergencyFreeze ? "EMERGENCY FREEZE" : data.votingOpen ? "TPS AKTIF" : "TPS DITUTUP"}
@@ -140,6 +162,23 @@ export function PanwasluMonitor({ operatorRole }: { operatorRole?: string | null
           </Badge>
         </div>
       </div>
+
+      {/* Alarm keamanan realtime (Rekomendasi #8) */}
+      {(failedLogins5m > 0 || sse.lastAuth) && (
+        <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[10px] border-2 border-[#E05A47] bg-[#2A1B18] px-4 py-3">
+          <span className="flex items-center gap-2 text-[13px] font-extrabold text-[#FF8A7A]">
+            <ShieldAlert className="h-4 w-4" />
+            {failedLogins5m > 0
+              ? `${failedLogins5m} percobaan login gagal/terblokir dalam 5 menit terakhir`
+              : "Aktivitas otentikasi baru terdeteksi"}
+          </span>
+          {sse.lastAuth && (
+            <span className="flex-1 text-[12px] font-semibold text-[#E8B4AC]">
+              {new Date(sse.lastAuth.at).toLocaleTimeString("id-ID")} — {sse.lastAuth.detail}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* KPI Row */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -227,12 +266,12 @@ export function PanwasluMonitor({ operatorRole }: { operatorRole?: string | null
                 Jejak otentikasi append-only: login sukses, percobaan gagal, logout, dan pergantian password (menu SANDI di navbar).
               </p>
               <div className="nice-scroll mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
-                {loginLog.loading && !loginLog.data ? (
+                {!logData ? (
                   <p className="px-1 py-2 text-[12px] text-[#64786F]">Memuat log otentikasi…</p>
-                ) : (loginLog.data?.events.length ?? 0) === 0 ? (
+                ) : (logData.events.length ?? 0) === 0 ? (
                   <p className="px-1 py-2 text-[12px] text-[#64786F]">Belum ada aktivitas login tercatat.</p>
                 ) : (
-                  loginLog.data!.events.map((ev) => {
+                  logData.events.map((ev) => {
                     const meta = EVENT_META[ev.event] ?? { label: ev.event, cls: "bg-[#1D2E27] text-[#9EB0A7]" };
                     const d = new Date(ev.createdAt);
                     return (
@@ -256,11 +295,11 @@ export function PanwasluMonitor({ operatorRole }: { operatorRole?: string | null
           {/* Pleno Vault (FR-06.3) */}
           <div className="bento-card relative overflow-hidden p-5">
             <h3 className="flex items-center gap-2 font-display text-base font-bold text-[#F4F1EA]">
-              {tally.data?.locked ? <Lock className="h-4 w-4 text-[#F5C431]" /> : <LockOpen className="h-4 w-4 text-[#28A769]" />}
+              {talData?.locked ? <Lock className="h-4 w-4 text-[#F5C431]" /> : <LockOpen className="h-4 w-4 text-[#28A769]" />}
               Kotak Suara Digital
             </h3>
 
-            {tally.data?.locked ? (
+            {talData?.locked ? (
               <div className="mt-4 flex flex-col items-center rounded-[10px] border-2 border-dashed border-[#39564A] bg-[#0D1512] px-4 py-10 text-center">
                 <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#39564A] bg-[#15221D]">
                   <Lock className="h-6 w-6 text-[#F5C431]" />
@@ -274,7 +313,7 @@ export function PanwasluMonitor({ operatorRole }: { operatorRole?: string | null
               </div>
             ) : (
               <div className="mt-4 space-y-3">
-                {tally.data?.categories
+                {talData?.categories
                   ?.filter((cat) => cat.category !== "HIMA")
                   .map((cat) => (
                     <div key={cat.category} className="rounded-[10px] border border-[#263B33] bg-[#0D1512] p-3.5">
@@ -304,7 +343,7 @@ export function PanwasluMonitor({ operatorRole }: { operatorRole?: string | null
                       </div>
                     </div>
                   ))}
-                {tally.data?.categories
+                {talData?.categories
                   ?.filter((c) => c.category === "HIMA")
                   .map((cat) => (
                     <div key={cat.studyProgramId} className="rounded-[10px] border border-[#263B33] bg-[#0D1512] p-3.5">

@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hashPassword, requireRole, SESSION_COOKIE, verifyPassword } from "@/lib/server/auth";
+import { generalLimit } from "@/lib/server/rate-limit";
 
 const MIN_LENGTH = 8;
 
@@ -11,6 +12,15 @@ export async function POST(req: NextRequest) {
   const gate = await requireRole(["KPUM", "PPUR", "PANWASLU", "SAKSI", "ITPO"]);
   if ("error" in gate) return gate.error;
   const { session } = gate;
+
+  // Anti-abuse: maks 5 pergantian password per 10 menit per operator
+  const limit = generalLimit(`pwchange:${session.operatorId}`, 5, 10 * 60_000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { ok: false, message: `Terlalu sering mengganti password. Coba lagi dalam ${Math.ceil(limit.retryAfterSec / 60)} menit.` },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } }
+    );
+  }
 
   try {
     const body = await req.json();
@@ -56,7 +66,7 @@ export async function POST(req: NextRequest) {
 
     await db.operator.update({
       where: { id: operator.id },
-      data: { passwordHash: hashPassword(newPassword) },
+      data: { passwordHash: hashPassword(newPassword), mustChangePassword: false },
     });
     await db.auditLog.create({
       data: {

@@ -17,6 +17,7 @@ import {
   Delete,
   Droplets,
   Lock,
+  ReceiptText,
   ShieldCheck,
   Timer,
 } from "lucide-react";
@@ -125,6 +126,7 @@ export function KioskTerminal() {
   const [remainingMs, setRemainingMs] = useState(0);
   const [submittingMsg, setSubmittingMsg] = useState("Mengenkripsi & Mengacak Suara...");
   const [successCountdown, setSuccessCountdown] = useState(3);
+  const [receiptCode, setReceiptCode] = useState<string | null>(null); // Rekomendasi #6
   const activeTokenRef = useRef<string>("");
 
   const current = ballots[step];
@@ -158,6 +160,7 @@ export function KioskTerminal() {
     setStep(0);
     setSelections({});
     setSubmitError(null);
+    setReceiptCode(null);
     activeTokenRef.current = "";
   }, []);
 
@@ -227,6 +230,7 @@ export function KioskTerminal() {
         setPhase("review");
         return;
       }
+      setReceiptCode(json.receiptCode ?? null); // Rekomendasi #6: struk suara
       setPhase("success");
     } catch {
       setSubmitError("Koneksi gagal saat mengirim suara. Suara tidak terkirim — hubungi petugas.");
@@ -368,7 +372,7 @@ export function KioskTerminal() {
   // ============================ SUCCESS ============================
   if (phase === "success") {
     return (
-      <div className="flex min-h-[70vh] flex-col items-center justify-center px-4 text-center">
+      <div className="flex min-h-[70vh] flex-col items-center justify-center px-4 py-8 text-center">
         <div className="anim-check mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full border-[3px] border-[#141E19] bg-[#1B7F4E] shadow-[6px_6px_0px_#141E19]">
           <Check className="h-12 w-12 text-white" strokeWidth={3.5} />
         </div>
@@ -379,6 +383,24 @@ export function KioskTerminal() {
           Terima kasih telah berpartisipasi dalam Pemira Poltek CWE. Token Anda kini dihanguskan
           dan tidak dapat digunakan lagi.
         </p>
+
+        {/* ====== STRUK SUARA — Rekomendasi #6 (E2E Verifiability) ====== */}
+        {receiptCode && (
+          <div className="mt-7 w-full max-w-md rounded-[14px] border-2 border-[#141E19] bg-white p-5 text-left shadow-[6px_6px_0px_#141E19]">
+            <div className="flex items-center justify-between gap-2">
+              <p className="flex items-center gap-2 font-display text-sm font-extrabold uppercase tracking-wide">
+                <ReceiptText className="h-4 w-4 text-[#1B7F4E]" /> Struk Suara Digital
+              </p>
+              <span className="rounded-full border border-[#1B7F4E] bg-[#E6F4EC] px-2.5 py-0.5 text-[9.5px] font-extrabold text-[#0F5132]">TERCATAT ✓</span>
+            </div>
+            <p className="mt-3 font-mono text-[26px] font-extrabold tracking-[0.12em] text-[#141E19]">{receiptCode}</p>
+            <p className="mt-2 text-[12px] leading-relaxed text-[#4A5851]">
+              <strong className="text-[#141E19]">Foto atau catat kode ini.</strong> Kode membuktikan suara Anda masuk ke kotak suara digital
+              (hash chain) — tanpa membocorkan pilihan Anda kepada siapa pun. Cek kapan pun di Portal Publik → “Cek Struk Suara”.
+            </p>
+          </div>
+        )}
+
         <div className="tactile-card mt-6 flex items-center gap-3 px-5 py-4">
           <Droplets className="h-6 w-6 text-[#E05A47]" />
           <p className="text-sm font-bold">

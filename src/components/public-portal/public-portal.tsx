@@ -11,6 +11,7 @@ import { usePolling } from "@/hooks/use-polling";
 import { BALLOT_CATEGORY_COLORS } from "@/lib/constants/election";
 import { getProdiMeta } from "@/lib/constants/study-programs";
 import type { CandidateView, PortalResponse } from "@/lib/types";
+import { BeritaAcaraVerifier, ReceiptChecker } from "@/components/public-portal/public-verify-tools";
 import { CheckCircle2, Landmark, Lock, ScrollText, Users, Vote } from "lucide-react";
 
 function InitialAvatar({ name, accent, size = 64 }: { name: string; accent: string; size?: number }) {
@@ -210,6 +211,12 @@ export function PublicPortal() {
           </div>
         </section>
       ))}
+
+      {/* ---------- ALAT VERIFIKASI PUBLIK (Rekomendasi #6 & #9) ---------- */}
+      <section className="grid gap-5 xl:grid-cols-2">
+        <ReceiptChecker />
+        <BeritaAcaraVerifier plenoUnlocked={data.plenoUnlocked} />
+      </section>
 
       {/* ---------- Status hasil ---------- */}
       <section className="tactile-card p-6 flex items-start gap-4">

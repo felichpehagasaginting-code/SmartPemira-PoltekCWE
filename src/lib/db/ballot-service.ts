@@ -6,6 +6,7 @@
 import { db } from "@/lib/db";
 import { hashToken, generateVotingToken } from "@/lib/crypto/token-generator";
 import { computeBallotHash } from "@/lib/crypto/ballot-hash-chain";
+import { formatReceiptCode } from "@/lib/crypto/receipt";
 import { jitteredTimestamp } from "@/lib/crypto/time-jitter";
 import { TOKEN_TTL_MINUTES } from "@/lib/constants/election";
 
@@ -17,7 +18,7 @@ export interface BallotSelections {
 }
 
 export type SubmitResult =
-  | { ok: true; message: string }
+  | { ok: true; message: string; receiptCode: string; tpsName: string }
   | { ok: false; code: "INVALID_TOKEN" | "EXPIRED_TOKEN" | "USED_TOKEN" | "FROZEN" | "VOTING_CLOSED" | "PRODI_MISMATCH" | "INTERNAL"; message: string };
 
 /**
@@ -45,6 +46,8 @@ export async function submitBallots(
     return { ok: false, code: "VOTING_CLOSED", message: "Pemungutan suara telah ditutup oleh KPUM." };
 
   try {
+    let finalChainHash = "";
+    let tpsNameOut = "TPS";
     await db.$transaction(async (tx) => {
       // 1. Validasi token
       const token = await tx.votingToken.findUnique({ where: { tokenHash } });
@@ -73,6 +76,7 @@ export async function submitBallots(
       // 3. Simpan 3 surat suara dengan jitter + hash chaining
       const tps = await tx.tps.findUnique({ where: { id: token.tpsId } });
       if (!tps) throw new Error("INTERNAL");
+      tpsNameOut = tps.name;
 
       // Jaminan integritas rantai: timestamp jitter TIDAK BOLEH mundur dari
       // suara terakhir di TPS agar urutan createdAt == urutan rantai hash
@@ -124,6 +128,7 @@ export async function submitBallots(
 
       // Perbarui head rantai hash TPS
       await tx.tps.update({ where: { id: tps.id }, data: { lastChainHash: prevChain } });
+      finalChainHash = prevChain;
 
       // 4. Hanguskan token
       await tx.votingToken.update({
@@ -156,7 +161,13 @@ export async function submitBallots(
       });
     });
 
-    return { ok: true, message: "Suara berhasil tersimpan secara rahasia." };
+    return {
+      ok: true,
+      message: "Suara berhasil tersimpan secara rahasia.",
+      // Rekomendasi #6: struk suara = 12 hex pertama balok terakhir pemilih ini.
+      receiptCode: formatReceiptCode(finalChainHash),
+      tpsName: tpsNameOut,
+    };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "";
     if (msg === "INVALID_TOKEN")

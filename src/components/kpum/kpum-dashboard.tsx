@@ -5,7 +5,8 @@
 // Bento Editorial: DPT import, manajemen kandidat, kontrol tahapan,
 // Pleno Unlocking & Berita Acara Model C-KWE (Swiss Legal Document).
 // ============================================================
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import QRCode from "qrcode";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,8 +15,10 @@ import type { AdminOverviewResponse } from "@/lib/types";
 import {
   AlertTriangle,
   CheckCircle2,
+  Copy,
   Database,
   FileText,
+  Loader2,
   Lock,
   LockOpen,
   PauseCircle,
@@ -28,24 +31,34 @@ import {
 
 type TabKey = "dpt" | "kandidat" | "tahapan" | "berita";
 
-/** Pseudo-QR kriptografis deterministik dari hash (visual seal berita acara) */
-function CryptoSeal({ hash }: { hash: string }) {
-  const cells = useMemoSeal(hash);
-  return (
-    <div className="grid grid-cols-[repeat(11,1fr)] gap-[2px] rounded-[6px] border-2 border-[#141E19] bg-white p-2" aria-label="QR cryptographic seal">
-      {cells.map((on, i) => (
-        <div key={i} className={`aspect-square rounded-[1px] ${on ? "bg-[#141E19]" : "bg-white"}`} />
-      ))}
-    </div>
-  );
-}
-function useMemoSeal(hash: string): boolean[] {
-  const cells: boolean[] = [];
-  for (let i = 0; i < 121; i++) {
-    const ch = parseInt(hash[i % hash.length] ?? "0", 16);
-    cells.push((ch + i) % 3 !== 0);
+/** QR asli (Rekomendasi #9): encode URL verifikasi publik dokumen */
+function RealQr({ text, size = 132 }: { text: string; size?: number }) {
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    QRCode.toDataURL(text, { width: size * 2, margin: 1, color: { dark: "#141E19", light: "#FFFFFF" } })
+      .then((url) => alive && setDataUrl(url))
+      .catch(() => alive && setDataUrl(null));
+    return () => {
+      alive = false;
+    };
+  }, [text, size]);
+  if (!dataUrl) {
+    return <Loader2 className="h-8 w-8 animate-spin text-[#7A8881]" />;
   }
-  return cells;
+  return <img src={dataUrl} width={size} height={size} alt="QR verifikasi Berita Acara" className="rounded-[4px]" />;
+}
+
+interface BaDocument {
+  tpsName: string;
+  tpsLocation: string;
+  plenoUnlockedAt: string | null;
+  generatedAt: string;
+  totals: { dptTotal: number; voted: number; absent: number; ballots: number; tokenUsed: number; turnoutPct: number };
+  integrity: { valid: boolean; checkedCount: number; headHash: string };
+  signatories: { kpum: string; panwaslu: string };
+  signature: string;
+  algorithm: string;
 }
 
 export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }) {
@@ -56,6 +69,26 @@ export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }
   const [csv, setCsv] = useState("");
   const [importResult, setImportResult] = useState<string | null>(null);
   const [dptQuery, setDptQuery] = useState("");
+  const [baDoc, setBaDoc] = useState<BaDocument | null>(null);
+  const [baLoading, setBaLoading] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const plenoUnlocked = data?.settings.plenoUnlocked ?? false;
+
+  // Muat dokumen Berita Acara saat tab dibuka / pleno berubah (Rekomendasi #9)
+  useEffect(() => {
+    if (tab !== "berita" || !plenoUnlocked) return;
+    let alive = true;
+    setBaLoading(true);
+    fetch("/api/kpum/berita-acara", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => alive && j.ok && setBaDoc(j.document))
+      .catch(() => {})
+      .finally(() => alive && setBaLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [tab, plenoUnlocked]);
 
   if (loading && !data) {
     return (
@@ -418,31 +451,73 @@ export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }
               </tbody>
             </table>
 
-            {/* Panel tanda tangan + seal */}
+            {/* Panel tanda tangan + seal QR asli (Rekomendasi #9) */}
             <div className="mt-8 grid gap-6 md:grid-cols-2">
               <div className="space-y-4">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-[#7A8881]">Panel Status Tanda Tangan Digital</p>
-                {["Ketua KPUM", "Ketua PPUR TPS 01", "Ketua Panwaslu", "Saksi Paslon"].map((role, i) => (
-                  <div key={role} className="flex items-center justify-between rounded-[8px] border border-[#D8D3C8] bg-white px-4 py-3">
-                    <div>
-                      <p className="text-[13px] font-bold">{role}</p>
-                      <p className="text-[11px] text-[#7A8881]">
-                        {settings.plenoUnlocked || i >= 2 ? "Menunggu tanda tangan elektronik" : "Terbuka setelah pleno"}
-                      </p>
+                {baDoc && (
+                  <>
+                    <div className="flex items-center justify-between rounded-[8px] border border-[#1B7F4E] bg-[#F0FAF4] px-4 py-3">
+                      <div>
+                        <p className="text-[13px] font-bold">Ketua KPUM</p>
+                        <p className="text-[11px] text-[#7A8881]">{baDoc.signatories.kpum}</p>
+                      </div>
+                      <span className="rounded-full border border-[#1B7F4E] bg-[#DCFCE7] px-2.5 py-1 text-[10px] font-bold text-[#0F5132]">TTD ELEKTRONIK ✓</span>
                     </div>
-                    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${settings.plenoUnlocked ? "border-[#F2B705] bg-[#FEF5D6] text-[#8A5200]" : "border-[#D8D3C8] bg-[#EAE6DF] text-[#4A5851]"}`}>
-                      {settings.plenoUnlocked ? "MENUNGGU TTD" : "TERKUNCI"}
-                    </span>
+                    <div className="flex items-center justify-between rounded-[8px] border border-[#1B7F4E] bg-[#F0FAF4] px-4 py-3">
+                      <div>
+                        <p className="text-[13px] font-bold">Ketua Panwaslu</p>
+                        <p className="text-[11px] text-[#7A8881]">{baDoc.signatories.panwaslu}</p>
+                      </div>
+                      <span className="rounded-full border border-[#1B7F4E] bg-[#DCFCE7] px-2.5 py-1 text-[10px] font-bold text-[#0F5132]">TTD ELEKTRONIK ✓</span>
+                    </div>
+                  </>
+                )}
+                {["Ketua PPUR TPS 01", "Saksi Paslon"].map((role) => (
+                  <div key={role} className="flex items-center justify-between rounded-[8px] border border-[#D8D3C8] bg-white px-4 py-3">
+                    <p className="text-[13px] font-bold">{role}</p>
+                    <span className="rounded-full border border-[#D8D3C8] bg-[#EAE6DF] px-2.5 py-1 text-[10px] font-bold text-[#4A5851]">TERCATAT</span>
                   </div>
                 ))}
+                {baDoc && (
+                  <div className="rounded-[8px] border border-[#141E19] bg-[#F6F4EE] px-4 py-3">
+                    <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#7A8881]">Tanda Tangan SHA-256 ({baDoc.algorithm})</p>
+                    <p className="mt-1 break-all font-mono text-[11px] leading-relaxed text-[#141E19]">{baDoc.signature}</p>
+                  </div>
+                )}
               </div>
+
               <div className="flex flex-col items-center justify-center gap-3 rounded-[10px] border border-dashed border-[#D8D3C8] bg-[#F6F4EE] p-6">
-                <CryptoSeal hash={(tps?.lastChainHash ?? "SMARTPEMIRA") + (tps?.lastChainHash ?? "")} />
-                <p className="text-center text-[11px] font-semibold text-[#4A5851]">
-                  QR Code Cryptographic Seal
-                  <br />
-                  <span className="font-mono-tabular text-[10px] text-[#7A8881]">SHA-256: {(tps?.lastChainHash ?? "").slice(0, 32)}…</span>
-                </p>
+                {baLoading ? (
+                  <Loader2 className="h-8 w-8 animate-spin text-[#7A8881]" />
+                ) : baDoc ? (
+                  <>
+                    <div className="rounded-[8px] border-2 border-[#141E19] bg-white p-2 shadow-[3px_3px_0px_#141E19]">
+                      <RealQr text={`${typeof window !== "undefined" ? window.location.origin : ""}/verify?sig=${baDoc.signature}`} />
+                    </div>
+                    <p className="text-center text-[11px] font-semibold text-[#4A5851]">
+                      QR Verifikasi Publik — pindai untuk memeriksa keaslian dokumen
+                      <br />
+                      <span className="font-mono-tabular text-[10px] text-[#7A8881]">
+                        Chain head: {baDoc.integrity.headHash.slice(0, 24)}… ({baDoc.integrity.checkedCount} blok ✓)
+                      </span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(`${window.location.origin}/verify?sig=${baDoc.signature}`);
+                        setCopiedLink(true);
+                        setTimeout(() => setCopiedLink(false), 2000);
+                      }}
+                      className="no-print flex h-9 items-center gap-1.5 rounded-full border-2 border-[#141E19] bg-white px-4 text-[11px] font-extrabold shadow-[2px_2px_0px_#141E19] transition-all hover:-translate-y-0.5"
+                    >
+                      {copiedLink ? <CheckCircle2 className="h-3.5 w-3.5 text-[#1B7F4E]" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copiedLink ? "TAUTAN TERSALIN" : "SALIN TAUTAN VERIFIKASI"}
+                    </button>
+                  </>
+                ) : (
+                  <p className="text-center text-[12px] text-[#7A8881]">Dokumen final & QR verifikasi terbit setelah Pleno Unlocking.</p>
+                )}
               </div>
             </div>
 

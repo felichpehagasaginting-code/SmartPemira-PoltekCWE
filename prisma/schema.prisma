@@ -146,6 +146,7 @@ model Operator {
   fullName     String
   tpsId        String? // operator PPUR terikat TPS tertentu (FR-04.1)
   isActive     Boolean  @default(true)
+  mustChangePassword Boolean @default(false) // sandi sementara dari reset ITPO — wajib diganti saat login
   lastLoginAt  DateTime?
   createdAt    DateTime @default(now())
 }

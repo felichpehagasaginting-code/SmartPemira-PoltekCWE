@@ -6,9 +6,19 @@ import { hashToken } from "@/lib/crypto/token-generator";
 import { expireStaleTokens } from "@/lib/db/ballot-service";
 import { BALLOT_CATEGORY_COLORS } from "@/lib/constants/election";
 import { getProdiMeta } from "@/lib/constants/study-programs";
+import { clientIp, generalLimit } from "@/lib/server/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
+    // Anti-brute force: maks 30 validasi token/menit per IP (Rekomendasi #1)
+    const limit = generalLimit(`kioskval:${clientIp(req.headers)}`, 30, 60_000);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { ok: false, message: `Terlalu banyak percobaan token. Coba lagi dalam ${Math.ceil(limit.retryAfterSec)} detik.` },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } }
+      );
+    }
+
     const body = await req.json();
     const rawToken = String(body?.token ?? "").trim().toUpperCase();
     if (rawToken.length !== 6) {

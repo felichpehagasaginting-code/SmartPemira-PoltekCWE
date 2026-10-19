@@ -9,6 +9,7 @@
 // ============================================================
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChangePasswordDialog } from "@/components/auth/change-password-dialog";
+import { OperatorManager } from "@/components/admin/operator-manager";
 import { KioskTerminal } from "@/components/kiosk/kiosk-terminal";
 import { KpumDashboard } from "@/components/kpum/kpum-dashboard";
 import { LoginScreen, type DemoAccount } from "@/components/auth/login-screen";
@@ -16,15 +17,16 @@ import { PanwasluMonitor } from "@/components/pleno/panwaslu-monitor";
 import { PublicPortal } from "@/components/public-portal/public-portal";
 import { PpurDesk } from "@/components/ppur/ppur-desk";
 import { APP_CONSTANTS } from "@/lib/constants/election";
-import { Ban, KeyRound, Landmark, LogOut, MonitorCheck, ScanBarcode, ShieldHalf, Vote } from "lucide-react";
+import { Ban, KeyRound, Landmark, LogOut, MonitorCheck, ScanBarcode, ShieldHalf, UserCog, Vote } from "lucide-react";
 
-type ModuleKey = "public" | "ppur" | "kiosk" | "kpum" | "panwaslu";
+type ModuleKey = "public" | "ppur" | "kiosk" | "kpum" | "panwaslu" | "operators";
 
 interface SessionInfo {
   username: string;
   role: string;
   fullName: string;
   tpsId: string | null;
+  mustChangePassword?: boolean;
 }
 
 // ---- Matriks RBAC (PRD Bab 3) ----
@@ -33,6 +35,7 @@ const MODULE_ROLES: Partial<Record<ModuleKey, string[]>> = {
   ppur: ["PPUR", "ITPO"],
   kpum: ["KPUM", "ITPO"],
   panwaslu: ["PANWASLU", "SAKSI", "KPUM", "ITPO"],
+  operators: ["ITPO"],
 };
 
 // Terminal awal (landing) setelah login, sesuai peran.
@@ -58,6 +61,7 @@ const MODULES: Array<{ key: ModuleKey; label: string; short: string; icon: React
   { key: "kiosk", label: "Kiosk Bilik Suara", short: "KIOSK", icon: <Vote className="h-4 w-4" />, dark: false },
   { key: "kpum", label: "Dashboard KPUM", short: "KPUM", icon: <MonitorCheck className="h-4 w-4" />, dark: false },
   { key: "panwaslu", label: "Monitor Panwaslu & Pleno", short: "PANWASLU", icon: <ShieldHalf className="h-4 w-4" />, dark: true },
+  { key: "operators", label: "Manajemen Operator", short: "OPERATOR", icon: <UserCog className="h-4 w-4" />, dark: false },
 ];
 
 export default function Home() {
@@ -98,6 +102,8 @@ export default function Home() {
     };
     const home = ROLE_HOME[session.role] ?? "public";
     setActive(allowed(home) ? home : "public");
+    // Sandi sementara aktif → dialog wajib ganti sandi terbuka otomatis (Rekomendasi #2)
+    if (session.mustChangePassword) setPwOpen(true);
   }, [session]);
 
   async function logout() {
@@ -299,6 +305,13 @@ export default function Home() {
           ) : (
             <AccessDenied role={session.role} dark />
           ))}
+
+        {active === "operators" &&
+          (hasAccess ? (
+            <OperatorManager currentUsername={session.username} />
+          ) : (
+            <AccessDenied role={session.role} />
+          ))}
       </main>
 
       {/* ================= FOOTER (sticky) ================= */}
@@ -314,12 +327,13 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* Dialog ganti password (semua peran, butuh sesi aktif) */}
+      {/* Dialog ganti password (semua peran, butuh sesi aktif; mode wajib saat sandi sementara) */}
       <ChangePasswordDialog
         open={pwOpen}
         onOpenChange={setPwOpen}
         fullName={session.fullName}
         role={session.role}
+        mustChange={!!session.mustChangePassword}
         onPasswordChanged={refreshSession}
       />
     </div>

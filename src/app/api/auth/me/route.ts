@@ -13,6 +13,7 @@ export async function GET() {
       role: session.role,
       fullName: session.fullName,
       tpsId: session.tpsId,
+      mustChangePassword: session.mustChangePassword ?? false,
       exp: session.exp,
     },
   });

@@ -21,6 +21,7 @@ export interface OperatorSession {
   role: Role;
   fullName: string;
   tpsId: string | null;
+  mustChangePassword: boolean; // sandi sementara dari reset ITPO — wajib diganti
   exp: number; // epoch ms
 }
 

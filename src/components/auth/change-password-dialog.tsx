@@ -16,12 +16,14 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   fullName: string;
   role: string;
+  /** Mode wajib: sandi sementara aktif — dialog tidak bisa ditutup sebelum diganti. */
+  mustChange?: boolean;
   onPasswordChanged: () => Promise<void>; // dipanggil setelah sukses → refresh sesi (jadi null)
 }
 
 const MIN_LENGTH = 8;
 
-export function ChangePasswordDialog({ open, onOpenChange, fullName, role, onPasswordChanged }: Props) {
+export function ChangePasswordDialog({ open, onOpenChange, fullName, role, mustChange = false, onPasswordChanged }: Props) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -83,13 +85,17 @@ export function ChangePasswordDialog({ open, onOpenChange, fullName, role, onPas
     <Dialog
       open={open}
       onOpenChange={(o) => {
-        if (!busy) {
+        if (!busy && !mustChange) {
           onOpenChange(o);
           if (!o) reset();
         }
       }}
     >
-      <DialogContent className="rounded-[14px] border-2 border-[#141E19] bg-white p-0 shadow-[8px_8px_0px_#141E19] sm:max-w-[440px]">
+      <DialogContent
+        className="rounded-[14px] border-2 border-[#141E19] bg-white p-0 shadow-[8px_8px_0px_#141E19] sm:max-w-[440px]"
+        onInteractOutside={(e) => mustChange && e.preventDefault()}
+        onEscapeKeyDown={(e) => mustChange && e.preventDefault()}
+      >
         <div className="p-6">
           {!success ? (
             <>
@@ -99,7 +105,7 @@ export function ChangePasswordDialog({ open, onOpenChange, fullName, role, onPas
                     <KeyRound className="h-5 w-5 text-[#141E19]" aria-hidden />
                   </div>
                   <div className="text-left">
-                    <DialogTitle className="font-display text-xl font-extrabold tracking-[-0.02em] text-[#141E19]">Ganti Password</DialogTitle>
+                    <DialogTitle className="font-display text-xl font-extrabold tracking-[-0.02em] text-[#141E19]">{mustChange ? "Wajib Ganti Sandi" : "Ganti Password"}</DialogTitle>
                     <DialogDescription className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#7A8881]">
                       {fullName.split(" — ")[0]} • {role}
                     </DialogDescription>
@@ -108,6 +114,11 @@ export function ChangePasswordDialog({ open, onOpenChange, fullName, role, onPas
               </DialogHeader>
 
               <form onSubmit={submit} className="mt-5 space-y-3.5">
+                {mustChange && (
+                  <p className="rounded-[8px] border border-[#F2B705] bg-[#FEF5D6] px-3 py-2 text-[12.5px] font-semibold leading-relaxed text-[#8A5200]">
+                    Anda masuk dengan <strong>sandi sementara</strong> dari reset ITPO. Ganti sandi sekarang untuk melanjutkan — dialog ini tidak dapat ditutup sebelum sandi diganti.
+                  </p>
+                )}
                 <label className="block">
                   <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[#4A5851]">Password Lama</span>
                   <Input
@@ -155,18 +166,20 @@ export function ChangePasswordDialog({ open, onOpenChange, fullName, role, onPas
                 )}
 
                 <div className="flex gap-2.5 pt-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => {
-                      onOpenChange(false);
-                      reset();
-                    }}
-                    className="h-12 flex-1 rounded-[10px] border-2 border-[#141E19] bg-white text-[13px] font-extrabold text-[#141E19] shadow-[3px_3px_0px_#141E19] hover:bg-[#F6F4EE]"
-                  >
-                    BATAL
-                  </Button>
+                  {!mustChange && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => {
+                        onOpenChange(false);
+                        reset();
+                      }}
+                      className="h-12 flex-1 rounded-[10px] border-2 border-[#141E19] bg-white text-[13px] font-extrabold text-[#141E19] shadow-[3px_3px_0px_#141E19] hover:bg-[#F6F4EE]"
+                    >
+                      BATAL
+                    </Button>
+                  )}
                   <Button
                     type="submit"
                     disabled={busy || !filled || !matchOk}
