@@ -1,0 +1,136 @@
+// ============================================================
+// SMART PEMIRA — POLTEK CWE
+// Skema Database Zero-Knowledge Ballot (PRD.md Bab 9 + PROMPT.md Hukum 1-5)
+// HUKUM 1: TIDAK ADA relasi voter_id / nim di ballot_boxes & voting_tokens.
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- DOMAIN PROGRAM STUDI (Multi-Ballot Color Coding) ----------
+model StudyProgram {
+  id          String   @id // "BKS" | "TPHP" | "LOGISTIK" | "TRPL"
+  name        String
+  facultyName String
+  colorPrimary String // Hima ballot accent hex
+  colorTint    String // Hima ballot soft tint hex
+  voters      Voter[]
+  candidates  Candidate[]
+  votingTokens VotingToken[]
+}
+
+// ---------- DOMAIN TPS ----------
+model Tps {
+  id             String  @id // "TPS01"
+  name           String
+  location       String
+  chainSalt      String  @unique // salt per TPS untuk ballot hash chaining
+  lastChainHash  String  @default("") // head rantai hash SHA-256
+  voters         Voter[]
+  votingTokens   VotingToken[]
+  ballotBoxes    BallotBox[]
+}
+
+// ---------- DOMAIN PEMILIH (Voter Identification) ----------
+model Voter {
+  id              String    @id @default(uuid())
+  nim             String    @unique
+  name            String
+  angkatan        Int
+  studyProgramId  String
+  studyProgram    StudyProgram @relation(fields: [studyProgramId], references: [id])
+  tpsId           String
+  tps             Tps       @relation(fields: [tpsId], references: [id])
+  status          String    @default("BELUM_MEMILIH") // BELUM_MEMILIH | DALAM_ANTREAN | SUDAH_MEMILIH
+  hasVoted        Boolean   @default(false)
+  votedAt         DateTime?
+  // Sesi token aktif milik pemilih (arah voter→token, TANPA membalik ballot).
+  // Hash token aktif yang sedang dipegang; dikosongkan setelah suara terkirim
+  // sehingga tidak ada jembatan permanen identitas → suara.
+  pendingTokenHash String?
+  createdAt       DateTime  @default(now())
+}
+
+// ---------- DOMAIN TOKEN Ephemeral (TTL 10 menit) ----------
+// HUKUM 1: Tidak menyimpan voter_id — hanya token_hash + prodi untuk filter surat suara.
+model VotingToken {
+  id             String    @id @default(uuid())
+  tokenHash      String    @unique // SHA-256 dari token plaintext 6 karakter
+  tpsId          String
+  tps            Tps       @relation(fields: [tpsId], references: [id])
+  studyProgramId String
+  studyProgram   StudyProgram @relation(fields: [studyProgramId], references: [id])
+  status         String    @default("ACTIVE") // ACTIVE | USED | EXPIRED
+  issuedAt       DateTime  @default(now())
+  expiresAt      DateTime
+  usedAt         DateTime?
+}
+
+// ---------- DOMAIN SURAT SUARA Anonim (Anonymous Ballots) ----------
+// HUKUM 1 & 2: Tanpa identitas. Timestamp di-jitter, UUID acak, hash berantai per TPS.
+model BallotBox {
+  id          String    @id @default(uuid()) // UUIDv4 acak murni
+  category    String // PRESMA | DPM | HIMA
+  candidateId String?
+  candidate   Candidate? @relation(fields: [candidateId], references: [id])
+  isEmptyBox  Boolean   @default(false)
+  tpsId       String
+  tps         Tps       @relation(fields: [tpsId], references: [id])
+  createdAt   DateTime  @default(now()) // nilai diisi app dengan jitter acak
+  ballotHash  String // SHA-256 chain: prev + id + category + candidate + ts + salt
+}
+
+// ---------- DOMAIN KANDIDAT ----------
+model Candidate {
+  id             String  @id @default(uuid())
+  category       String // PRESMA | DPM | HIMA
+  studyProgramId String? // hanya untuk HIMA
+  studyProgram   StudyProgram? @relation(fields: [studyProgramId], references: [id])
+  number         Int // nomor urut
+  presidentName  String // Ketua/Presma/Gubernur
+  viceName       String? // Wakil (untuk DPM: Wakil Ketua)
+  vision         String
+  missionJson    String // JSON array of strings (SQLite tidak mendukung list)
+  photoAccent    String // warna aksen kartu kandidat
+  isEmptyBox     Boolean @default(false)
+  ballots        BallotBox[]
+}
+
+// ---------- DOMAIN AUDIT LOG (append-only, tanpa pilihan kandidat) ----------
+model AuditLog {
+  id        String   @id @default(uuid())
+  event     String // TOKEN_ISSUED | BALLOT_SUBMITTED | TOKEN_EXPIRED | PLENO_UNLOCK | ...
+  detail    String // deskripsi TANPA membocorkan pilihan suara
+  tpsId     String?
+  createdAt DateTime @default(now())
+}
+
+// ---------- DOMAIN LAPORAN SENGKETA (FR-08.2) ----------
+model ElectionIncident {
+  id            String   @id @default(uuid())
+  ticketNumber  String   @unique
+  reporterName  String
+  reporterNim   String
+  incidentType  String // PELANGGARAN_KAMPANYE | KECURANGAN_TPS | MALFUNGSI_SISTEM | LAINNYA
+  location      String
+  description   String
+  status        String   @default("SUBMITTED") // SUBMITTED | IN_REVIEW | RESOLVED | REJECTED
+  verdict       String?
+  createdAt     DateTime @default(now())
+}
+
+// ---------- DOMAIN PENGATURAN ELEKSI (FR-01) ----------
+model ElectionSetting {
+  id              String   @id @default("main")
+  votingOpen      Boolean  @default(true)
+  emergencyFreeze Boolean  @default(false)
+  plenoUnlocked   Boolean  @default(false) // HUKUM 5: Pleno Vault Lock
+  plenoUnlockedAt DateTime?
+  updatedAt       DateTime @updatedAt
+}
