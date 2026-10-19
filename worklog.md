@@ -64,3 +64,22 @@ Work Log:
 
 Stage Summary:
 - RBAC 5 peran + matriks kewenangan terimplementasi penuh di API (401/403) dan UI (gate, badge, disable per kewenangan); kredensial demo dipublikasikan di kartu login untuk kemudahan demo.
+
+---
+Task ID: 3 (Login-First RBAC Restructure)
+Agent: main (Z.ai)
+Task: Permintaan user — "yang pertama login page dulu, baru bisa akses isinya sesuai RBAC"
+
+Work Log:
+- Membuat src/components/auth/login-screen.tsx: layar login full-screen sebagai gerbang tunggal (panel brand espresso + panel form oat milk, peta terminal & kewenangan, matriks akun demo klik-untuk-isi, chip keamanan)
+- Merestrukturasi src/app/page.tsx: alur login-first — belum login → LoginScreen; sudah login → auto-landing ke terminal sesuai peran (ROLE_HOME) + navigasi difilter per peran (MODULE_ROLES); hapus LoginGate per-modul, ganti kartu AccessDenied 403
+- Menghapus src/components/auth/login-gate.tsx (tidak lagi dipakai)
+- Lint bersih; E2E suite 22 asersi lulus semua
+- Verifikasi browser 9 screenshot: login page, landing KPUM/PPUR/SAKSI/PANWASLU/ITPO, filter tab per peran, logout kembali ke login
+- Verifikasi server-side via curl: 401 tanpa sesi (ppur/voters, admin/overview, ppur/issue-token), 403 SAKSI→admin/settings, 403 ITPO→tally/unlock (Pleno Unlock khusus KPUM, FR-06.3)
+- Reset DB ke kondisi demo segar (44 DPT, 9 voted, pleno terkunci)
+
+Stage Summary:
+- Sistem kini berpola LOGIN-FIRST: / selalu dimulai dari halaman login; konten hanya muncul setelah sesi operator valid
+- Routing RBAC: ITPO→Publik(5 tab), KPUM→Dashboard KPUM, PPUR→Meja PPUR, PANWASLU/SAKSI→Monitor Panwaslu; tab modul lain disembunyikan bila tak berwenang
+- Dua lapis penegakan: UI filter navigasi + requireRole server-side (401/403) tetap dijaga
