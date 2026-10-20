@@ -246,8 +246,16 @@ async function main() {
   expect(realLogin.status === 200, "Akun asli TIDAK terdampak lockout username lain");
 
   // security headers
+  // Kebijakan frame sadar-lingkungan: server dev/preview sengaja TIDAK mengirim
+  // X-Frame-Options agar panel preview sandbox bisa embed (iframe lintas origin);
+  // produksi (NODE_ENV=production) wajib DENY + CSP frame-ancestors 'none'.
   const anyRes = await fetch(`${BASE}/api/health`);
-  expect(anyRes.headers.get("x-frame-options") === "DENY", "Security header X-Frame-Options: DENY");
+  const strictFrames = process.env.NODE_ENV === "production";
+  const xfo = anyRes.headers.get("x-frame-options");
+  expect(
+    strictFrames ? xfo === "DENY" : xfo !== "DENY",
+    `Security header kebijakan frame sesuai mode (${strictFrames ? "produksi: DENY" : "preview: embed diizinkan"})`,
+  );
   expect(anyRes.headers.get("x-content-type-options") === "nosniff", "Security header nosniff aktif");
 
   // ---------- Ringkasan ----------

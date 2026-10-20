@@ -125,3 +125,18 @@ Stage Summary:
 - 6 rekomendasi terimplementasi penuh + terverifikasi berlapis (API E2E 37 asersi + E2E lama + load test + browser)
 - Keamanan: brute force terhalang lockout eskalatif; siklus hidup akun lengkap di tangan ITPO; struk memberi E2E verifiability tanpa bocor identitas; BA anti-pemalsuan dengan verifikasi publik via QR; monitoring/CI siap
 - Catatan desain: SSE dipilih utk realtime (1 origin, auth cookie, tanpa port baru); SQLite serial write → PostgreSQL tetap rekomendasi #4 utk produksi
+
+---
+Task ID: 6 (Fix Preview "Refused to Connect")
+Agent: main (Z.ai)
+Task: Laporan user — "kok gini sandboxnya?" (panel preview menampilkan refused to connect)
+
+Work Log:
+- Diagnosa: server hidup & HTTP 200, tapi response memuat X-Frame-Options: DENY (di luar dari Rekomendasi #1) → iframe lintas origin di panel preview chat ditolak browser
+- next.config.ts: kebijakan frame kini sadar-lingkungan — dev/preview (NODE_ENV=development) TANPA header frame agar preview bisa embed; produksi (next build/start) X-Frame-Options: DENY + CSP frame-ancestors 'none' (lebih ketat dari sebelumnya)
+- e2e-features-test.ts: asersi header diganti sadar-mode (produksi wajib DENY, preview wajib mengizinkan embed)
+- Restart dev server; curl -I konfirmasi X-Frame-Options hilang di dev; health OK
+- Verifikasi penuh: lint bersih; E2E inti lulus; reseed; E2E fitur 37/37 lulus (termasuk asersi frame baru); reseed demo segar (44 DPT, 9 voted, pleno terkunci, chain head fdfba1db…)
+
+Stage Summary:
+- Panel preview kini dapat menampilkan aplikasi; proteksi anti-clickjacking tetap aktif otomatis pada deployment produksi

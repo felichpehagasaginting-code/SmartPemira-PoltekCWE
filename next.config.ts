@@ -2,9 +2,24 @@ import type { NextConfig } from "next";
 
 // Security headers (Rekomendasi #1 — hardening)
 // CSP sengaja tidak dipasang ketat: Next.js dev membutuhkan inline script;
-// proteksi framing/sniffing/referrer tetap aktif.
+// proteksi sniffing/referrer tetap aktif.
+//
+// Kebijakan framing (anti-clickjacking) sadar-lingkungan:
+// - dev/preview (NODE_ENV=development): TANPA header frame → panel preview
+//   sandbox (iframe lintas origin) tetap bisa menampilkan aplikasi.
+// - produksi (next build + next start): X-Frame-Options DENY + CSP
+//   frame-ancestors 'none' (standar modern, lebih ketat).
+const isProductionBuild = process.env.NODE_ENV === "production";
+
+const framePolicyHeaders = isProductionBuild
+  ? [
+      { key: "X-Frame-Options", value: "DENY" },
+      { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+    ]
+  : [];
+
 const securityHeaders = [
-  { key: "X-Frame-Options", value: "DENY" },
+  ...framePolicyHeaders,
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
