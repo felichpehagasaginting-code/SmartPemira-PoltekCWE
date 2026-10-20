@@ -143,7 +143,7 @@ export function PanwasluMonitor({ operatorRole }: { operatorRole?: string | null
             LIVE AUDIT MONITOR <span className="text-[#28A769]">PANWASLU</span>
           </h2>
           <p className="mt-1 text-[13px] text-[#9EB0A7]">
-            Pemantauan operasional TPS — audit trail append-only tanpa akses isi suara (FR-08.1, FR-08.4)
+            Pemantauan pemungutan online 100% — audit trail append-only tanpa akses isi suara (FR-08.1, FR-08.4)
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -154,11 +154,13 @@ export function PanwasluMonitor({ operatorRole }: { operatorRole?: string | null
           </Badge>
           <Badge variant="outline" className={`gap-1.5 rounded-full border ${data.votingOpen && !data.emergencyFreeze ? "border-[#28A769] text-[#28A769]" : "border-[#64786F] text-[#9EB0A7]"}`}>
             <span className={`h-1.5 w-1.5 rounded-full ${data.votingOpen && !data.emergencyFreeze ? "bg-[#28A769] live-dot" : "bg-[#64786F]"}`} />
-            {data.emergencyFreeze ? "EMERGENCY FREEZE" : data.votingOpen ? "TPS AKTIF" : "TPS DITUTUP"}
+            {data.emergencyFreeze ? "EMERGENCY FREEZE" : data.votingOpen ? "PEMUNGUTAN AKTIF" : "PEMUNGUTAN DITUTUP"}
           </Badge>
-          <Badge variant="outline" className={`gap-1.5 rounded-full border font-mono-tabular ${data.integrity.valid ? "border-[#28A769] text-[#28A769]" : "border-[#E05A47] text-[#E05A47]"}`}>
+          <Badge variant="outline" className={`gap-1.5 rounded-full border font-mono-tabular ${data.integrity.allValid ? "border-[#28A769] text-[#28A769]" : "border-[#E05A47] text-[#E05A47]"}`}>
             <ShieldCheck className="h-3 w-3" />
-            {data.integrity.valid ? "✓ SHA-256 VERIFIED" : "✗ CHAIN BROKEN"}
+            {data.integrity.allValid
+              ? `✓ SHA-256 VERIFIED — ${data.integrity.chains.filter((c) => c.valid).length}/${data.integrity.chains.length} RANTAI`
+              : "✗ CHAIN BROKEN"}
           </Badge>
         </div>
       </div>
@@ -194,14 +196,60 @@ export function PanwasluMonitor({ operatorRole }: { operatorRole?: string | null
           </div>
           <p className="mt-1.5 text-[11px] font-semibold text-[#9EB0A7]">{data.kpis.sudahMemilih} dari {data.kpis.dptTotal} pemilih</p>
         </div>
-        <KpiCard label="Token Aktif di Bilik" value={String(data.kpis.tokenAktif)} sub={`${data.kpis.dalamAntrean} pemilih dalam antrean • ${data.kpis.tokenExpired} kedaluwarsa`} icon={<Hourglass className="h-4 w-4" />} accent="#F5C431" />
+        <KpiCard label="Token Aktif Online" value={String(data.kpis.tokenAktif)} sub={`${data.kpis.dalamAntrean} pemilih dalam antrean • ${data.kpis.tokenExpired} kedaluwarsa`} icon={<Hourglass className="h-4 w-4" />} accent="#F5C431" />
         <KpiCard
-          label="Integritas Hash Chain"
-          value={data.integrity.valid ? "VALID" : "BROKEN"}
-          sub={`${data.integrity.checkedCount} blok diverifikasi • head ${data.integrity.headHash.slice(0, 10)}…`}
+          label="Integritas 5 Rantai Prodi"
+          value={data.integrity.allValid ? "VALID" : "BROKEN"}
+          sub={`${data.integrity.totalChecked} blok diverifikasi • ${data.integrity.chains.filter((c) => c.valid).length}/${data.integrity.chains.length} rantai sah`}
           icon={<Hash className="h-4 w-4" />}
-          accent={data.integrity.valid ? "#28A769" : "#E05A47"}
+          accent={data.integrity.allValid ? "#28A769" : "#E05A47"}
         />
+      </div>
+
+      {/* Strip 5 rantai prodi + statistik re-vote (Pemira 100% online + Estonia) */}
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <div className="bento-card p-4 lg:col-span-2">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#9EB0A7]">Rantai Hash per Prodi — Head & Integritas</p>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {data.integrity.chains.map((c) => (
+              <div
+                key={c.tpsId}
+                className={`rounded-[8px] border-2 px-3 py-2 ${c.valid ? "border-[#28A769]/60 bg-[#15221D]" : "border-[#E05A47] bg-[#2A1B18]"}`}
+                title={`${c.name} — head ${c.headHash.slice(0, 16)}…`}
+              >
+                <p className={`font-mono text-[11px] font-extrabold tracking-wide ${c.valid ? "text-[#28A769]" : "text-[#FF8A7A]"}`}>
+                  {c.tpsId} {c.valid ? "✓" : "✗"}
+                </p>
+                <p className="font-mono-tabular text-[10px] text-[#9EB0A7]">{c.checkedCount} blok</p>
+                <p className="font-mono-tabular text-[9px] text-[#64786F]">{c.headHash.slice(0, 10)}…</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="bento-card p-4">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#9EB0A7]">Re-vote (Model Estonia)</p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="rounded-[8px] bg-[#1D2E27] px-3 py-2">
+              <p className="font-display text-xl font-extrabold tabular-nums text-[#F4F1EA]">{data.revoteStats?.tokensRevoted ?? 0}</p>
+              <p className="text-[10px] font-semibold text-[#9EB0A7]">token ganti suara</p>
+            </div>
+            <div className="rounded-[8px] bg-[#1D2E27] px-3 py-2">
+              <p className="font-display text-xl font-extrabold tabular-nums text-[#F4F1EA]">{data.revoteStats?.supersededBallots ?? 0}</p>
+              <p className="text-[10px] font-semibold text-[#9EB0A7]">blok usang (tak dihitung)</p>
+            </div>
+            <div className="rounded-[8px] bg-[#1D2E27] px-3 py-2">
+              <p className="font-display text-xl font-extrabold tabular-nums text-[#F4F1EA]">{data.revoteStats?.lockedTokens ?? 0}</p>
+              <p className="text-[10px] font-semibold text-[#9EB0A7]">suara dikunci final</p>
+            </div>
+            <div className="rounded-[8px] bg-[#1D2E27] px-3 py-2">
+              <p className="font-display text-xl font-extrabold tabular-nums text-[#F4F1EA]">{data.kpis.revokedTokens ?? 0}</p>
+              <p className="text-[10px] font-semibold text-[#9EB0A7]">token dicabut petugas</p>
+            </div>
+          </div>
+          <p className="mt-2 text-[10.5px] leading-relaxed text-[#64786F]">
+            Suara terakhir per token yang dihitung; token REVOKED dikecualikan seluruhnya.
+          </p>
+        </div>
       </div>
 
       <div className="mt-6 grid gap-5 xl:grid-cols-3">

@@ -1,6 +1,12 @@
 // ============================================================
-// TALLY SERVICE — Rekapitulasi & Hukum 3 (Calon Tunggal / Seri)
+// TALLY SERVICE — Rekapitulasi latest-ballot-wins & Hukum 3
+// Re-vote model Estonia (keputusan diskusi 2026-10-20):
+//  - Dari seluruh versi suara satu token, HANYA blok dengan voteVersion
+//    tertinggi yang dihitung. Versi lama tetap ada di rantai (append-only)
+//    tapi tidak masuk rekap.
+//  - Token REVOKED (dicabut petugas): seluruh bloknya dikecualikan.
 // HUKUM 5: hasil hanya boleh diakses setelah Pleno Unlocking.
+// Integritas diverifikasi per rantai prodi (5 rantai virtual).
 // ============================================================
 import { db } from "@/lib/db";
 import { SINGLE_CANDIDATE_THRESHOLD, type ElectionCategory } from "@/lib/constants/election";
@@ -30,40 +36,99 @@ export interface CategoryResult {
   outcomeDetail: string;
 }
 
+export interface ChainIntegrity {
+  tpsId: string;
+  name: string;
+  valid: boolean;
+  checkedCount: number;
+  headHash: string;
+  brokenAtIndex: number | null;
+}
+
 export interface TallyReport {
   unlocked: boolean;
   unlockedAt: string | null;
   categories: CategoryResult[];
-  integrity: { valid: boolean; checkedCount: number; headHash: string };
+  integrity: { allValid: boolean; chains: ChainIntegrity[]; totalChecked: number };
+  /** Statistik re-vote (Estonia) */
+  revoteStats: {
+    tokensVoted: number; // token dengan minimal satu suara
+    tokensRevoted: number; // token yang pernah mengganti suara
+    supersededBallots: number; // jumlah blok versi lama yang tidak dihitung
+    lockedTokens: number; // token yang dikunci pemilih (final)
+  };
   generatedAt: string;
 }
 
 export async function getTallyReport(): Promise<TallyReport> {
   const setting = await db.electionSetting.findUnique({ where: { id: "main" } });
-  const tps = await db.tps.findFirst();
+  const [chains, tokens, allBallots] = await Promise.all([
+    db.tps.findMany({ orderBy: { id: "asc" } }),
+    db.votingToken.findMany({ select: { id: true, status: true, lockedAt: true, revoteCount: true } }),
+    db.ballotBox.findMany({ orderBy: { createdAt: "asc" } }),
+  ]);
 
-  const integrityBallots = await db.ballotBox.findMany({
-    where: { tpsId: tps?.id },
-    orderBy: { createdAt: "asc" },
+  const { verifyChain } = await import("@/lib/crypto/ballot-hash-chain");
+
+  // ---------- Integritas per rantai prodi ----------
+  const chainResults: ChainIntegrity[] = chains.map((tps) => {
+    const chainBallots = allBallots
+      .filter((b) => b.tpsId === tps.id)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const res = verifyChain(
+      chainBallots.map((b) => ({
+        id: b.id,
+        category: b.category,
+        candidateId: b.candidateId,
+        isEmptyBox: b.isEmptyBox,
+        createdAt: b.createdAt,
+        ballotHash: b.ballotHash,
+      })),
+      tps.chainSalt,
+      tps.lastChainHash
+    );
+    return {
+      tpsId: tps.id,
+      name: tps.name,
+      valid: res.valid,
+      checkedCount: res.checkedCount,
+      headHash: tps.lastChainHash,
+      brokenAtIndex: res.brokenAtIndex,
+    };
   });
 
-  // Verifikasi hash chain (dilakukan selalu — bagian audit)
-  const { verifyChain } = await import("@/lib/crypto/ballot-hash-chain");
-  const integrity = verifyChain(
-    integrityBallots.map((b) => ({
-      id: b.id,
-      category: b.category,
-      candidateId: b.candidateId,
-      isEmptyBox: b.isEmptyBox,
-      createdAt: b.createdAt,
-      ballotHash: b.ballotHash,
-    })),
-    tps?.chainSalt ?? "",
-    tps?.lastChainHash ?? ""
+  // ---------- Latest-ballot-wins (Estonia) ----------
+  const revokedTokenIds = new Set(tokens.filter((t) => t.status === "REVOKED").map((t) => t.id));
+  const validBallots = allBallots.filter((b) => !b.tokenId || !revokedTokenIds.has(b.tokenId));
+
+  // Versi maksimum per token
+  const maxVersion = new Map<string, number>();
+  for (const b of validBallots) {
+    if (!b.tokenId) continue;
+    const cur = maxVersion.get(b.tokenId) ?? 0;
+    if (b.voteVersion > cur) maxVersion.set(b.tokenId, b.voteVersion);
+  }
+
+  const effective = validBallots.filter(
+    (b) => !b.tokenId || b.voteVersion === (maxVersion.get(b.tokenId) ?? b.voteVersion)
   );
+
+  const supersededBallots = validBallots.length - effective.length;
+
+  const revoteStats = {
+    tokensVoted: tokens.filter((t) => t.status === "USED").length,
+    tokensRevoted: tokens.filter((t) => t.revoteCount > 0).length,
+    supersededBallots,
+    lockedTokens: tokens.filter((t) => t.lockedAt !== null && t.status !== "REVOKED").length,
+  };
 
   const unlocked = setting?.plenoUnlocked ?? false;
   const generatedAt = new Date().toISOString();
+  const integrity = {
+    allValid: chainResults.every((c) => c.valid),
+    chains: chainResults,
+    totalChecked: chainResults.reduce((s, c) => s + c.checkedCount, 0),
+  };
 
   if (!unlocked) {
     // HUKUM 5: sebelum pleno, jangan pernah bocorkan distribusi suara.
@@ -71,11 +136,8 @@ export async function getTallyReport(): Promise<TallyReport> {
       unlocked: false,
       unlockedAt: setting?.plenoUnlockedAt?.toISOString() ?? null,
       categories: [],
-      integrity: {
-        valid: integrity.valid,
-        checkedCount: integrity.checkedCount,
-        headHash: tps?.lastChainHash ?? "",
-      },
+      integrity,
+      revoteStats,
       generatedAt,
     };
   }
@@ -86,42 +148,43 @@ export async function getTallyReport(): Promise<TallyReport> {
     db.candidate.findMany({ where: { category: "HIMA" }, orderBy: { number: "asc" } }),
   ]);
 
-  const himaVotes = await db.ballotBox.groupBy({
-    by: ["candidateId"],
-    where: { category: "HIMA" },
-    _count: { _all: true },
-  });
+  // ---------- Agregasi suara efektif (in-memory) ----------
+  // Karena rantai sekarang per prodi, ballot.tpsId == prodi pemilih —
+  // atribusi suara HIMA (termasuk kotak kosong) menjadi PERSIS per prodi.
+  const countInstitution = (category: string) => {
+    const map = new Map<string, number>(); // candidateId | "__EMPTY__" → count
+    for (const b of effective) {
+      if (b.category !== category) continue;
+      const key = b.isEmptyBox ? "__EMPTY__" : (b.candidateId ?? "__EMPTY__");
+      map.set(key, (map.get(key) ?? 0) + 1);
+    }
+    return map;
+  };
+
+  const countHimaPerProdi = (prodiId: string) => {
+    const map = new Map<string, number>();
+    for (const b of effective) {
+      if (b.category !== "HIMA" || b.tpsId !== prodiId) continue;
+      const key = b.isEmptyBox ? "__EMPTY__" : (b.candidateId ?? "__EMPTY__");
+      map.set(key, (map.get(key) ?? 0) + 1);
+    }
+    return map;
+  };
 
   const categories: CategoryResult[] = [];
 
-  // ---------- PRESMA ----------
-  categories.push(await buildCategoryResult("PRESMA", null, null, presmaCandidates));
+  // Urutan laporan mengikuti urutan pemungutan resmi: DPM → BEM → HIMA
+  categories.push(buildCategoryResult("DPM", null, null, dpmCandidates, countInstitution("DPM")));
+  categories.push(buildCategoryResult("PRESMA", null, null, presmaCandidates, countInstitution("PRESMA")));
 
-  // ---------- DPM ----------
-  categories.push(await buildCategoryResult("DPM", null, null, dpmCandidates));
-
-  // ---------- HIMA per prodi ----------
   const prodiIds = Array.from(
     new Set(himaCandidates.map((c) => c.studyProgramId).filter(Boolean) as string[])
   );
-  // Total suara kotak kosong kategori HIMA. Atribusi ke prodi bersangkutan:
-  // karena suara anonim tidak membawa prodi, kotak kosong dialokasikan ke
-  // prodi dengan kandidat tunggal (satu-satunya skenario yang memunculkan
-  // kotak kosong). Pada seed ini hanya BKS yang calon tunggal.
-  const himaEmptyTotal =
-    himaVotes.find((v) => v.candidateId === null && v.isEmptyBox === true)?._count._all ?? 0;
   for (const prodiId of prodiIds) {
     const prodi = await db.studyProgram.findUnique({ where: { id: prodiId } });
     const cands = himaCandidates.filter((c) => c.studyProgramId === prodiId);
-    const isSingleCandidateProdi = cands.filter((c) => !c.isEmptyBox).length === 1;
     categories.push(
-      await buildCategoryResult(
-        "HIMA",
-        prodiId,
-        prodi?.name ?? prodiId,
-        cands,
-        isSingleCandidateProdi ? himaEmptyTotal : 0
-      )
+      buildCategoryResult("HIMA", prodiId, prodi?.name ?? prodiId, cands, countHimaPerProdi(prodiId))
     );
   }
 
@@ -129,16 +192,13 @@ export async function getTallyReport(): Promise<TallyReport> {
     unlocked: true,
     unlockedAt: setting?.plenoUnlockedAt?.toISOString() ?? null,
     categories,
-    integrity: {
-      valid: integrity.valid,
-      checkedCount: integrity.checkedCount,
-      headHash: tps?.lastChainHash ?? "",
-    },
+    integrity,
+    revoteStats,
     generatedAt,
   };
 }
 
-async function buildCategoryResult(
+function buildCategoryResult(
   category: ElectionCategory,
   studyProgramId: string | null,
   studyProgramName: string | null,
@@ -149,26 +209,11 @@ async function buildCategoryResult(
     viceName: string | null;
     isEmptyBox: boolean;
   }>,
-  forcedEmptyBoxVotes: number = 0
-): Promise<CategoryResult> {
-  // Untuk HIMA: suara kotak kosong perlu dipetakan ke prodi mana pun karena
-  // kotak kosong tidak membawa prodi; total per prodi dihitung dari kandidat + share kotak kosong.
-  const voteCounts = await db.ballotBox.groupBy({
-    by: ["candidateId", "isEmptyBox"],
-    where: { category },
-    _count: { _all: true },
-  });
-
-  const countFor = (candidateId: string | null) =>
-    voteCounts.find((v) => v.candidateId === candidateId && v.isEmptyBox === (candidateId === null))
-      ?._count._all ?? 0;
-
+  voteMap: Map<string, number>
+): CategoryResult {
   const results: CandidateResult[] = candidates.map((c) => {
-    const isEmptyRow = c.isEmptyBox;
-    // Kotak kosong: gunakan atribusi paksa (prodi kandidat tunggal) bila tersedia
-    const votes = isEmptyRow
-      ? Math.max(countFor(null), forcedEmptyBoxVotes)
-      : countFor(c.id);
+    const key = c.isEmptyBox ? "__EMPTY__" : c.id;
+    const votes = voteMap.get(key) ?? 0;
     return {
       candidateId: c.isEmptyBox ? null : c.id,
       number: c.number,
@@ -187,7 +232,6 @@ async function buildCategoryResult(
 
   // ---------- HUKUM 3 & 7.3 ----------
   const realCandidates = results.filter((r) => !r.isEmptyBox);
-  const emptyBox = results.find((r) => r.isEmptyBox);
   const sorted = [...results].sort((a, b) => b.votes - a.votes);
 
   let outcome: CategoryResult["outcome"] = "PEMENANG_SEMENTARA";

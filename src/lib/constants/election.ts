@@ -6,7 +6,7 @@
 export type ElectionCategory = "PRESMA" | "DPM" | "HIMA";
 
 export const CATEGORY_LABEL: Record<ElectionCategory, string> = {
-  PRESMA: "Presma & Wapresma (BEM)",
+  PRESMA: "BEM — Presma & Wapresma",
   DPM: "Pimpinan DPM",
   HIMA: "Ketua Hima Prodi",
 };

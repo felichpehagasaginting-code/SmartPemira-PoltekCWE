@@ -1,5 +1,8 @@
-// POST /api/kiosk/validate — Validasi token & muat surat suara sesuai prodi (FR-05.2, Hukum 4)
-// Server-side assertion: hanya surat suara Hima prodi pemilih yang dikirim ke klien.
+// POST /api/pemilih/validate — Validasi token Portal Pemilih (100% Online BYOD)
+// & muat surat suara sesuai prodi (FR-05.2, Hukum 4). Urutan pemungutan resmi:
+// Surat Suara 1 = DPM → Surat Suara 2 = BEM (Presma) → Surat Suara 3 = HIMA Prodi.
+// Re-vote model Estonia: token USED masih bisa membuka bilik ulang (suara terakhir menang)
+// selama pemungutan terbuka dan token belum dikunci/dicabut.
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hashToken } from "@/lib/crypto/token-generator";
@@ -11,7 +14,7 @@ import { clientIp, generalLimit } from "@/lib/server/rate-limit";
 export async function POST(req: NextRequest) {
   try {
     // Anti-brute force: maks 30 validasi token/menit per IP (Rekomendasi #1)
-    const limit = generalLimit(`kioskval:${clientIp(req.headers)}`, 30, 60_000);
+    const limit = generalLimit(`pemilihval:${clientIp(req.headers)}`, 30, 60_000);
     if (!limit.allowed) {
       return NextResponse.json(
         { ok: false, message: `Terlalu banyak percobaan token. Coba lagi dalam ${Math.ceil(limit.retryAfterSec)} detik.` },
@@ -46,11 +49,20 @@ export async function POST(req: NextRequest) {
     if (!token) {
       return NextResponse.json({ ok: false, message: "Token tidak dikenali. Periksa kembali atau hubungi petugas PPUR." }, { status: 401 });
     }
-    if (token.status === "USED") {
-      return NextResponse.json({ ok: false, message: "Token telah digunakan dan dihanguskan (single-use)." }, { status: 409 });
+    if (token.status === "REVOKED") {
+      return NextResponse.json({ ok: false, message: "Token telah dicabut petugas PPUR. Seluruh suara token ini dibatalkan." }, { status: 403 });
     }
-    if (token.status !== "ACTIVE" || token.expiresAt.getTime() < Date.now()) {
-      return NextResponse.json({ ok: false, message: "Token kedaluwarsa. Minta token ulang di meja PPUR." }, { status: 401 });
+    if (token.lockedAt) {
+      return NextResponse.json({ ok: false, message: "Suara sudah DIKUNCI (final) — pilihanmu tersimpan dan tidak dapat diganti lagi." }, { status: 403 });
+    }
+
+    // Re-vote (Estonia): token USED = sudah pernah memilih, bilik dibuka ulang
+    const isRevote = token.status === "USED";
+    if (!isRevote) {
+      // Vote PERTAMA wajib ACTIVE dalam TTL
+      if (token.status !== "ACTIVE" || token.expiresAt.getTime() < Date.now()) {
+        return NextResponse.json({ ok: false, message: "Token kedaluwarsa. Minta token ulang di pos bantuan PPUR." }, { status: 401 });
+      }
     }
 
     // ---------- Muat surat suara (Hukum 4: filter server-side) ----------
@@ -89,36 +101,40 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
+      isRevote,
+      voteVersion: token.revoteCount + (isRevote ? 2 : 1),
       session: {
-        expiresAt: token.expiresAt.toISOString(),
-        tpsName: tps?.name ?? "",
+        // Vote pertama: TTL berjalan. Re-vote: tanpa TTL (sampai pemungutan ditutup)
+        expiresAt: isRevote ? null : token.expiresAt.toISOString(),
+        chainName: tps?.name ?? "",
         studyProgramId: token.studyProgramId,
         studyProgramName: prodi?.name ?? "",
         himaName: prodi?.facultyName ?? "",
       },
+      // Urutan resmi: DPM → BEM → HIMA (keputusan diskusi 2026-10-20)
       ballots: [
-        {
-          category: "PRESMA",
-          stepTitle: "Presma & Wapresma",
-          institutionLabel: "Tingkat Institusi — Seluruh Mahasiswa",
-          color: BALLOT_CATEGORY_COLORS.PRESMA.primary,
-          tint: BALLOT_CATEGORY_COLORS.PRESMA.tint,
-          singleCandidateScenario: false,
-          candidates: presma.map(parse),
-        },
         {
           category: "DPM",
           stepTitle: "Pimpinan DPM",
-          institutionLabel: "Tingkat Institusi — Legislatif",
+          institutionLabel: "Surat Suara 1 — Tingkat Institusi (Legislatif)",
           color: BALLOT_CATEGORY_COLORS.DPM.primary,
           tint: BALLOT_CATEGORY_COLORS.DPM.tint,
           singleCandidateScenario: false,
           candidates: dpm.map(parse),
         },
         {
+          category: "PRESMA",
+          stepTitle: "BEM — Presma & Wapresma",
+          institutionLabel: "Surat Suara 2 — Tingkat Institusi (Eksekutif)",
+          color: BALLOT_CATEGORY_COLORS.PRESMA.primary,
+          tint: BALLOT_CATEGORY_COLORS.PRESMA.tint,
+          singleCandidateScenario: false,
+          candidates: presma.map(parse),
+        },
+        {
           category: "HIMA",
           stepTitle: `Ketua ${prodi?.facultyName ?? "Hima Prodi"}`,
-          institutionLabel: `Tingkat Program Studi — ${prodi?.name ?? ""}`,
+          institutionLabel: `Surat Suara 3 — Tingkat Program Studi: ${prodi?.name ?? ""}`,
           color: himaColor?.colorPrimary ?? "#3F4743",
           tint: himaColor?.colorTint ?? "#ECEAE4",
           singleCandidateScenario: isEmptyBoxScenario,

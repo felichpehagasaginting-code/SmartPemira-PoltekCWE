@@ -50,12 +50,13 @@ function RealQr({ text, size = 132 }: { text: string; size?: number }) {
 }
 
 interface BaDocument {
-  tpsName: string;
-  tpsLocation: string;
+  electionName: string;
   plenoUnlockedAt: string | null;
   generatedAt: string;
   totals: { dptTotal: number; voted: number; absent: number; ballots: number; tokenUsed: number; turnoutPct: number };
-  integrity: { valid: boolean; checkedCount: number; headHash: string };
+  revoteStats: { tokensVoted: number; tokensRevoted: number; supersededBallots: number; lockedTokens: number };
+  integrity: { allValid: boolean; chains: Array<{ tpsId: string; name: string; valid: boolean; checkedCount: number; headHash: string }>; totalChecked: number };
+  chains: Array<{ id: string; name: string; location: string; headHash: string }>;
   signatories: { kpum: string; panwaslu: string };
   signature: string;
   algorithm: string;
@@ -149,7 +150,7 @@ export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }
     }
   };
 
-  const { settings, stats, candidates, voters, tps } = data;
+  const { settings, stats, candidates, voters, chains } = data;
   const filteredVoters = dptQuery
     ? voters.filter((v) => v.nim.includes(dptQuery) || v.name.toLowerCase().includes(dptQuery.toLowerCase()))
     : voters;
@@ -193,9 +194,9 @@ export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }
             <Lock className="h-3 w-3" /> PLENO VAULT TERKUNCI
           </Badge>
         )}
-        {tps && (
+        {chains && chains.length > 0 && (
           <span className="text-xs text-[#7A8881]">
-            {tps.name} — {tps.location} • Chain head: <span className="font-mono-tabular">{tps.lastChainHash.slice(0, 16)}…</span>
+            {chains.length} rantai online ({chains.map((c) => c.id).join(", ")}) • Total blok: <span className="font-mono-tabular">{stats.ballots}</span>
           </span>
         )}
       </div>
@@ -413,7 +414,7 @@ export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }
                 BERITA ACARA REKAPITULASI HASIL PEMIRA — MODEL C-KWE
               </h2>
               <p className="mt-1 text-[12px] text-[#4A5851]">
-                Sesuai RUU Pemira Pasal 64 — {tps?.name}, {tps?.location}
+                Sesuai RUU Pemira Pasal 64 — Pemungutan Online ({chains.map((c) => c.id).join(", ")})
               </p>
             </div>
 
@@ -499,7 +500,7 @@ export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }
                       QR Verifikasi Publik — pindai untuk memeriksa keaslian dokumen
                       <br />
                       <span className="font-mono-tabular text-[10px] text-[#7A8881]">
-                        Chain head: {baDoc.integrity.headHash.slice(0, 24)}… ({baDoc.integrity.checkedCount} blok ✓)
+                        {baDoc.integrity.chains.filter((c) => c.valid).length}/{baDoc.integrity.chains.length} rantai sah • {baDoc.integrity.totalChecked} blok ✓ • Re-vote: {baDoc.revoteStats.tokensRevoted} token
                       </span>
                     </p>
                     <button

@@ -1,12 +1,16 @@
 "use client";
 
 // ============================================================
-// KIOSK BILIK SUARA — FR-05 (Multi-Ballot Wizard, Tactile UI)
-// Alur: Gate Token → 3 Surat Suara → Review → Sukses (auto reset 3s)
-// DESIGN.md 8.2: Tactile Neo-Brutalism, banner warna per tahap,
-// keypad virtual, countdown TTL terracotta < 2 menit.
+// PORTAL PEMILIH — Pemira 100% Online (BYOD) + Re-vote model Estonia
+// Keputusan diskusi 2026-10-20:
+//  - Pintu suara tunggal dari device sendiri (HP/laptop), mobile-first
+//  - Token dari pos bantuan PPUR (scan QR slip / ketik manual)
+//  - Urutan resmi: DPM → BEM → HIMA
+//  - Setelah submit: suara tercatat (struk + versi) → pemilih dapat
+//    MENGGANTI SUARA sampai pemungutan ditutup, atau KUNCI SUARAKU (final)
 // ============================================================
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { BallotPayload, KioskSession } from "@/lib/types";
 import {
@@ -15,18 +19,26 @@ import {
   Check,
   ChevronLeft,
   Delete,
-  Droplets,
   Lock,
+  RefreshCcw,
   ReceiptText,
   ShieldCheck,
   Timer,
+  ScanLine,
 } from "lucide-react";
 
-type Phase = "gate" | "ballot" | "review" | "submitting" | "success";
+type Phase = "gate" | "ballot" | "review" | "submitting" | "success" | "locked";
 type Selections = Record<string, string | "EMPTY">;
 
 const EMPTY_BOX_COLOR = "#3F4743";
 const EMPTY_BOX_TINT = "#ECEAE4";
+
+/** Label stepper mengikuti nomenklatur resmi: DPM → BEM → HIMA */
+function stepLabel(category: string, prodiId: string): string {
+  if (category === "PRESMA") return "BEM";
+  if (category === "DPM") return "DPM";
+  return `HIMA ${prodiId}`;
+}
 
 function CandidateAvatar({ name, accent, size = 72 }: { name: string; accent: string; size?: number }) {
   const initials = name === "KOTAK KOSONG" ? "□" : name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
@@ -113,29 +125,78 @@ function BallotCandidateCard({
   );
 }
 
-export function KioskTerminal() {
+export function PemilihPortal() {
+  const searchParams = useSearchParams();
   const [phase, setPhase] = useState<Phase>("gate");
   const [tokenChars, setTokenChars] = useState<string[]>(Array(6).fill(""));
   const [gateError, setGateError] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
   const [session, setSession] = useState<KioskSession | null>(null);
+  const [isRevote, setIsRevote] = useState(false);
   const [ballots, setBallots] = useState<BallotPayload[]>([]);
   const [step, setStep] = useState(0);
   const [selections, setSelections] = useState<Selections>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [remainingMs, setRemainingMs] = useState(0);
   const [submittingMsg, setSubmittingMsg] = useState("Mengenkripsi & Mengacak Suara...");
-  const [successCountdown, setSuccessCountdown] = useState(3);
-  const [receiptCode, setReceiptCode] = useState<string | null>(null); // Rekomendasi #6
+  const [receiptCode, setReceiptCode] = useState<string | null>(null);
+  const [voteVersion, setVoteVersion] = useState(1);
+  const [lockBusy, setLockBusy] = useState(false);
   const activeTokenRef = useRef<string>("");
+  const autoTriedRef = useRef<string>("");
 
   const current = ballots[step];
 
-  /** Hitung mundur TTL token */
+  const fillToken = useCallback((token: string) => {
+    setTokenChars(token.slice(0, 6).padEnd(6, " ").split("").map((c) => (c === " " ? "" : c)));
+  }, []);
+
+  const validateToken = useCallback(async (token: string) => {
+    setValidating(true);
+    setGateError(null);
+    try {
+      const res = await fetch("/api/pemilih/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        setGateError(json.message ?? "Token tidak sah.");
+        return false;
+      }
+      setSession(json.session);
+      setBallots(json.ballots);
+      setIsRevote(Boolean(json.isRevote));
+      setVoteVersion(json.voteVersion ?? 1);
+      setSelections({});
+      setStep(0);
+      setPhase("ballot");
+      return true;
+    } catch {
+      setGateError("Koneksi ke server bilik suara gagal.");
+      return false;
+    } finally {
+      setValidating(false);
+    }
+  }, []);
+
+  // Auto-isi & auto-validasi token dari QR (?token=XXXXXX pada slip PPUR)
   useEffect(() => {
-    if (!session || (phase !== "ballot" && phase !== "review")) return;
+    const q = (searchParams.get("token") ?? "").trim().toUpperCase();
+    if (q.length === 6 && /^[A-Z0-9]{6}$/.test(q) && autoTriedRef.current !== q) {
+      autoTriedRef.current = q;
+      fillToken(q);
+      activeTokenRef.current = q;
+      void validateToken(q);
+    }
+  }, [searchParams, fillToken, validateToken]);
+
+  /** Hitung mundur TTL token — hanya vote PERTAMA (re-vote tanpa TTL) */
+  useEffect(() => {
+    if (!session || !session.expiresAt || (phase !== "ballot" && phase !== "review")) return;
     const tick = () => {
-      const left = new Date(session.expiresAt).getTime() - Date.now();
+      const left = new Date(session.expiresAt!).getTime() - Date.now();
       setRemainingMs(Math.max(0, left));
       if (left <= 0) {
         setPhase("gate");
@@ -143,7 +204,7 @@ export function KioskTerminal() {
         setBallots([]);
         setSelections({});
         setTokenChars(Array(6).fill(""));
-        setGateError("Token kedaluwarsa saat berada di bilik. Minta token baru di meja PPUR.");
+        setGateError("Token kedaluwarsa saat berada di bilik. Minta token baru di pos bantuan PPUR.");
       }
     };
     tick();
@@ -161,58 +222,16 @@ export function KioskTerminal() {
     setSelections({});
     setSubmitError(null);
     setReceiptCode(null);
+    setIsRevote(false);
     activeTokenRef.current = "";
   }, []);
-
-  const validateToken = useCallback(async (token: string) => {
-    setValidating(true);
-    setGateError(null);
-    try {
-      const res = await fetch("/api/kiosk/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
-      const json = await res.json();
-      if (!json.ok) {
-        setGateError(json.message ?? "Token tidak sah.");
-        return;
-      }
-      setSession(json.session);
-      setBallots(json.ballots);
-      setSelections({});
-      setStep(0);
-      setPhase("ballot");
-    } catch {
-      setGateError("Koneksi ke server bilik suara gagal.");
-    } finally {
-      setValidating(false);
-    }
-  }, []);
-
-  /** Suara terkirim → layar sukses 3 detik → auto reset */
-  useEffect(() => {
-    if (phase !== "success") return;
-    setSuccessCountdown(3);
-    const t = setInterval(() => {
-      setSuccessCountdown((c) => {
-        if (c <= 1) {
-          clearInterval(t);
-          resetAll();
-          return 0;
-        }
-        return c - 1;
-      });
-    }, 1000);
-    return () => clearInterval(t);
-  }, [phase, resetAll]);
 
   const submitVote = useCallback(async () => {
     if (!session) return;
     setPhase("submitting");
-    setSubmittingMsg("Mengenkripsi & Mengacak Suara...");
+    setSubmittingMsg(isRevote ? "Mengganti Suara Anda..." : "Mengenkripsi & Mengacak Suara...");
     try {
-      const res = await fetch("/api/kiosk/submit", {
+      const res = await fetch("/api/pemilih/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -230,27 +249,53 @@ export function KioskTerminal() {
         setPhase("review");
         return;
       }
-      setReceiptCode(json.receiptCode ?? null); // Rekomendasi #6: struk suara
+      setReceiptCode(json.receiptCode ?? null);
+      setVoteVersion(json.voteVersion ?? 1);
+      setIsRevote(Boolean(json.isRevote));
       setPhase("success");
     } catch {
-      setSubmitError("Koneksi gagal saat mengirim suara. Suara tidak terkirim — hubungi petugas.");
+      setSubmitError("Koneksi gagal saat mengirim suara. Suara tidak terkirim — coba lagi atau hubungi pos bantuan.");
       setPhase("review");
     }
-  }, [session, selections]);
+  }, [session, selections, isRevote]);
 
-  const pressKey = useCallback(
-    (key: string) => {
-      setTokenChars((prev) => {
-        const idx = prev.findIndex((c) => c === "");
-        if (idx === -1) return prev;
-        const next = [...prev];
-        next[idx] = key;
-        return next;
+  const lockVote = useCallback(async () => {
+    setLockBusy(true);
+    try {
+      const res = await fetch("/api/pemilih/lock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: activeTokenRef.current }),
       });
-      setGateError(null);
-    },
-    []
-  );
+      const json = await res.json();
+      if (json.ok) {
+        setPhase("locked");
+      } else {
+        setGateError(json.message ?? "Gagal mengunci suara.");
+      }
+    } catch {
+      setGateError("Koneksi gagal saat mengunci suara.");
+    } finally {
+      setLockBusy(false);
+    }
+  }, []);
+
+  const revoteAgain = useCallback(async () => {
+    // Buka bilik ulang dengan token yang sama — suara baru akan MENGGANTI yang lama
+    await validateToken(activeTokenRef.current);
+  }, [validateToken]);
+
+  /** Keyboard fisik juga didukung (desktop) */
+  const pressKey = useCallback((key: string) => {
+    setTokenChars((prev) => {
+      const idx = prev.findIndex((c) => c === "");
+      if (idx === -1) return prev;
+      const next = [...prev];
+      next[idx] = key;
+      return next;
+    });
+    setGateError(null);
+  }, []);
 
   const backspace = useCallback(() => {
     setTokenChars((prev) => {
@@ -262,7 +307,6 @@ export function KioskTerminal() {
     });
   }, []);
 
-  /** Keyboard fisik juga didukung (bilik desktop) */
   useEffect(() => {
     if (phase !== "gate") return;
     const handler = (e: KeyboardEvent) => {
@@ -277,6 +321,7 @@ export function KioskTerminal() {
   const minutes = Math.floor(remainingMs / 60000);
   const seconds = Math.floor((remainingMs % 60000) / 1000);
   const timeCritical = remainingMs > 0 && remainingMs < 120_000;
+  const hasTtl = Boolean(session?.expiresAt);
 
   const keypadKeys = useMemo(() => {
     const digits = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
@@ -287,26 +332,34 @@ export function KioskTerminal() {
   // ============================ GATE ============================
   if (phase === "gate") {
     return (
-      <div className="flex min-h-[70vh] flex-col items-center justify-center px-4 py-10">
-        <div className="w-full max-w-2xl">
-          <div className="mb-8 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
+        <div className="w-full max-w-md">
+          <div className="mb-7 text-center">
             <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[14px] border-2 border-[#141E19] bg-[#1B7F4E] shadow-[4px_4px_0px_#141E19]">
               <Lock className="h-7 w-7 text-white" />
             </div>
             <h1 className="font-display text-3xl font-extrabold tracking-[-0.03em] md:text-4xl">
-              BILIK SUARA DIGITAL <span className="text-[#1B7F4E]">SMART PEMIRA</span>
+              PORTAL PEMILIH <span className="text-[#1B7F4E]">PEMIRA ONLINE</span>
             </h1>
             <p className="mt-2 text-sm font-medium text-[#4A5851]">
-              Ikatan Keluarga Mahasiswa Poltek CWE — Masukkan 6 karakter token dari meja PPUR
+              Pemira Poltek CWE 100% Online — pilih dari perangkatmu sendiri
+            </p>
+          </div>
+
+          <div className="mb-4 flex items-center gap-2 rounded-[10px] border border-[#D8D3C8] bg-white px-4 py-3">
+            <ScanLine className="h-5 w-5 shrink-0 text-[#1B7F4E]" />
+            <p className="text-[12.5px] leading-relaxed text-[#4A5851]">
+              <strong className="text-[#141E19]">Cara masuk:</strong> scan <strong>QR code</strong> pada slip token dari pos
+              bantuan PPUR, atau ketik 6 karakter token di bawah.
             </p>
           </div>
 
           {/* 6 Kotak Token */}
-          <div className="mb-6 flex justify-center gap-2.5" role="group" aria-label="Kotak input token">
+          <div className="mb-5 flex justify-center gap-2" role="group" aria-label="Kotak input token">
             {tokenChars.map((c, i) => (
               <div
                 key={i}
-                className={`flex h-[76px] w-[64px] items-center justify-center rounded-[10px] border-2 bg-white font-mono text-3xl font-bold transition-shadow ${
+                className={`flex h-[68px] w-[52px] items-center justify-center rounded-[10px] border-2 bg-white font-mono text-2xl font-bold transition-shadow sm:h-[76px] sm:w-[58px] sm:text-3xl ${
                   c ? "border-[#141E19] shadow-[3px_3px_0px_#141E19]" : "border-[#141E19]/40"
                 }`}
                 aria-label={`Karakter ${i + 1}: ${c || "kosong"}`}
@@ -317,21 +370,21 @@ export function KioskTerminal() {
           </div>
 
           {gateError && (
-            <div className="mx-auto mb-5 flex max-w-lg items-start gap-2 rounded-[10px] border-2 border-[#E05A47] bg-[#FDE8E5] px-4 py-3" role="alert">
+            <div className="mx-auto mb-4 flex items-start gap-2 rounded-[10px] border-2 border-[#E05A47] bg-[#FDE8E5] px-4 py-3" role="alert">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#842029]" />
               <p className="text-sm font-semibold text-[#842029]">{gateError}</p>
             </div>
           )}
 
-          {/* Keypad virtual */}
-          <div className="tactile-card mx-auto max-w-xl p-4">
-            <div className="grid grid-cols-6 gap-2">
+          {/* Keypad virtual (mobile-first) */}
+          <div className="tactile-card mx-auto p-4">
+            <div className="grid grid-cols-6 gap-1.5">
               {keypadKeys.map((k) => (
                 <button
                   key={k}
                   type="button"
                   onClick={() => pressKey(k)}
-                  className="h-11 rounded-lg border-2 border-[#141E19] bg-white font-mono text-sm font-bold shadow-[2px_2px_0px_#141E19] transition-all hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_#141E19] active:translate-y-0.5 active:shadow-none"
+                  className="h-10 rounded-lg border-2 border-[#141E19] bg-white font-mono text-sm font-bold shadow-[2px_2px_0px_#141E19] transition-all hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_#141E19] active:translate-y-0.5 active:shadow-none sm:h-11"
                 >
                   {k}
                 </button>
@@ -339,7 +392,7 @@ export function KioskTerminal() {
               <button
                 type="button"
                 onClick={backspace}
-                className="col-span-2 flex h-11 items-center justify-center gap-1.5 rounded-lg border-2 border-[#141E19] bg-[#F2B705] text-sm font-bold shadow-[2px_2px_0px_#141E19] transition-all hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-none"
+                className="col-span-2 flex h-10 items-center justify-center gap-1.5 rounded-lg border-2 border-[#141E19] bg-[#F2B705] text-sm font-bold shadow-[2px_2px_0px_#141E19] transition-all hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-none sm:h-11"
                 aria-label="Hapus karakter terakhir"
               >
                 <Delete className="h-4 w-4" /> HAPUS
@@ -361,10 +414,47 @@ export function KioskTerminal() {
           </div>
 
           <p className="mt-5 text-center text-xs leading-relaxed text-[#7A8881]">
-            🔒 Zero-Knowledge Ballot — token sekali pakai (TTL 10 menit). Pilihan Anda dipisahkan
-            mutlak dari identitas NIM.
+            🔒 Zero-Knowledge Ballot — token anonim tanpa identitas. Pilihan Anda dipisahkan mutlak dari NIM.
+            Bisa ganti suara sampai pemungutan ditutup — suara terakhir yang dihitung.
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // ============================ LOCKED (FINAL) ============================
+  if (phase === "locked") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center px-4 py-10 text-center">
+        <div className="anim-check mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full border-[3px] border-[#141E19] bg-[#141E19] shadow-[6px_6px_0px_#1B7F4E]">
+          <Lock className="h-11 w-11 text-[#FEF5D6]" strokeWidth={3} />
+        </div>
+        <h1 className="font-display text-3xl font-extrabold tracking-[-0.03em] md:text-4xl">Suara Anda Terkunci Final</h1>
+        <p className="mt-3 max-w-md text-base leading-relaxed text-[#4A5851]">
+          Terima kasih! Pilihan Anda sudah <strong className="text-[#141E19]">DIKUNCI</strong> dan tidak dapat diganti lagi
+          oleh siapa pun. Ini melindungi suara Anda dari tekanan pihak lain.
+        </p>
+
+        {receiptCode && (
+          <div className="mt-7 w-full max-w-md rounded-[14px] border-2 border-[#141E19] bg-white p-5 text-left shadow-[6px_6px_0px_#141E19]">
+            <div className="flex items-center justify-between gap-2">
+              <p className="flex items-center gap-2 font-display text-sm font-extrabold uppercase tracking-wide">
+                <ReceiptText className="h-4 w-4 text-[#1B7F4E]" /> Struk Suara Digital — Versi {voteVersion}
+              </p>
+              <span className="rounded-full border border-[#141E19] bg-[#FEF5D6] px-2.5 py-0.5 text-[9.5px] font-extrabold text-[#8A5200]">
+                TERKUNCI FINAL
+              </span>
+            </div>
+            <p className="mt-3 font-mono text-[26px] font-extrabold tracking-[0.12em] text-[#141E19]">{receiptCode}</p>
+            <p className="mt-2 text-[12px] leading-relaxed text-[#4A5851]">
+              Simpan kode ini sebagai bukti suara tercatat di rantai hash. Cek kapan pun di Portal Publik → “Cek Struk Suara”.
+            </p>
+          </div>
+        )}
+
+        <button type="button" onClick={resetAll} className="mt-8 rounded-full border-2 border-[#141E19] bg-white px-6 py-2.5 text-sm font-bold shadow-[3px_3px_0px_#141E19] transition-all hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-none">
+          Selesai
+        </button>
       </div>
     );
   }
@@ -372,53 +462,63 @@ export function KioskTerminal() {
   // ============================ SUCCESS ============================
   if (phase === "success") {
     return (
-      <div className="flex min-h-[70vh] flex-col items-center justify-center px-4 py-8 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center px-4 py-10 text-center">
         <div className="anim-check mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full border-[3px] border-[#141E19] bg-[#1B7F4E] shadow-[6px_6px_0px_#141E19]">
           <Check className="h-12 w-12 text-white" strokeWidth={3.5} />
         </div>
         <h1 className="font-display text-3xl font-extrabold tracking-[-0.03em] md:text-4xl">
-          Suara Anda Telah Tersimpan Rahasia
+          {isRevote ? "Suara Anda Berhasil Diganti" : "Suara Anda Telah Tersimpan Rahasia"}
         </h1>
         <p className="mt-3 max-w-md text-base leading-relaxed text-[#4A5851]">
-          Terima kasih telah berpartisipasi dalam Pemira Poltek CWE. Token Anda kini dihanguskan
-          dan tidak dapat digunakan lagi.
+          {isRevote
+            ? `Ini versi ke-${voteVersion} dari suaramu. Versi sebelumnya otomatis tidak dihitung — suara TERAKHIR inilah yang sah.`
+            : "Terima kasih telah berpartisipasi. Bila berubah pikiran, Anda masih bisa mengganti suara sampai pemungutan ditutup."}
         </p>
 
-        {/* ====== STRUK SUARA — Rekomendasi #6 (E2E Verifiability) ====== */}
+        {/* ====== STRUK SUARA + AKSI RE-VOTE / KUNCI ====== */}
         {receiptCode && (
           <div className="mt-7 w-full max-w-md rounded-[14px] border-2 border-[#141E19] bg-white p-5 text-left shadow-[6px_6px_0px_#141E19]">
             <div className="flex items-center justify-between gap-2">
               <p className="flex items-center gap-2 font-display text-sm font-extrabold uppercase tracking-wide">
                 <ReceiptText className="h-4 w-4 text-[#1B7F4E]" /> Struk Suara Digital
               </p>
-              <span className="rounded-full border border-[#1B7F4E] bg-[#E6F4EC] px-2.5 py-0.5 text-[9.5px] font-extrabold text-[#0F5132]">TERCATAT ✓</span>
+              <span className="rounded-full border border-[#1B7F4E] bg-[#E6F4EC] px-2.5 py-0.5 text-[9.5px] font-extrabold text-[#0F5132]">
+                VERSI {voteVersion} • TERCATAT ✓
+              </span>
             </div>
             <p className="mt-3 font-mono text-[26px] font-extrabold tracking-[0.12em] text-[#141E19]">{receiptCode}</p>
             <p className="mt-2 text-[12px] leading-relaxed text-[#4A5851]">
-              <strong className="text-[#141E19]">Foto atau catat kode ini.</strong> Kode membuktikan suara Anda masuk ke kotak suara digital
-              (hash chain) — tanpa membocorkan pilihan Anda kepada siapa pun. Cek kapan pun di Portal Publik → “Cek Struk Suara”.
+              <strong className="text-[#141E19]">Foto atau catat kode ini.</strong> Kode membuktikan suara masuk ke rantai
+              hash — tanpa membocorkan pilihan. Cek kapan pun di Portal Publik → “Cek Struk Suara”.
             </p>
           </div>
         )}
 
-        <div className="tactile-card mt-6 flex items-center gap-3 px-5 py-4">
-          <Droplets className="h-6 w-6 text-[#E05A47]" />
-          <p className="text-sm font-bold">
-            Jangan lupa <span className="text-[#E05A47]">mencelupkan jari ke tinta</span> di meja keluar TPS
-          </p>
+        <div className="mt-6 grid w-full max-w-md gap-3">
+          <button
+            type="button"
+            onClick={lockVote}
+            disabled={lockBusy}
+            className="tactile-btn flex h-14 items-center justify-center gap-2 text-base font-extrabold disabled:opacity-70"
+          >
+            <Lock className="h-5 w-5" />
+            {lockBusy ? "MENGUNCI..." : "KUNCI SUARAKU (FINAL)"}
+          </button>
+          <button
+            type="button"
+            onClick={revoteAgain}
+            disabled={lockBusy}
+            className="flex items-center justify-center gap-2 rounded-[10px] border-2 border-[#141E19] bg-white py-3.5 text-sm font-bold shadow-[3px_3px_0px_#141E19] transition-all hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#141E19] active:translate-y-0.5 active:shadow-none"
+          >
+            <RefreshCcw className="h-4 w-4" />
+            Ganti Suara Saya (Re-vote)
+          </button>
         </div>
-        <div className="mt-8 w-full max-w-sm">
-          <div className="mb-2 flex justify-between text-xs font-semibold text-[#4A5851]">
-            <span>Kembali ke layar awal otomatis</span>
-            <span className="font-mono-tabular">{successCountdown}s</span>
-          </div>
-          <div className="h-2.5 w-full overflow-hidden rounded-full border-2 border-[#141E19] bg-white">
-            <div
-              className="h-full bg-[#1B7F4E] transition-all duration-1000 ease-linear"
-              style={{ width: `${(successCountdown / 3) * 100}%` }}
-            />
-          </div>
-        </div>
+        <p className="mt-4 max-w-md text-xs leading-relaxed text-[#7A8881]">
+          <strong className="text-[#141E19]">Kunci Suaraku</strong> menutup kemampuan ganti suara permanen — cocok bila Anda
+          yakin dan ingin melindungi suara dari tekanan pihak lain. Tanpa dikunci, token tetap bisa dipakai ganti suara
+          sampai pemungutan ditutup.
+        </p>
       </div>
     );
   }
@@ -426,11 +526,11 @@ export function KioskTerminal() {
   // ============================ SUBMITTING ============================
   if (phase === "submitting") {
     return (
-      <div className="flex min-h-[70vh] flex-col items-center justify-center px-4 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
         <div className="mb-6 h-16 w-16 animate-spin rounded-full border-4 border-[#D8D3C8] border-t-[#1B7F4E]" />
         <h2 className="font-display text-2xl font-bold">{submittingMsg}</h2>
         <p className="mt-2 text-sm text-[#4A5851]">
-          Jangan tutup atau sentuh layar. Proses ini berjalan dalam satu transaksi atomik.
+          Jangan tutup halaman. Proses ini berjalan dalam satu transaksi atomik.
         </p>
       </div>
     );
@@ -439,11 +539,19 @@ export function KioskTerminal() {
   // ============================ REVIEW ============================
   if (phase === "review") {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-8">
+      <div className="mx-auto max-w-3xl px-4 py-8">
+        {isRevote && (
+          <div className="mb-5 flex items-center gap-2 rounded-[10px] border-2 border-[#D9822B] bg-[#FDF2E4] px-4 py-3">
+            <RefreshCcw className="h-4 w-4 shrink-0 text-[#8A5200]" />
+            <p className="text-sm font-bold text-[#8A5200]">
+              MODE GANTI SUARA — suara baru akan MENGGANTI suara sebelumnya (tercatat sebagai versi {voteVersion}).
+            </p>
+          </div>
+        )}
         <div className="mb-6 text-center">
           <h1 className="font-display text-3xl font-extrabold tracking-[-0.03em]">Tinjau Pilihan Anda</h1>
           <p className="mt-2 text-sm font-medium text-[#4A5851]">
-            Pastikan ketiga pilihan sudah benar — suara yang terkirim tidak dapat diubah.
+            Pastikan ketiga pilihan sudah benar. Setelah terkirim, Anda masih bisa menggantinya nanti.
           </p>
         </div>
 
@@ -454,7 +562,7 @@ export function KioskTerminal() {
           </div>
         )}
 
-        <div className="grid gap-5 md:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-3">
           {ballots.map((b, i) => {
             const sel = selections[b.category];
             const cand = b.candidates.find((c) => (sel === "EMPTY" ? c.isEmptyBox : c.id === sel));
@@ -465,7 +573,7 @@ export function KioskTerminal() {
                     className="rounded-full border-2 border-[#141E19] px-3 py-1 text-[11px] font-extrabold text-white"
                     style={{ background: b.color }}
                   >
-                    {i + 1}. {b.category === "HIMA" ? "HIMA PRODI" : b.category}
+                    {i + 1}. {b.category === "HIMA" ? `HIMA ${session?.studyProgramId}` : stepLabel(b.category, session?.studyProgramId ?? "")}
                   </span>
                   <span className="font-mono-tabular text-[11px] text-[#7A8881]">{b.stepTitle}</span>
                 </div>
@@ -502,8 +610,8 @@ export function KioskTerminal() {
         <div className="mt-6 flex items-start gap-3 rounded-[10px] border border-[#D8D3C8] bg-[#FFFFFF] px-4 py-3.5">
           <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#1B7F4E]" />
           <p className="text-[13px] leading-relaxed text-[#4A5851]">
-            <strong className="text-[#141E19]">Zero-Knowledge Ballot:</strong> Pilihan Anda dienkripsi
-            secara acak dan dipisahkan sepenuhnya dari identitas NIM Anda.
+            <strong className="text-[#141E19]">Zero-Knowledge Ballot:</strong> Pilihan Anda dipisahkan sepenuhnya dari
+            identitas NIM Anda — bahkan saat ganti suara sekalipun.
           </p>
         </div>
 
@@ -513,12 +621,14 @@ export function KioskTerminal() {
             onClick={submitVote}
             className="tactile-btn flex h-16 w-full max-w-2xl items-center justify-center text-lg font-extrabold tracking-wide"
           >
-            KIRIM SUARA SEKARANG
+            {isRevote ? "KIRIM ULANG & GANTI SUARA" : "KIRIM SUARA SEKARANG"}
           </button>
-          <div className={`flex items-center gap-2 rounded-full border px-4 py-1.5 font-mono-tabular text-sm font-bold ${timeCritical ? "border-[#E05A47] bg-[#FDE8E5] text-[#842029] pulse-terra" : "border-[#141E19] bg-white"}`}>
-            <Timer className="h-4 w-4" />
-            {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
-          </div>
+          {hasTtl && (
+            <div className={`flex items-center gap-2 rounded-full border px-4 py-1.5 font-mono-tabular text-sm font-bold ${timeCritical ? "border-[#E05A47] bg-[#FDE8E5] text-[#842029] pulse-terra" : "border-[#141E19] bg-white"}`}>
+              <Timer className="h-4 w-4" />
+              {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -531,14 +641,24 @@ export function KioskTerminal() {
   const canProceed = selectionForCurrent !== undefined;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
+    <div className="mx-auto max-w-3xl px-4 py-6">
+      {/* Banner mode re-vote */}
+      {isRevote && (
+        <div className="mb-4 flex items-center gap-2 rounded-[10px] border-2 border-[#D9822B] bg-[#FDF2E4] px-4 py-2.5">
+          <RefreshCcw className="h-4 w-4 shrink-0 text-[#8A5200]" />
+          <p className="text-[13px] font-bold text-[#8A5200]">
+            GANTI SUARA — pilihan baru akan menggantikan suara sebelumnya (suara terakhir yang dihitung).
+          </p>
+        </div>
+      )}
+
       {/* Stepper */}
       <nav aria-label="Tahapan surat suara" className="mb-5">
-        <ol className="flex items-center justify-center gap-0">
+        <ol className="flex flex-wrap items-center justify-center gap-1.5">
           {ballots.map((b, i) => (
             <li key={b.category} className="flex items-center">
               <span
-                className={`flex items-center gap-2 rounded-full border-2 px-4 py-2 text-xs font-extrabold tracking-wide transition-colors ${
+                className={`flex items-center gap-2 rounded-full border-2 px-3.5 py-2 text-xs font-extrabold tracking-wide transition-colors ${
                   i === step ? "text-white" : i < step ? "text-[#0F5132]" : "text-[#7A8881]"
                 }`}
                 style={{
@@ -547,9 +667,9 @@ export function KioskTerminal() {
                 }}
               >
                 {i < step && <Check className="h-3.5 w-3.5" />}
-                {i + 1}. {b.category === "HIMA" ? `HIMA ${session.studyProgramId}` : b.category}
+                {i + 1}. {b.category === "HIMA" ? `HIMA ${session.studyProgramId}` : stepLabel(b.category, session.studyProgramId)}
               </span>
-              {i < ballots.length - 1 && <span className="mx-1 hidden h-0.5 w-8 bg-[#141E19] sm:block" aria-hidden />}
+              {i < ballots.length - 1 && <span className="mx-1 hidden h-0.5 w-6 bg-[#141E19] sm:block" aria-hidden />}
             </li>
           ))}
         </ol>
@@ -557,13 +677,13 @@ export function KioskTerminal() {
 
       {/* Header banner dinamis per surat suara */}
       <header
-        className="anim-slide mb-6 overflow-hidden rounded-[14px] border-2 border-[#141E19] px-6 py-5 text-white"
+        className="anim-slide mb-6 overflow-hidden rounded-[14px] border-2 border-[#141E19] px-5 py-4 text-white sm:px-6 sm:py-5"
         style={{ background: current.color, boxShadow: "4px 4px 0px #141E19" }}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.14em] opacity-90">
-              Surat Suara {step + 1} dari 3 — {current.institutionLabel}
+              {current.institutionLabel}
             </p>
             <h1 className="mt-1 font-display text-2xl font-extrabold tracking-[-0.02em] md:text-3xl">
               Pemilihan {current.stepTitle}
@@ -572,24 +692,26 @@ export function KioskTerminal() {
           <div className="flex items-center gap-2">
             {current.singleCandidateScenario && (
               <span className="rounded-full border-2 border-white/60 bg-white/15 px-3 py-1 text-[11px] font-bold">
-                SKENARIO CALON TUNGGAL — KOTAK KOSONG AKTIF
+                CALON TUNGGAL — KOTAK KOSONG AKTIF
               </span>
             )}
-            <span
-              className={`flex items-center gap-1.5 rounded-full border-2 border-[#141E19] px-3 py-1.5 font-mono-tabular text-sm font-bold ${
-                timeCritical ? "bg-[#FDE8E5] text-[#842029] pulse-terra" : "bg-[#FEF5D6] text-[#8A5200]"
-              }`}
-            >
-              <Timer className="h-4 w-4" />
-              {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
-            </span>
+            {hasTtl && (
+              <span
+                className={`flex items-center gap-1.5 rounded-full border-2 border-[#141E19] px-3 py-1.5 font-mono-tabular text-sm font-bold ${
+                  timeCritical ? "bg-[#FDE8E5] text-[#842029] pulse-terra" : "bg-[#FEF5D6] text-[#8A5200]"
+                }`}
+              >
+                <Timer className="h-4 w-4" />
+                {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+              </span>
+            )}
           </div>
         </div>
       </header>
 
       {/* Grid kandidat — HUKUM 3: calon tunggal membagi 50:50 dengan Kotak Kosong */}
       {current.singleCandidateScenario ? (
-        <div className="grid gap-5 md:grid-cols-2" aria-label="Calon tunggal dan kotak kosong">
+        <div className="grid gap-5 sm:grid-cols-2" aria-label="Calon tunggal dan kotak kosong">
           <BallotCandidateCard
             candidate={current.candidates.find((c) => !c.isEmptyBox)!}
             color={current.color}
@@ -606,7 +728,7 @@ export function KioskTerminal() {
           />
         </div>
       ) : (
-        <div className={`grid gap-5 ${current.candidates.length >= 3 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+        <div className={`grid gap-5 ${current.candidates.length >= 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
           {current.candidates.map((c) => (
             <BallotCandidateCard
               key={c.id}
@@ -621,18 +743,18 @@ export function KioskTerminal() {
       )}
 
       {/* Navigasi wizard */}
-      <div className="mt-7 flex items-center justify-between gap-4">
+      <div className="mt-7 flex items-center justify-between gap-3">
         <button
           type="button"
           disabled={step === 0}
           onClick={() => setStep((s) => Math.max(0, s - 1))}
-          className="flex h-14 items-center gap-2 rounded-[10px] border-2 border-[#141E19] bg-white px-6 font-bold shadow-[3px_3px_0px_#141E19] transition-all enabled:hover:-translate-y-0.5 enabled:hover:shadow-[4px_4px_0px_#141E19] enabled:active:translate-y-0.5 enabled:active:shadow-none disabled:opacity-40"
+          className="flex h-14 items-center gap-2 rounded-[10px] border-2 border-[#141E19] bg-white px-5 font-bold shadow-[3px_3px_0px_#141E19] transition-all enabled:hover:-translate-y-0.5 enabled:hover:shadow-[4px_4px_0px_#141E19] enabled:active:translate-y-0.5 enabled:active:shadow-none disabled:opacity-40"
         >
-          <ChevronLeft className="h-5 w-5" /> KEMBALI
+          <ChevronLeft className="h-5 w-5" /> <span className="hidden sm:inline">KEMBALI</span>
         </button>
 
         <p className="hidden text-xs font-semibold text-[#7A8881] sm:block">
-          {canProceed ? "Pilihan tersimpan — lanjut ke surat suara berikutnya" : "Pilih salah satu kartu di atas"}
+          {canProceed ? "Pilihan tersimpan — lanjut" : "Pilih salah satu kartu di atas"}
         </p>
 
         {step < ballots.length - 1 ? (
@@ -640,7 +762,7 @@ export function KioskTerminal() {
             type="button"
             disabled={!canProceed}
             onClick={() => setStep((s) => s + 1)}
-            className="tactile-btn flex h-14 items-center gap-2 px-7 font-extrabold"
+            className="tactile-btn flex h-14 items-center gap-2 px-6 font-extrabold"
           >
             SURAT SUARA {step + 2} <ArrowRight className="h-5 w-5" />
           </button>
@@ -652,9 +774,9 @@ export function KioskTerminal() {
               setSubmitError(null);
               setPhase("review");
             }}
-            className="tactile-btn flex h-14 items-center gap-2 px-7 font-extrabold"
+            className="tactile-btn flex h-14 items-center gap-2 px-6 font-extrabold"
           >
-            TINJAU PILIHAN <ArrowRight className="h-5 w-5" />
+            TINJAU <ArrowRight className="h-5 w-5" />
           </button>
         )}
       </div>

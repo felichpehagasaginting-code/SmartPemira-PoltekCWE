@@ -10,16 +10,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChangePasswordDialog } from "@/components/auth/change-password-dialog";
 import { OperatorManager } from "@/components/admin/operator-manager";
-import { KioskTerminal } from "@/components/kiosk/kiosk-terminal";
 import { KpumDashboard } from "@/components/kpum/kpum-dashboard";
 import { LoginScreen, type DemoAccount } from "@/components/auth/login-screen";
 import { PanwasluMonitor } from "@/components/pleno/panwaslu-monitor";
 import { PublicPortal } from "@/components/public-portal/public-portal";
 import { PpurDesk } from "@/components/ppur/ppur-desk";
 import { APP_CONSTANTS } from "@/lib/constants/election";
-import { Ban, KeyRound, Landmark, LogOut, MonitorCheck, ScanBarcode, ShieldHalf, UserCog, Vote } from "lucide-react";
+import { Ban, ExternalLink, KeyRound, Landmark, LogOut, MonitorCheck, ScanBarcode, ShieldHalf, UserCog } from "lucide-react";
 
-type ModuleKey = "public" | "ppur" | "kiosk" | "kpum" | "panwaslu" | "operators";
+type ModuleKey = "public" | "ppur" | "kpum" | "panwaslu" | "operators";
 
 interface SessionInfo {
   username: string;
@@ -30,7 +29,8 @@ interface SessionInfo {
 }
 
 // ---- Matriks RBAC (PRD Bab 3) ----
-// Terminal publik/token (public, kiosk) terbuka bagi semua sesi login.
+// Pemira 100% online: bilik suara berpindah ke halaman /pemilih (BYOD) —
+// bukan lagi tab operator. Portal publik & token terbuka bagi semua sesi login.
 const MODULE_ROLES: Partial<Record<ModuleKey, string[]>> = {
   ppur: ["PPUR", "ITPO"],
   kpum: ["KPUM", "ITPO"],
@@ -50,15 +50,14 @@ const ROLE_HOME: Record<string, ModuleKey> = {
 const DEMO_ACCOUNTS: (DemoAccount & { landing: string })[] = [
   { username: "itpo", password: "itpo123", role: "ITPO", fullName: "Rizky Ananda — Koordinator Tim ITPO", landing: "Portal Publik (semua modul)" },
   { username: "kpum", password: "kpum123", role: "KPUM", fullName: "Alifia Rahmadani — Ketua KPUM", landing: "Dashboard KPUM" },
-  { username: "ppur", password: "ppur123", role: "PPUR", fullName: "Bagas Setiawan — Petugas Meja PPUR TPS 01", landing: "Meja Registrasi PPUR" },
+  { username: "ppur", password: "ppur123", role: "PPUR", fullName: "Bagas Setiawan — Petugas Pos Bantuan PPUR", landing: "Pos Bantuan PPUR" },
   { username: "panwaslu", password: "panwaslu123", role: "PANWASLU", fullName: "Citra Amelia — Ketua Panwaslu", landing: "Monitor Panwaslu & Pleno" },
   { username: "saksi01", password: "saksi123", role: "SAKSI", fullName: "Dimas Prakoso — Saksi Paslon Presma 01", landing: "Monitor Panwaslu (baca)" },
 ];
 
 const MODULES: Array<{ key: ModuleKey; label: string; short: string; icon: React.ReactNode; dark: boolean }> = [
   { key: "public", label: "Portal Publik", short: "PUBLIK", icon: <Landmark className="h-4 w-4" />, dark: false },
-  { key: "ppur", label: "Meja Registrasi PPUR", short: "PPUR", icon: <ScanBarcode className="h-4 w-4" />, dark: false },
-  { key: "kiosk", label: "Kiosk Bilik Suara", short: "KIOSK", icon: <Vote className="h-4 w-4" />, dark: false },
+  { key: "ppur", label: "Pos Bantuan PPUR", short: "PPUR", icon: <ScanBarcode className="h-4 w-4" />, dark: false },
   { key: "kpum", label: "Dashboard KPUM", short: "KPUM", icon: <MonitorCheck className="h-4 w-4" />, dark: false },
   { key: "panwaslu", label: "Monitor Panwaslu & Pleno", short: "PANWASLU", icon: <ShieldHalf className="h-4 w-4" />, dark: true },
   { key: "operators", label: "Manajemen Operator", short: "OPERATOR", icon: <UserCog className="h-4 w-4" />, dark: false },
@@ -248,8 +247,8 @@ export default function Home() {
               <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#F2B705] text-[11px] font-extrabold text-[#141E19]">i</span>
               <p className="text-[13px] leading-relaxed text-[#4A5851]">
                 Anda masuk sebagai <strong className="text-[#141E19]">{session.role}</strong> — navigasi di atas hanya menampilkan terminal sesuai kewenangan Anda.
-                Demo end-to-end: login <strong className="text-[#141E19]">PPUR</strong> → terbitkan token → pilih di <strong className="text-[#141E19]">Kiosk</strong> (token pemilih) →
-                login <strong className="text-[#141E19]">KPUM</strong> (Pleno Unlock) → login <strong className="text-[#141E19]">PANWASLU</strong> untuk audit live.
+                Pemira kini <strong className="text-[#141E19]">100% online</strong>: mahasiswa memilih dari HP sendiri di <strong className="text-[#141E19]">/pemilih</strong> dengan token dari pos bantuan PPUR.
+                Demo end-to-end: login <strong className="text-[#141E19]">PPUR</strong> → terbitkan token → buka <strong className="text-[#141E19]">/pemilih?token=…</strong> (atau scan QR slip) → login <strong className="text-[#141E19]">KPUM</strong> (Pleno Unlock) → login <strong className="text-[#141E19]">PANWASLU</strong> untuk audit live.
               </p>
             </div>
             <PublicPortal />
@@ -261,9 +260,9 @@ export default function Home() {
             <>
               <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <h1 className="font-display text-2xl font-extrabold tracking-[-0.02em]">Meja Registrasi PPUR</h1>
+                  <h1 className="font-display text-2xl font-extrabold tracking-[-0.02em]">Pos Bantuan PPUR</h1>
                   <p className="mt-1 text-sm text-[#4A5851]">
-                    Verifikasi identitas mahasiswa (KTM/KRS), lalu terbitkan token bilik suara sekali pakai — TTL 10 menit.
+                    Verifikasi identitas mahasiswa (KTM/KRS) via NIM, terbitkan token + QR, dan tangani kasus khusus (cabut token / pulihkan hak pilih).
                   </p>
                 </div>
                 <span className="rounded-full border border-[#141E19] bg-[#E6F4EC] px-3 py-1 font-mono text-[11px] font-bold text-[#0F5132]">
@@ -275,8 +274,6 @@ export default function Home() {
           ) : (
             <AccessDenied role={session.role} />
           ))}
-
-        {active === "kiosk" && <KioskTerminal />}
 
         {active === "kpum" &&
           (hasAccess ? (
@@ -320,10 +317,23 @@ export default function Home() {
           <p className={`text-[12px] font-semibold ${current.dark ? "text-[#9EB0A7]" : "text-[#7A8881]"}`}>
             {APP_CONSTANTS.appName} — {APP_CONSTANTS.institute} • {APP_CONSTANTS.legalBasis}
           </p>
-          <p className={`flex items-center gap-2 text-[12px] ${current.dark ? "text-[#64786F]" : "text-[#C9C3B6]"}`}>
-            <span className={`inline-block h-1.5 w-1.5 rounded-full ${current.dark ? "bg-[#28A769]" : "bg-[#1B7F4E]"}`} />
-            Zero-Knowledge Ballot Architecture • Login-First RBAC
-          </p>
+          <div className="flex items-center gap-4">
+            <a
+              href="/pemilih"
+              target="_blank"
+              rel="noreferrer"
+              className={`flex items-center gap-1.5 text-[12px] font-bold underline decoration-dotted underline-offset-4 transition-colors ${
+                current.dark ? "text-[#9EB0A7] hover:text-[#F4F1EA]" : "text-[#4A5851] hover:text-[#141E19]"
+              }`}
+            >
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+              Portal Pemilih (mahasiswa)
+            </a>
+            <p className={`flex items-center gap-2 text-[12px] ${current.dark ? "text-[#64786F]" : "text-[#C9C3B6]"}`}>
+              <span className={`inline-block h-1.5 w-1.5 rounded-full ${current.dark ? "bg-[#28A769]" : "bg-[#1B7F4E]"}`} />
+              Zero-Knowledge • 100% Online • Re-vote Estonia
+            </p>
+          </div>
         </div>
       </footer>
 

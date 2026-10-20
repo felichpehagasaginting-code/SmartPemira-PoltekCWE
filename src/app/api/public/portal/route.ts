@@ -6,11 +6,11 @@ import { expireStaleTokens } from "@/lib/db/ballot-service";
 export async function GET() {
   try {
     await expireStaleTokens();
-    const [setting, candidates, prodis, tps] = await Promise.all([
+    const [setting, candidates, prodis, chains] = await Promise.all([
       db.electionSetting.findUnique({ where: { id: "main" } }),
       db.candidate.findMany({ orderBy: [{ category: "asc" }, { number: "asc" }] }),
       db.studyProgram.findMany({ orderBy: { id: "asc" } }),
-      db.tps.findFirst(),
+      db.tps.findMany({ orderBy: { id: "asc" } }),
     ]);
 
     const dptTotal = await db.voter.count();
@@ -36,7 +36,7 @@ export async function GET() {
       votingOpen: setting?.votingOpen ?? false,
       emergencyFreeze: setting?.emergencyFreeze ?? false,
       plenoUnlocked: setting?.plenoUnlocked ?? false,
-      tps: tps ? { name: tps.name, location: tps.location } : null,
+      chains: chains.map((t) => ({ id: t.id, name: t.name, location: t.location })),
       stats: { dptTotal, voted, turnoutPct: dptTotal > 0 ? (voted / dptTotal) * 100 : 0 },
       prodis,
       candidates: portal,

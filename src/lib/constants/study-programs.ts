@@ -1,6 +1,8 @@
 // ============================================================
 // PRODI COLOR-CODING & METADATA — Smart Pemira
 // Referensi: DESIGN.md Bab 4.2 (Server-Side Filtered Hima colors)
+// Keputusan diskusi 2026-10-20: 5 prodi resmi — TPTP mewarisi aksen
+// Terracotta dari BKS (domain perkebunan yang sama), BD warna baru.
 // ============================================================
 
 export interface ProdiMeta {
@@ -14,9 +16,9 @@ export interface ProdiMeta {
 
 export const STUDY_PROGRAMS: ProdiMeta[] = [
   {
-    id: "BKS",
-    name: "Budidaya Perkebunan Kelapa Sawit",
-    himaName: "Hima Budidaya Perkebunan Kelapa Sawit",
+    id: "TPTP",
+    name: "Teknologi Produksi Tanaman Perkebunan",
+    himaName: "Hima Teknologi Produksi Tanaman Perkebunan",
     colorName: "Spiced Terracotta",
     colorPrimary: "#D95338",
     colorTint: "#FCECE8",
@@ -30,12 +32,20 @@ export const STUDY_PROGRAMS: ProdiMeta[] = [
     colorTint: "#FDF2E4",
   },
   {
-    id: "LOGISTIK",
+    id: "MANLOG",
     name: "Manajemen Logistik Perkebunan",
     himaName: "Hima Manajemen Logistik Perkebunan",
     colorName: "Royal Cobalt",
     colorPrimary: "#2B50AA",
     colorTint: "#E8EEF9",
+  },
+  {
+    id: "BD",
+    name: "Bisnis Digital",
+    himaName: "Hima Bisnis Digital",
+    colorName: "Deep Teal",
+    colorPrimary: "#0F766E",
+    colorTint: "#E4F2EF",
   },
   {
     id: "TRPL",

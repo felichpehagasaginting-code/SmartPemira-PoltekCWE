@@ -1,17 +1,19 @@
 "use client";
 
 // ============================================================
-// MEJA REGISTRASI PPUR — FR-02 & FR-04 (Split Bento 60:40)
-// Pencarian NIM/KTM < 3 detik, pill filter status, generator
-// token 6 karakter dengan countdown TTL 10 menit + slip cetak.
+// POS BANTUAN PPUR — FR-02 & FR-04 (Pemira 100% Online)
+// Pencarian NIM < 3 detik, pill filter status, generator token + QR
+// (mahasiswa scan slip → /pemilih?token=…), penanganan kasus khusus:
+// cabut token (anti-paksaan lapis 3) + pemulihan hak pilih.
 // ============================================================
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import QRCode from "qrcode";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePolling } from "@/hooks/use-polling";
 import type { PpurVotersResponse, VoterRow } from "@/lib/types";
-import { AlertTriangle, BadgeCheck, Ban, Clock, IdCard, Printer, RefreshCw, Search, Timer, UserRoundCheck } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Ban, Clock, IdCard, Printer, RefreshCw, Search, ShieldAlert, Timer, UserRoundCheck } from "lucide-react";
 
 const STATUS_META: Record<string, { label: string; cls: string }> = {
   BELUM_MEMILIH: { label: "Belum Memilih", cls: "bg-[#EAE6DF] text-[#4A5851] border-[#D8D3C8]" },
@@ -29,6 +31,8 @@ interface IssuedToken {
   expiresAt: number;
   voterName: string;
   voterNim: string;
+  studyProgramId: string;
+  qrDataUrl: string;
 }
 
 export function PpurDesk() {
@@ -41,6 +45,10 @@ export function PpurDesk() {
   const [issueError, setIssueError] = useState<string | null>(null);
   const [issued, setIssued] = useState<IssuedToken | null>(null);
   const [now, setNow] = useState(Date.now());
+  // Penanganan kasus khusus: cabut token lama (slip diserahkan pemilih)
+  const [revokeCode, setRevokeCode] = useState("");
+  const [revoking, setRevoking] = useState(false);
+  const [revokeMsg, setRevokeMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -80,11 +88,20 @@ export function PpurDesk() {
           setIssueError(json.message ?? "Gagal menerbitkan token.");
           return;
         }
+        // QR menuju Portal Pemilih dengan token terisi — mahasiswa cukup scan
+        const qrTarget = `${window.location.origin}/pemilih?token=${json.token}`;
+        const qrDataUrl = await QRCode.toDataURL(qrTarget, {
+          width: 320,
+          margin: 1,
+          color: { dark: "#141E19", light: "#FFFFFF" },
+        });
         setIssued({
           token: json.token,
           expiresAt: new Date(json.expiresAt).getTime(),
           voterName: voter.name,
           voterNim: voter.nim,
+          studyProgramId: voter.studyProgramId,
+          qrDataUrl,
         });
         setNow(Date.now());
         refresh();
@@ -104,14 +121,46 @@ export function PpurDesk() {
   const pctLeft = issued ? (remainingMs / (10 * 60_000)) * 100 : 0;
   const expired = issued && remainingMs <= 0;
 
+  const revokeToken = useCallback(async () => {
+    if (revokeCode.trim().length !== 6) {
+      setRevokeMsg({ ok: false, text: "Kode token lama harus 6 karakter (sesuai slip yang diserahkan pemilih)." });
+      return;
+    }
+    setRevoking(true);
+    setRevokeMsg(null);
+    try {
+      const res = await fetch("/api/ppur/revoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: revokeCode.trim().toUpperCase(),
+          voterId: selected?.id ?? null,
+          resetRights: selected?.status === "SUDAH_MEMILIH",
+          note: "Pencabutan di pos bantuan (kasus khusus)",
+        }),
+      });
+      const json = await res.json();
+      setRevokeMsg({ ok: Boolean(json.ok), text: json.message ?? json.detail ?? "Selesai." });
+      if (json.ok) {
+        setRevokeCode("");
+        refresh();
+        refreshFiltered();
+      }
+    } catch {
+      setRevokeMsg({ ok: false, text: "Koneksi gagal saat mencabut token." });
+    } finally {
+      setRevoking(false);
+    }
+  }, [revokeCode, selected, refresh, refreshFiltered]);
+
   return (
     <div className="grid gap-6 lg:grid-cols-5">
       {/* ================= PANEL KIRI (60%) — Pencarian & Tabel DPT ================= */}
       <section className="lg:col-span-3 space-y-4">
         <div className="bento-card p-5">
-          <h2 className="font-display text-xl font-bold tracking-[-0.02em]">DPT TPS 01 — Pencarian Pemilih</h2>
+          <h2 className="font-display text-xl font-bold tracking-[-0.02em]">DPT Online — Pencarian Pemilih</h2>
           <p className="mt-1 text-[13px] text-[#4A5851]">
-            Ketik NIM/nama atau scan barcode KTM. Pencarian real-time terhadap Daftar Pemilih Tetap terkunci.
+            Ketik NIM/nama mahasiswa (coba juga scan barcode KTM). Pencarian real-time terhadap Daftar Pemilih Tetap terkunci.
           </p>
           <div className="relative mt-4">
             <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#7A8881]" aria-hidden />
@@ -238,12 +287,46 @@ export function PpurDesk() {
               </div>
 
               {selected.status === "SUDAH_MEMILIH" ? (
-                <div className="flex items-start gap-2 rounded-[10px] border border-[#D8D3C8] bg-[#EAE6DF] px-4 py-3">
-                  <UserRoundCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#0F5132]" />
-                  <p className="text-[13px] font-semibold text-[#4A5851]">
-                    Pemilih telah menggunakan hak pilihnya. Token tidak dapat diterbitkan lagi.
-                  </p>
-                </div>
+                <>
+                  <div className="flex items-start gap-2 rounded-[10px] border border-[#D8D3C8] bg-[#EAE6DF] px-4 py-3">
+                    <UserRoundCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#0F5132]" />
+                    <p className="text-[13px] font-semibold text-[#4A5851]">
+                      Pemilih telah menggunakan hak pilihnya. Untuk kasus khusus (HP hilang / dipaksa), minta slip token lamanya lalu cabut di bawah.
+                    </p>
+                  </div>
+                  {/* Kasus khusus: cabut token + pulihkan hak pilih (anti-paksaan lapis 3) */}
+                  <div className="rounded-[10px] border-2 border-dashed border-[#D9822B] bg-[#FDF2E4] p-4">
+                    <p className="flex items-center gap-1.5 text-[12px] font-extrabold uppercase tracking-wide text-[#8A5200]">
+                      <ShieldAlert className="h-4 w-4" /> Kasus Khusus — Cabut Token Lama
+                    </p>
+                    <p className="mt-1.5 text-[12px] leading-relaxed text-[#8A5200]">
+                      Pemilih menyerahkan slip token lama → token dicabut (semua suaranya dikeluarkan dari rekap) → hak pilih dipulihkan → terbitkan token baru.
+                    </p>
+                    <div className="mt-3 flex gap-2">
+                      <Input
+                        value={revokeCode}
+                        onChange={(e) => setRevokeCode(e.target.value.toUpperCase())}
+                        maxLength={6}
+                        placeholder="KODE TOKEN LAMA"
+                        className="h-11 flex-1 border-[#D9822B] bg-white font-mono text-sm font-bold uppercase tracking-[0.2em]"
+                        aria-label="Kode token lama yang dicabut"
+                      />
+                      <button
+                        type="button"
+                        disabled={revoking || revokeCode.length !== 6}
+                        onClick={revokeToken}
+                        className="flex h-11 items-center gap-1.5 rounded-[10px] border-2 border-[#141E19] bg-[#E05A47] px-4 text-[12px] font-extrabold text-white shadow-[3px_3px_0px_#141E19] transition-all enabled:hover:-translate-y-0.5 disabled:opacity-50"
+                      >
+                        {revoking ? "MEMPROSES…" : "CABUT & PULIHKAN"}
+                      </button>
+                    </div>
+                    {revokeMsg && (
+                      <p className={`mt-2 text-[12px] font-semibold ${revokeMsg.ok ? "text-[#0F5132]" : "text-[#842029]"}`} role="status">
+                        {revokeMsg.ok ? "✓ " : "✗ "}{revokeMsg.text}
+                      </p>
+                    )}
+                  </div>
+                </>
               ) : (
                 <>
                   {issueError && (
@@ -264,19 +347,19 @@ export function PpurDesk() {
                     onClick={() => issueToken(selected)}
                     className="flex h-14 w-full items-center justify-center gap-2 rounded-[10px] border-2 border-[#141E19] bg-[#1B7F4E] text-sm font-extrabold tracking-wide text-white shadow-[4px_4px_0px_#141E19] transition-all enabled:hover:-translate-y-0.5 enabled:hover:bg-[#13613B] enabled:hover:shadow-[6px_6px_0px_#141E19] enabled:active:translate-y-0.5 enabled:active:shadow-[2px_2px_0px_#141E19] disabled:opacity-60"
                   >
-                    {issuing ? "MENERBITKAN TOKEN…" : "TERBITKAN TOKEN BILIK SUARA"}
+                    {issuing ? "MENERBITKAN TOKEN…" : "TERBITKAN TOKEN + QR"}
                   </button>
                 </>
               )}
             </div>
           )}
 
-          {/* ---------- Kartu Token Terbit ---------- */}
+          {/* ---------- Kartu Token Terbit (slip + QR Portal Pemilih) ---------- */}
           {issued && (
             <div className={`print-area mt-5 rounded-[12px] border-2 p-5 ${expired ? "border-[#E05A47] bg-[#FDE8E5]" : "border-[#141E19] bg-[#FEF5D6]"}`}>
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#8A5200]">
-                  Slip Token Bilik Suara — TPS 01
+                  Slip Token — Rantai {issued.studyProgramId}
                 </span>
                 {expired ? (
                   <Badge className="border border-[#842029] bg-transparent text-[#842029]">KEDALUWARSA</Badge>
@@ -292,6 +375,17 @@ export function PpurDesk() {
               <p className="mt-2 text-center text-[12px] font-semibold text-[#8A5200]">
                 {issued.voterName} • <span className="font-mono-tabular">{issued.voterNim}</span>
               </p>
+              {/* QR → /pemilih?token=… — mahasiswa scan langsung dari HP sendiri */}
+              <div className="mt-3 flex flex-col items-center gap-1.5">
+                <img
+                  src={issued.qrDataUrl}
+                  alt={`QR Portal Pemilih untuk token ${issued.token}`}
+                  className="h-[132px] w-[132px] rounded-[8px] border-2 border-[#141E19] bg-white p-1"
+                />
+                <p className="text-center text-[11px] font-bold text-[#8A5200]">
+                  Scan QR ini → langsung masuk bilik suara online
+                </p>
+              </div>
               <div className="no-print mt-4">
                 <div className="h-2 w-full overflow-hidden rounded-full bg-[#EAE6DF]">
                   <div
@@ -300,7 +394,7 @@ export function PpurDesk() {
                   />
                 </div>
                 <p className="mt-2 text-center text-[11px] text-[#8A5200]">
-                  Berikan slip ini kepada mahasiswa. Token hangus otomatis setelah 10 menit.
+                  Berikan slip ini kepada mahasiswa. TTL 10 menit hanya untuk vote PERTAMA; setelah itu token tetap bisa dipakai ganti suara sampai pemungutan ditutup.
                 </p>
                 <div className="mt-4 flex gap-2">
                   <button

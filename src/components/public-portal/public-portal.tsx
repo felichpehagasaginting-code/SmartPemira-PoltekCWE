@@ -159,35 +159,52 @@ export function PublicPortal() {
           <div className="rounded-xl border border-[#D8D3C8] bg-[#FFFFFF] p-4">
             <div className="flex items-center gap-2 text-[#1B7F4E]">
               <Landmark className="h-4 w-4" />
-              <span className="text-xs font-semibold uppercase tracking-wide">Lokasi TPS</span>
+              <span className="text-xs font-semibold uppercase tracking-wide">Rantai Suara Online</span>
             </div>
-            <p className="mt-1.5 text-sm font-semibold leading-snug">{data.tps?.location ?? "-"}</p>
+            <p className="mt-1 font-display text-3xl font-extrabold tabular-nums">{data.chains.length}</p>
+            <p className="text-[11px] font-semibold text-[#4A5851]">{data.chains.map((c) => c.id).join(" • ")}</p>
           </div>
         </div>
+
+        {/* CTA pemilih — portal 100% online */}
+        <div className="mt-7 flex flex-wrap items-center gap-4 rounded-[12px] border-2 border-[#141E19] bg-[#FEF5D6] p-4 shadow-[4px_4px_0px_#141E19]">
+          <div className="flex-1">
+            <p className="font-display text-base font-extrabold text-[#141E19]">Sudah terdaftar dan punya token?</p>
+            <p className="text-[13px] font-medium text-[#8A5200]">
+              Buka Portal Pemilih, scan QR dari slip token pos bantuan PPUR, dan pilih dari HP-mu sendiri. Bisa ganti suara sampai pemungutan ditutup.
+            </p>
+          </div>
+          <a
+            href="/pemilih"
+            className="tactile-btn flex h-12 items-center gap-2 px-6 text-sm"
+          >
+            <Vote className="h-4 w-4" /> MASUK BILIK SUARA ONLINE
+          </a>
+        </div>
       </section>
 
-      {/* ---------- PRESMA ---------- */}
-      <section>
-        <div className="mb-4 flex items-center gap-3">
-          <span className="inline-block h-6 w-2 rounded-full bg-[#1B7F4E]" aria-hidden />
-          <h2 className="font-display text-2xl font-bold tracking-[-0.02em]">Surat Suara 1 — Presma &amp; Wapresma</h2>
-        </div>
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {presma.map((c) => (
-            <CandidateCard key={c.id} c={c} categoryLabel="BEM — Institusi" accent={BALLOT_CATEGORY_COLORS.PRESMA.primary} tint={BALLOT_CATEGORY_COLORS.PRESMA.tint} />
-          ))}
-        </div>
-      </section>
-
-      {/* ---------- DPM ---------- */}
+      {/* ---------- DPM (Surat Suara 1 — urutan resmi DPM → BEM → HIMA) ---------- */}
       <section>
         <div className="mb-4 flex items-center gap-3">
           <span className="inline-block h-6 w-2 rounded-full bg-[#0F766E]" aria-hidden />
-          <h2 className="font-display text-2xl font-bold tracking-[-0.02em]">Surat Suara 2 — Pimpinan DPM</h2>
+          <h2 className="font-display text-2xl font-bold tracking-[-0.02em]">Surat Suara 1 — Pimpinan DPM</h2>
         </div>
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {dpm.map((c) => (
             <CandidateCard key={c.id} c={c} categoryLabel="Legislatif — DPM" accent={BALLOT_CATEGORY_COLORS.DPM.primary} tint={BALLOT_CATEGORY_COLORS.DPM.tint} />
+          ))}
+        </div>
+      </section>
+
+      {/* ---------- BEM / PRESMA (Surat Suara 2) ---------- */}
+      <section>
+        <div className="mb-4 flex items-center gap-3">
+          <span className="inline-block h-6 w-2 rounded-full bg-[#1B7F4E]" aria-hidden />
+          <h2 className="font-display text-2xl font-bold tracking-[-0.02em]">Surat Suara 2 — BEM: Presma &amp; Wapresma</h2>
+        </div>
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {presma.map((c) => (
+            <CandidateCard key={c.id} c={c} categoryLabel="BEM — Institusi" accent={BALLOT_CATEGORY_COLORS.PRESMA.primary} tint={BALLOT_CATEGORY_COLORS.PRESMA.tint} />
           ))}
         </div>
       </section>
@@ -200,7 +217,7 @@ export function PublicPortal() {
             <div>
               <h2 className="font-display text-2xl font-bold tracking-[-0.02em]">Surat Suara 3 — {prodi.facultyName}</h2>
               <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: prodi.colorPrimary }}>
-                {prodi.colorName} • {prodi.name}
+                {prodi.colorName ?? prodi.id} • {prodi.name}
               </p>
             </div>
           </div>

@@ -1,6 +1,8 @@
 // GET /api/public/receipt?code=XXXX-XXXX-XXXX — Verifikasi struk suara (Rekomendasi #6)
-// Membuktikan sebuah balok suara ADA di hash chain TPS tanpa membocorkan
-// pilihan maupun identitas: hanya posisi blok, TPS, dan waktu tercatat.
+// Membuktikan sebuah balok suara ADA di rantai hash prodi tanpa membocorkan
+// pilihan maupun identitas: posisi blok, rantai, waktu, dan STATUS versi suara
+// (AKTIF = suara terakhir yang dihitung / DIGANTI = ada re-vote lebih baru /
+// DICABUT = token dicabut petugas — blok tidak dihitung).
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { normalizeReceiptCode } from "@/lib/crypto/receipt";
@@ -26,7 +28,7 @@ export async function GET(req: NextRequest) {
 
   const ballot = await db.ballotBox.findFirst({
     where: { ballotHash: { startsWith: code.toLowerCase() } },
-    select: { tpsId: true, createdAt: true },
+    select: { tpsId: true, createdAt: true, tokenId: true, voteVersion: true },
   });
   if (!ballot) {
     return NextResponse.json({
@@ -36,18 +38,48 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Posisi blok = peringkat waktu balok dalam TPS (urutan rantai)
+  // Posisi blok = peringkat waktu balok dalam rantai prodi (urutan rantai)
   const [tps, earlierCount] = await Promise.all([
     db.tps.findUnique({ where: { id: ballot.tpsId }, select: { name: true } }),
     db.ballotBox.count({ where: { tpsId: ballot.tpsId, createdAt: { lte: ballot.createdAt } } }),
   ]);
+
+  // Status versi suara (latest-ballot-wins) — tanpa identitas:
+  // bandingkan versi balok ini vs versi terakhir token yang sama.
+  let voteStatus: "AKTIF" | "DIGANTI" | "DICABUT" = "AKTIF";
+  let voteVersion = ballot.voteVersion;
+  if (ballot.tokenId) {
+    const token = await db.votingToken.findUnique({
+      where: { id: ballot.tokenId },
+      select: { status: true, revoteCount: true },
+    });
+    if (token?.status === "REVOKED") {
+      voteStatus = "DICABUT";
+    } else {
+      const latestVersion = token ? token.revoteCount + 1 : ballot.voteVersion;
+      if (ballot.voteVersion < latestVersion) voteStatus = "DIGANTI";
+      voteVersion = ballot.voteVersion;
+    }
+  }
+
+  const statusDetail: Record<typeof voteStatus, string> = {
+    AKTIF: "Suara ini adalah versi TERAKHIR pemilik token — SAH dan dihitung dalam rekapitulasi.",
+    DIGANTI: `Suara ini sudah DIGANTI versi lebih baru (re-vote model Estonia). Hanya versi terakhir yang dihitung.`,
+    DICABUT: "Token pemilik struk ini telah DICABUT petugas PPUR — seluruh blok suaranya dikecualikan dari rekapitulasi.",
+  };
 
   return NextResponse.json({
     ok: true,
     found: true,
     tpsName: tps?.name ?? ballot.tpsId,
     blockSeq: earlierCount,
+    voteVersion,
+    voteStatus,
+    statusDetail: statusDetail[voteStatus],
     recordedAt: ballot.createdAt.toISOString(),
-    message: "Struk terverifikasi — suara ini TERCATAT dalam hash chain kotak suara digital.",
+    message:
+      voteStatus === "AKTIF"
+        ? "Struk terverifikasi — suara ini TERCATAT dan AKTIF dalam rantai hash."
+        : `Struk terverifikasi dalam rantai hash, namun status suara: ${voteStatus}.`,
   });
 }

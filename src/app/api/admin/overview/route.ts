@@ -10,11 +10,11 @@ export async function GET() {
   if ("error" in gate) return gate.error;
   try {
     await expireStaleTokens();
-    const [setting, candidates, prodis, tps] = await Promise.all([
+    const [setting, candidates, prodis, chains] = await Promise.all([
       db.electionSetting.findUnique({ where: { id: "main" } }),
       db.candidate.findMany({ orderBy: [{ category: "asc" }, { number: "asc" }] }),
       db.studyProgram.findMany({ orderBy: { id: "asc" } }),
-      db.tps.findFirst(),
+      db.tps.findMany({ orderBy: { id: "asc" } }),
     ]);
 
     const [dptTotal, sudah, antrean, belum, tokenUsed, ballots, logs] = await Promise.all([
@@ -40,7 +40,7 @@ export async function GET() {
         plenoUnlocked: setting?.plenoUnlocked ?? false,
         plenoUnlockedAt: setting?.plenoUnlockedAt?.toISOString() ?? null,
       },
-      tps: tps ? { name: tps.name, location: tps.location, lastChainHash: tps.lastChainHash } : null,
+      chains: chains.map((t) => ({ id: t.id, name: t.name, location: t.location, lastChainHash: t.lastChainHash })),
       stats: { dptTotal, sudah, antrean, belum, tokenUsed, ballots },
       candidates: candidates.map((c) => ({
         id: c.id,

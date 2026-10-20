@@ -1,10 +1,10 @@
 // GET /api/public/verify-ba?sig=<hex> — Verifikasi publik tanda tangan Berita Acara (Rekomendasi #9)
 // Publik membandingkan signature pada dokumen dengan perhitungan ulang
-// dari kondisi kotak suara saat ini. Tanpa sesi, tanpa rahasia.
+// dari kondisi kotak suara saat ini via kanonikal bersama. Tanpa sesi, tanpa rahasia.
 import { NextRequest, NextResponse } from "next/server";
-import { createHash } from "crypto";
 import { db } from "@/lib/db";
 import { getTallyReport } from "@/lib/db/tally-service";
+import { buildBaCanonical, collectBaTotals, computeBaSignature } from "@/lib/server/ba-canonical";
 import { clientIp, generalLimit } from "@/lib/server/rate-limit";
 
 export async function GET(req: NextRequest) {
@@ -33,28 +33,13 @@ export async function GET(req: NextRequest) {
 
   // Hitung ulang kanonikal dari kondisi DATABASE saat ini
   const tally = await getTallyReport();
-  const [dptTotal, voted, ballots, tokenUsed, tps] = await Promise.all([
-    db.voter.count(),
-    db.voter.count({ where: { hasVoted: true } }),
-    db.ballotBox.count(),
-    db.votingToken.count({ where: { status: "USED" } }),
-    db.tps.findFirst(),
-  ]);
-  const flat = tally.categories.flatMap((cat) =>
-    cat.results.map((r) => `${cat.category}|${r.number ?? 0}|${r.votes}|${r.percentage.toFixed(2)}`).sort()
-  );
-  const canonical = JSON.stringify({
-    dptTotal,
-    voted,
-    ballots,
-    tokenUsed,
-    chainHead: tally.integrity.headHash,
-    chainValid: tally.integrity.valid,
-    plenoUnlockedAt: setting.plenoUnlockedAt?.toISOString() ?? null,
-    tps: tps?.id ?? null,
-    results: flat,
+  const totals = await collectBaTotals();
+  const canonical = buildBaCanonical({
+    ...totals,
+    tally,
+    plenoUnlockedAt: setting.plenoUnlockedAt ?? null,
   });
-  const recomputed = createHash("sha256").update(canonical).digest("hex");
+  const recomputed = computeBaSignature(canonical);
 
   if (recomputed !== sig) {
     return NextResponse.json({
@@ -70,11 +55,11 @@ export async function GET(req: NextRequest) {
     locked: false,
     valid: true,
     summary: {
-      tpsName: tps?.name ?? "",
-      chainHead: tally.integrity.headHash,
-      chainValid: tally.integrity.valid,
-      checkedBlocks: tally.integrity.checkedCount,
-      totals: { dptTotal, voted, ballots, tokenUsed },
+      chainValid: tally.integrity.allValid,
+      chains: tally.integrity.chains.map((c) => ({ id: c.tpsId, name: c.name, headHash: c.headHash, checked: c.checkedCount })),
+      checkedBlocks: tally.integrity.totalChecked,
+      revoteStats: tally.revoteStats,
+      totals,
       plenoUnlockedAt: setting.plenoUnlockedAt?.toISOString() ?? null,
     },
     message: "TANDA TANGAN TERVERIFIKASI — dokumen Berita Acara sah dan sesuai kondisi kotak suara digital.",

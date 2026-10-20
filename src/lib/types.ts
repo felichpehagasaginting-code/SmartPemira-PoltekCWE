@@ -5,12 +5,15 @@ export interface ProdiInfo {
   id: string;
   name: string;
   facultyName: string;
+  colorName?: string;
   colorPrimary: string;
   colorTint: string;
 }
 
 export interface CandidateView {
   id: string;
+  category: "PRESMA" | "DPM" | "HIMA";
+  studyProgramId: string | null;
   number: number;
   presidentName: string;
   viceName: string | null;
@@ -31,7 +34,7 @@ export interface BallotPayload {
 }
 
 export interface KioskSession {
-  expiresAt: string;
+  expiresAt: string | null; // null = re-vote (tanpa TTL, sampai pemungutan ditutup)
   tpsName: string;
   studyProgramId: string;
   studyProgramName: string;
@@ -41,8 +44,19 @@ export interface KioskSession {
 export interface KioskValidateResponse {
   ok: boolean;
   message?: string;
+  isRevote?: boolean;
+  voteVersion?: number;
   session?: KioskSession;
   ballots?: BallotPayload[];
+}
+
+export interface SubmitSuccess {
+  ok: true;
+  message: string;
+  receiptCode: string;
+  tpsName: string;
+  voteVersion: number;
+  isRevote: boolean;
 }
 
 export interface VoterRow {
@@ -70,7 +84,7 @@ export interface PortalResponse {
   votingOpen: boolean;
   emergencyFreeze: boolean;
   plenoUnlocked: boolean;
-  tps: { name: string; location: string } | null;
+  chains: Array<{ id: string; name: string; location: string }>;
   stats: { dptTotal: number; voted: number; turnoutPct: number };
   prodis: ProdiInfo[];
   candidates: CandidateView[];
@@ -96,13 +110,30 @@ export interface CategoryResultView {
   outcomeDetail: string;
 }
 
+export interface ChainIntegrityView {
+  tpsId: string;
+  name: string;
+  valid: boolean;
+  checkedCount: number;
+  headHash: string;
+  brokenAtIndex: number | null;
+}
+
+export interface RevoteStatsView {
+  tokensVoted: number;
+  tokensRevoted: number;
+  supersededBallots: number;
+  lockedTokens: number;
+}
+
 export interface TallyResponse {
   locked: boolean;
   message?: string;
   unlocked?: boolean;
   unlockedAt?: string | null;
   categories?: CategoryResultView[];
-  integrity?: { valid: boolean; checkedCount: number; headHash: string };
+  integrity?: { allValid: boolean; chains: ChainIntegrityView[]; totalChecked: number };
+  revoteStats?: RevoteStatsView;
   generatedAt?: string;
 }
 
@@ -117,11 +148,15 @@ export interface MonitorLiveResponse {
     tokenUsed: number;
     tokenExpired: number;
     ballotsCount: number;
+    effectiveBallots?: number;
+    revokedTokens?: number;
   };
   votingOpen: boolean;
   emergencyFreeze: boolean;
   plenoUnlocked: boolean;
-  integrity: { valid: boolean; checkedCount: number; brokenAtIndex: number | null; headHash: string };
+  integrity: { allValid: boolean; chains: ChainIntegrityView[]; totalChecked: number };
+  revoteStats?: RevoteStatsView & { effectiveBallots: number };
+  chains?: Array<{ id: string; name: string; location: string; lastChainHash: string }>;
   attendanceByHour: Array<{ hour: number; count: number }>;
   logs: Array<{ id: string; event: string; detail: string; createdAt: string }>;
   /** Rekomendasi #8: jumlah percobaan login gagal/lockout dalam 5 menit terakhir */
@@ -135,7 +170,7 @@ export interface AdminOverviewResponse {
     plenoUnlocked: boolean;
     plenoUnlockedAt: string | null;
   };
-  tps: { name: string; location: string; lastChainHash: string } | null;
+  chains: Array<{ id: string; name: string; location: string; lastChainHash: string }>;
   stats: { dptTotal: number; sudah: number; antrean: number; belum: number; tokenUsed: number; ballots: number };
   candidates: CandidateView[];
   prodis: ProdiInfo[];

@@ -6,8 +6,18 @@
 // ============================================================
 import { EventEmitter } from "events";
 
+export type AuthEventType =
+  | "OPERATOR_LOGIN"
+  | "OPERATOR_LOGIN_FAILED"
+  | "OPERATOR_LOGIN_BLOCKED"
+  | "OPERATOR_ACCOUNT_LOCKED"
+  | "OPERATOR_LOGOUT"
+  | "OPERATOR_PASSWORD_CHANGED"
+  | "OPERATOR_PASSWORD_CHANGE_FAILED"
+  | "OPERATOR_PASSWORD_RESET";
+
 export interface AuthEventPayload {
-  type: "OPERATOR_LOGIN" | "OPERATOR_LOGIN_FAILED" | "OPERATOR_ACCOUNT_LOCKED" | "OPERATOR_LOGOUT" | "OPERATOR_PASSWORD_CHANGED";
+  type: AuthEventType;
   detail: string;
   at: string;
 }

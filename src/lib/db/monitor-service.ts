@@ -21,27 +21,89 @@ const AUTH_EVENTS = [
 
 export async function buildMonitorPayload() {
   await expireStaleTokens();
-  const [setting, tps] = await Promise.all([
+  const [setting, chains] = await Promise.all([
     db.electionSetting.findUnique({ where: { id: "main" } }),
-    db.tps.findFirst(),
+    db.tps.findMany({ orderBy: { id: "asc" } }),
   ]);
 
-  const [dptTotal, sudah, antrean, belum, tokenAktif, tokenUsed, tokenExpired, ballots] = await Promise.all([
-    db.voter.count(),
-    db.voter.count({ where: { status: "SUDAH_MEMILIH" } }),
-    db.voter.count({ where: { status: "DALAM_ANTREAN" } }),
-    db.voter.count({ where: { status: "BELUM_MEMILIH" } }),
-    db.votingToken.count({ where: { status: "ACTIVE", expiresAt: { gt: new Date() } } }),
-    db.votingToken.count({ where: { status: "USED" } }),
-    db.votingToken.count({ where: { status: "EXPIRED" } }),
-    db.ballotBox.findMany({
-      where: { tpsId: tps?.id },
-      orderBy: { createdAt: "asc" },
-      select: { id: true, category: true, candidateId: true, isEmptyBox: true, createdAt: true, ballotHash: true },
-    }),
-  ]);
+  const [dptTotal, sudah, antrean, belum, tokenAktif, tokenUsed, tokenExpired, ballots, tokens] =
+    await Promise.all([
+      db.voter.count(),
+      db.voter.count({ where: { status: "SUDAH_MEMILIH" } }),
+      db.voter.count({ where: { status: "DALAM_ANTREAN" } }),
+      db.voter.count({ where: { status: "BELUM_MEMILIH" } }),
+      db.votingToken.count({ where: { status: "ACTIVE", expiresAt: { gt: new Date() } } }),
+      db.votingToken.count({ where: { status: "USED" } }),
+      db.votingToken.count({ where: { status: "EXPIRED" } }),
+      db.ballotBox.findMany({
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          tpsId: true,
+          tokenId: true,
+          voteVersion: true,
+          category: true,
+          candidateId: true,
+          isEmptyBox: true,
+          createdAt: true,
+          ballotHash: true,
+        },
+      }),
+      db.votingToken.findMany({
+        select: { id: true, status: true, lockedAt: true, revoteCount: true },
+      }),
+    ]);
 
-  const integrity = verifyChain(ballots, tps?.chainSalt ?? "", tps?.lastChainHash ?? "");
+  // Verifikasi integritas tiap rantai prodi (5 rantai virtual 100% online)
+  const { verifyChain } = await import("@/lib/crypto/ballot-hash-chain");
+  const chainIntegrity = chains.map((tps) => {
+    const chainBallots = ballots
+      .filter((b) => b.tpsId === tps.id)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const res = verifyChain(
+      chainBallots.map((b) => ({
+        id: b.id,
+        category: b.category,
+        candidateId: b.candidateId,
+        isEmptyBox: b.isEmptyBox,
+        createdAt: b.createdAt,
+        ballotHash: b.ballotHash,
+      })),
+      tps.chainSalt,
+      tps.lastChainHash
+    );
+    return {
+      tpsId: tps.id,
+      name: tps.name,
+      valid: res.valid,
+      checkedCount: res.checkedCount,
+      headHash: tps.lastChainHash,
+      brokenAtIndex: res.brokenAtIndex,
+    };
+  });
+  const integrity = {
+    allValid: chainIntegrity.every((c) => c.valid),
+    chains: chainIntegrity,
+    totalChecked: chainIntegrity.reduce((s, c) => s + c.checkedCount, 0),
+  };
+
+  // Statistik re-vote model Estonia
+  const revokedIds = new Set(tokens.filter((t) => t.status === "REVOKED").map((t) => t.id));
+  const maxVersion = new Map<string, number>();
+  for (const b of ballots) {
+    if (!b.tokenId || revokedIds.has(b.tokenId)) continue;
+    maxVersion.set(b.tokenId, Math.max(maxVersion.get(b.tokenId) ?? 0, b.voteVersion));
+  }
+  const effectiveCount = ballots.filter(
+    (b) => !b.tokenId || (!revokedIds.has(b.tokenId) && b.voteVersion === maxVersion.get(b.tokenId))
+  ).length;
+  const revoteStats = {
+    tokensVoted: tokenUsed,
+    tokensRevoted: tokens.filter((t) => t.revoteCount > 0).length,
+    supersededBallots: ballots.filter((b) => b.tokenId && !revokedIds.has(b.tokenId) && b.voteVersion < (maxVersion.get(b.tokenId) ?? 0)).length,
+    lockedTokens: tokens.filter((t) => t.lockedAt !== null && t.status !== "REVOKED").length,
+    effectiveBallots: effectiveCount,
+  };
 
   const votersVoted = await db.voter.findMany({ where: { hasVoted: true }, select: { votedAt: true } });
   const hourly = new Map<number, number>();
@@ -75,16 +137,15 @@ export async function buildMonitorPayload() {
       tokenUsed,
       tokenExpired,
       ballotsCount: ballots.length,
+      effectiveBallots: revoteStats.effectiveBallots,
+      revokedTokens: tokens.filter((t) => t.status === "REVOKED").length,
     },
     votingOpen: setting?.votingOpen ?? false,
     emergencyFreeze: setting?.emergencyFreeze ?? false,
     plenoUnlocked: setting?.plenoUnlocked ?? false,
-    integrity: {
-      valid: integrity.valid,
-      checkedCount: integrity.checkedCount,
-      brokenAtIndex: integrity.brokenAtIndex,
-      headHash: tps?.lastChainHash ?? "",
-    },
+    integrity,
+    revoteStats,
+    chains: chains.map((t) => ({ id: t.id, name: t.name, location: t.location, lastChainHash: t.lastChainHash })),
     attendanceByHour,
     logs,
     // Rekomendasi #8: alarm keamanan realtime

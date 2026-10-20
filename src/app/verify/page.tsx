@@ -16,10 +16,10 @@ interface VerifyResult {
   locked?: boolean;
   message?: string;
   summary?: {
-    tpsName: string;
-    chainHead: string;
     chainValid: boolean;
+    chains: Array<{ id: string; name: string; headHash: string; checked: number }>;
     checkedBlocks: number;
+    revoteStats: { tokensVoted: number; tokensRevoted: number; supersededBallots: number; lockedTokens: number };
     totals: { dptTotal: number; voted: number; ballots: number; tokenUsed: number };
     plenoUnlockedAt: string | null;
   };
@@ -110,22 +110,25 @@ function VerifyContent() {
                 {result.valid && result.summary && (
                   <div className="mt-5 grid gap-3 sm:grid-cols-2">
                     {[
-                      ["TPS", result.summary.tpsName],
+                      ["Mode pemungutan", `100% Online — ${result.summary.chains.length} rantai prodi`],
                       ["Pleno dibuka", result.summary.plenoUnlockedAt ? new Date(result.summary.plenoUnlockedAt).toLocaleString("id-ID") : "-"],
                       ["Total DPT", String(result.summary.totals.dptTotal)],
                       ["Hadir memilih", String(result.summary.totals.voted)],
                       ["Balok tersegel", String(result.summary.totals.ballots)],
-                      ["Integritas chain", `${result.summary.chainValid ? "VALID" : "BROKEN"} (${result.summary.checkedBlocks} blok)`],
+                      ["Integritas rantai", `${result.summary.chainValid ? "VALID" : "BROKEN"} (${result.summary.checkedBlocks} blok, ${result.summary.chains.filter((c) => true).length} rantai)`],
+                      ["Re-vote (Estonia)", `${result.summary.revoteStats.tokensRevoted} token mengganti suara • ${result.summary.revoteStats.supersededBallots} blok usang tak dihitung`],
                     ].map(([k, v]) => (
                       <div key={k} className="rounded-[8px] border border-[#D8D3C8] bg-white px-4 py-2.5">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-[#7A8881]">{k}</p>
                         <p className="font-mono-tabular text-[13px] font-extrabold text-[#141E19]">{v}</p>
                       </div>
                     ))}
-                    <div className="sm:col-span-2 rounded-[8px] border border-[#D8D3C8] bg-white px-4 py-2.5">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#7A8881]">Chain head (SHA-256)</p>
-                      <p className="break-all font-mono text-[11px] text-[#141E19]">{result.summary.chainHead}</p>
-                    </div>
+                    {result.summary.chains.map((c) => (
+                      <div key={c.id} className="rounded-[8px] border border-[#D8D3C8] bg-white px-4 py-2.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#7A8881]">Rantai {c.id} — head SHA-256</p>
+                        <p className="break-all font-mono text-[10.5px] text-[#141E19]">{c.headHash}</p>
+                      </div>
+                    ))}
                   </div>
                 )}
 

@@ -145,7 +145,7 @@ async function main() {
   const dpmId = portal.candidates.find((c) => c.category === "DPM")!.id;
   const himaId = portal.candidates.find((c) => c.category === "HIMA" && c.studyProgramId === voter.studyProgramId && c.id)!.id;
 
-  const sub = (await fetch(`${BASE}/api/kiosk/submit`, {
+  const sub = (await fetch(`${BASE}/api/pemilih/submit`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

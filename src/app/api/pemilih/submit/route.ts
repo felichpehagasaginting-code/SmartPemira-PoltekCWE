@@ -1,5 +1,5 @@
-// POST /api/kiosk/submit — Kirim suara via transaksi atomik (Hukum 2)
-// Rekomendasi #6: respons memuat struk suara (receipt code) untuk verifikasi publik.
+// POST /api/pemilih/submit — Kirim suara via transaksi atomik (Hukum 2)
+// Rekomendasi #6: respons memuat struk suara + versi suara (re-vote Estonia).
 import { NextRequest, NextResponse } from "next/server";
 import { submitBallots } from "@/lib/db/ballot-service";
 import { clientIp, generalLimit } from "@/lib/server/rate-limit";
@@ -7,7 +7,7 @@ import { clientIp, generalLimit } from "@/lib/server/rate-limit";
 export async function POST(req: NextRequest) {
   try {
     // Anti-abuse: maks 20 pengiriman suara/menit per IP (Rekomendasi #1)
-    const limit = generalLimit(`kiosksbm:${clientIp(req.headers)}`, 20, 60_000);
+    const limit = generalLimit(`pemilihsbm:${clientIp(req.headers)}`, 20, 60_000);
     if (!limit.allowed) {
       return NextResponse.json(
         { ok: false, message: `Terlalu banyak pengiriman. Coba lagi dalam ${Math.ceil(limit.retryAfterSec)} detik.` },
@@ -35,7 +35,11 @@ export async function POST(req: NextRequest) {
 
     if (!result.ok) {
       const status =
-        result.code === "FROZEN" ? 423 : result.code === "VOTING_CLOSED" ? 423 : 400;
+        result.code === "FROZEN" || result.code === "VOTING_CLOSED"
+          ? 423
+          : result.code === "LOCKED_TOKEN" || result.code === "REVOKED_TOKEN"
+            ? 403
+            : 400;
       return NextResponse.json(result, { status });
     }
     return NextResponse.json(result);

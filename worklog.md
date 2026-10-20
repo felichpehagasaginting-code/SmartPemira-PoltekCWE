@@ -140,3 +140,33 @@ Work Log:
 
 Stage Summary:
 - Panel preview kini dapat menampilkan aplikasi; proteksi anti-clickjacking tetap aktif otomatis pada deployment produksi
+
+---
+Task ID: 7 (Pemira 100% Online — Portal Pemilih BYOD + Re-vote Estonia)
+Agent: main (Z.ai)
+Task: Diskusi desain dengan user → keputusan final → eksekusi penuh "Pemira Online"
+
+Keputusan user (via AskUserQuestion):
+- Model 100% online BYOD: mahasiswa milih dari HP sendiri via /pemilih, token dari pos bantuan PPUR (tanpa TPS fisik, kiosk dihapus)
+- Hash chain per prodi (5 rantai virtual, bukan satu TPS)
+- Re-vote model Estonia: suara terakhir menang + Kunci Suaraku (finalisasi sukarela)
+- Urutan surat suara: DPM → BEM → HIMA
+- DPT: NIM + Prodi (prodi = kunci filter surat suara HIMA)
+- 5 prodi (koreksi user): TPTP/TPHP/MANLOG/BD/TRPL — TPTP menggantikan BKS (mewarisi Terracotta), BD warna baru Deep Teal #0F766E
+- Demo: tiap prodi punya kandidat Hima; TPTP calon tunggal (Hukum 3 tetap terdemo)
+- Skala riil 500–2000 → catatan PostgreSQL (#4) untuk produksi
+
+Work Log:
+- Schema: VotingToken +lockedAt/+revoteCount (status REVOKED), BallotBox +tokenId/+voteVersion; Tps direpurposasi jadi 5 rantai per prodi; db push sukses
+- ballot-service: mesin re-vote (voteVersion = revoteCount+1, voter hanya disentuh di vote pertama), lockBallot (Kunci Suaraku), revokeTokenByCode + resetVoterRights (anti-paksaan lapis 3 via slip lama — tanpa jembatan identitas→token)
+- tally-service: latest-ballot-wins (blok versi maks per token, REVOKED dikecualikan), integritas 5 rantai, atribusi kotak kosong HIMA PERSIS per prodi via rantai, urutan rekap DPM→BEM→HIMA, revoteStats
+- monitor-service: integritas multi-rantai + revoteStats + chains list
+- API: /api/pemilih/{validate,submit,lock} (kiosk dihapus), /api/ppur/revoke, struk publik + voteStatus AKTIF/DIGANTI/DICABUT, kanonikal BA bersama (lib/server/ba-canonical.ts: 5 head rantai + revote) dipakai BA KPUM & /verify
+- Frontend: komponen pemilih/pemilih-portal.tsx (mobile-first, QR auto-isi ?token=, banner mode ganti suara, layar sukses + Kunci/Ganti, tanpa auto-reset), /pemilih page, PPUR desk = pos bantuan (QR di slip + kasus khusus cabut token), shell tanpa tab kiosk + footer link portal, monitor: strip 5 rantai + kartu re-vote, KPUM chains, portal publik urutan DPM→BEM + CTA /pemilih, /verify menampilkan 5 head + statistik re-vote
+- Seed: 5 prodi, 44 pemilih ber-NIM (5 rantai), 15 kandidat, 9 pra-cast + 1 demo re-vote (TRPL v2), rantai per prodi jujur
+- tsc src 0 error (bus.ts AuthEventType diperluas, CandidateView +category, ProdiInfo +colorName?); tsconfig exclude scripts+examples (skrip jalan via tsx)
+- Verifikasi: smoke curl 10 langkah ✓; E2E inti dirombak → 46 asersi lulus (re-vote bukan 409, versi 2, lock 403, struk v1 DIGANTI/v2 AKTIF, latest-wins TRPL paslon2=0, 5 rantai valid, TPTP MANDAT_KEMBALI 33.33%); E2E fitur 37/37 lulus; browser 12 screenshot (portal mobile, slip QR, bilik DPM/BEM/HIMA, review, sukses v1, revote v2, terkunci final, monitor 5 rantai + re-vote stats); console bersih; lint bersih; DB di-reset demo segar
+
+Stage Summary:
+- Pemira kini 100% online sesuai visi user: pintu suara tunggal /pemilih dari device sendiri, 5 rantai hash per prodi, re-vote Estonia + 3 lapis anti-paksaan (kunci sukarela / override TPS dihapus → kunci + cabut-pulihkan), struk menampilkan status versi suara
+- Hukum 1-5 tetap terjaga: token tetap tanpa identitas (tokenId = kredensial anonim), rantai append-only, pleno lock, calon tunggal 50:50
