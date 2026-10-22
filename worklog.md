@@ -190,3 +190,25 @@ Work Log:
 Stage Summary:
 - Fitur "Segel & Reset Pemira" lengkap: pemira kini bisa diulang kapan pun SETELAH pleno tanpa melanggar append-only — arsip resmi bertanda tangan selalu dibuat ATOMIK bersama pembersihan, 5 rantai re-genesis, semua sesi lama hangus, semuanya teraudit
 - Mode DEMO untuk simulasi ulang dgn data sama; mode NEW_PERIOD untuk siklus pemira sungguhan (DPT via Import, kandidat di-input ulang)
+
+---
+Task ID: 9 (Foto Kandidat AI + Struktur 2 Kandidat per Organisasi)
+Agent: main (Z.ai)
+Task: Permintaan user — "rapihin semua calon pemimpin, buat gambarnya (palsu), masing-masing organisasi 2 kandidat, tiap kandidat ada foto ketua & wakil ketua, khusus DPM: Ketua Umum, Ketua 1, Ketua 2"
+
+Work Log:
+- Schema Candidate: +secondViceName (Ketua 2 khusus DPM), +photoLeaderUrl/+photoViceUrl/+photoSecondViceUrl (foto per peran); db push sukses
+- 30 foto AI palsu digenerate via z-ai-web-dev-sdk (scripts/generate-candidate-photos.ts, potret formal 864x1152 konsisten: batik/almamater/blazer, ±separuh hijab) → public/candidates/*.png; rate limit 429 ditangani backoff 20s×attempt + timeout wrapper 150s (proses background dibunuh sandbox → dijalankan foreground batch 3x, idempoten via skip file existing)
+- Seed: DPM 2 kandidat × 3 peran (Ketua Umum/Ketua 1/Ketua 2), BEM 2 kandidat (Presma/Wakil Presma — sebelumnya 3 → dihapus no.3), HIMA 5 prodi × 2 kandidat (Ketua/Wakil); KOTAK KOSONG TPTP dihapus (semua org kini 2 kandidat — Hukum 3 tetap ada di kode, tak terdemo di seed); TPTP no.2 baru (Fajar Arya Wibowo + Putri Maharani Ayu); total 14 kandidat
+- API: /pemilih/validate + /public/portal + /admin/overview mengirim secondViceName & 3 URL foto; validate kini juga mengirim category (bug fix: UI bilik tidak mengenali DPM → label salah)
+- UI pemilih-portal: komponen MemberPhoto (potret 3:4 + lencana peran + nama), kartu bilik grid 3 kolom utk DPM / 2 kolom lainnya, avatar review pakai foto + baris Ketua 2; UI public-portal: CandidateCard menampilkan foto per peran; KPUM dashboard + nama Ketua 2
+- Tally/reset-service: CandidateResult +secondViceName (rekap DPM lengkap); types.ts disinkronkan
+- E2E inti dirombak: asersi calon tunggal TPTP diganti (2 kandidat per org, foto terisi, DPM bawa Ketua 2+foto); TPTP rekap 2 kandidat tanpa kotak kosong
+- Verifikasi: E2E inti LULUS penuh (46 asersi termasuk foto & struktur baru); E2E fitur 37/37; lint bersih; tsc bersih; dev.log bersih
+- Browser 10 screenshot (foto-01..14): portal publik DPM 3 foto + BEM 2 foto + HIMA 2 foto, bilik mobile & desktop (DPM 3 foto terbaca jelas di 390px), review 3 nama DPM, submit sukses struk 9194-A051-A42C; console bersih
+- Bonus rapih: label login-screen "Kiosk Bilik Suara" → "Portal Pemilih Online (/pemilih)" (sisa nomenklatur era kiosk)
+- DB di-reset ke demo segar: 14 kandidat (semua berfoto), 44 DPT, 9 voted, pleno terkunci, 1 demo re-vote
+
+Stage Summary:
+- Seluruh kandidat kini berfoto AI (30 foto, gaya potret formal konsisten), struktur 2 kandidat per organisasi, DPM memakai struktur 3 peran Ketua Umum/Ketua 1/Ketua 2 — tampil di portal publik, bilik suara, review, dashboard KPUM, dan rekap tally
+- Skenario calon tunggal/Kotak Kosong tidak lagi ada di seed demo (logika Hukum 3 tetap utuh di kode bila sewaktu-waktu hanya 1 kandidat)

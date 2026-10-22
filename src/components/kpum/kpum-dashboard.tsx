@@ -389,6 +389,7 @@ export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }
                       </div>
                       <p className="mt-2 font-bold leading-snug">{c.presidentName}</p>
                       {c.viceName && <p className="text-[12px] text-[#4A5851]">& {c.viceName}</p>}
+                      {c.secondViceName && <p className="text-[12px] text-[#4A5851]">& {c.secondViceName}</p>}
                       <p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-[#4A5851]">{c.vision}</p>
                     </div>
                   ))}

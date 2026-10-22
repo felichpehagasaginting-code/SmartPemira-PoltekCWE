@@ -108,8 +108,13 @@ model Candidate {
   studyProgramId String? // hanya untuk HIMA
   studyProgram   StudyProgram? @relation(fields: [studyProgramId], references: [id])
   number         Int // nomor urut
-  presidentName  String // Ketua/Presma/Gubernur
-  viceName       String? // Wakil (untuk DPM: Wakil Ketua)
+  presidentName  String // DPM: Ketua Umum | BEM: Presma | HIMA: Ketua
+  viceName       String? // DPM: Ketua 1 | BEM: Wakil Presma | HIMA: Wakil Ketua
+  secondViceName String? // khusus DPM: Ketua 2 (struktur DPM = Ketua Umum + Ketua 1 + Ketua 2)
+  // Foto resmi (file statis di /public/candidates) — fallback UI = inisial nama
+  photoLeaderUrl       String? // foto presidentName
+  photoViceUrl         String? // foto viceName
+  photoSecondViceUrl   String? // foto secondViceName (DPM saja)
   vision         String
   missionJson    String // JSON array of strings (SQLite tidak mendukung list)
   photoAccent    String // warna aksen kartu kandidat

@@ -94,8 +94,17 @@ async function main() {
     `Urutan resmi DPM → BEM → HIMA: ${ballots.map((b) => b.category).join(" → ")}`
   );
   const hima = ballots.find((b) => b.category === "HIMA");
-  assert(hima.singleCandidateScenario === true, "TPTP = calon tunggal → skenario KOTAK KOSONG aktif (Hukum 3)");
-  assert(hima.candidates.length === 2, "Hima TPTP punya 2 opsi: paslon 01 + KOTAK KOSONG");
+  assert(hima.singleCandidateScenario === false, "Setiap organisasi kini 2 kandidat — tidak ada skenario calon tunggal di seed demo");
+  assert(hima.candidates.length === 2, "Hima TPTP punya 2 kandidat resmi (1 paslon per kandidat tidak berlaku lagi)");
+  assert(
+    hima.candidates.every((c) => !!c.photoLeaderUrl && !!c.photoViceUrl),
+    "Semua kandidat HIMA membawa foto Ketua & Wakil (photoLeaderUrl + photoViceUrl terisi)"
+  );
+  const dpmBallot = ballots.find((b) => b.category === "DPM");
+  assert(
+    dpmBallot.candidates.every((c) => !!c.secondViceName && !!c.photoSecondViceUrl),
+    "Kandidat DPM membawa Ketua 2 + foto (struktur Ketua Umum / Ketua 1 / Ketua 2)"
+  );
   assert(ballots.every((b) => b.category !== "HIMA" || b.candidates.every((c) => !c.id || hima.candidates.some((x) => x.id === c.id))), "Tidak ada kebocoran kandidat prodi lain (server-side filter)");
   assert(!!val.body.session.expiresAt, "Vote pertama membawa TTL");
 
@@ -167,7 +176,10 @@ async function main() {
   const catOrder = tally.body.categories.map((c) => c.category);
   assert(catOrder[0] === "DPM" && catOrder[1] === "PRESMA", `Urutan rekap: ${catOrder.slice(0, 2).join(" → ")} → HIMA×5`);
   const tptpCat = tally.body.categories.find((c) => c.category === "HIMA" && c.studyProgramId === "TPTP");
-  assert(tptpCat.results.some((r) => r.isEmptyBox && r.votes >= 2), `Kotak kosong TPTP tercatat: ${tptpCat.results.find((r) => r.isEmptyBox)?.votes} suara`);
+  assert(
+    tptpCat.results.length === 2 && tptpCat.results.every((r) => !r.isEmptyBox),
+    "TPTP rekap: 2 kandidat tanpa kotak kosong (seed demo kini 2 kandidat per organisasi)"
+  );
   console.log(`  ℹ️  Outcome TPTP: ${tptpCat.outcome} — ${tptpCat.outcomeDetail}`);
   const trplCat = tally.body.categories.find((c) => c.category === "HIMA" && c.studyProgramId === "TRPL");
   const trpl2 = trplCat.results.find((r) => r.number === 2);

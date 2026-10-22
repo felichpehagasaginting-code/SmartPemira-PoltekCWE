@@ -28,7 +28,7 @@ const ROLE_BADGE: Record<string, string> = {
 const TERMINALS = [
   { icon: <Landmark className="h-3.5 w-3.5" />, label: "Portal Informasi Publik", access: "Semua pengguna" },
   { icon: <ScanBarcode className="h-3.5 w-3.5" />, label: "Meja Registrasi PPUR", access: "PPUR • ITPO" },
-  { icon: <Vote className="h-3.5 w-3.5" />, label: "Kiosk Bilik Suara", access: "Token pemilih" },
+  { icon: <Vote className="h-3.5 w-3.5" />, label: "Portal Pemilih Online (/pemilih)", access: "Token pemilih" },
   { icon: <MonitorCheck className="h-3.5 w-3.5" />, label: "Dashboard KPUM", access: "KPUM • ITPO" },
   { icon: <ShieldHalf className="h-3.5 w-3.5" />, label: "Monitor Panwaslu & Pleno", access: "PANWASLU • SAKSI • KPUM • ITPO" },
 ];

@@ -16,6 +16,7 @@ export interface CandidateResult {
   number: number;
   name: string;
   viceName: string | null;
+  secondViceName: string | null; // khusus DPM: Ketua 2
   isEmptyBox: boolean;
   votes: number;
   percentage: number; // dari total suara sah kategori
@@ -207,6 +208,7 @@ function buildCategoryResult(
     number: number;
     presidentName: string;
     viceName: string | null;
+    secondViceName: string | null;
     isEmptyBox: boolean;
   }>,
   voteMap: Map<string, number>
@@ -219,6 +221,7 @@ function buildCategoryResult(
       number: c.number,
       name: c.presidentName,
       viceName: c.viceName,
+      secondViceName: c.secondViceName,
       isEmptyBox: c.isEmptyBox,
       votes,
       percentage: 0, // diisi setelah total diketahui

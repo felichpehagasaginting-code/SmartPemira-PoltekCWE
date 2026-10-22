@@ -188,6 +188,7 @@ async function collectSealPayload(sealedBy: string, mode: ResetMode, note: strin
       number: c.number,
       presidentName: c.presidentName,
       viceName: c.viceName,
+      secondViceName: c.secondViceName,
       isEmptyBox: c.isEmptyBox,
     })),
   };

@@ -17,6 +17,10 @@ export interface CandidateView {
   number: number;
   presidentName: string;
   viceName: string | null;
+  secondViceName: string | null; // khusus DPM: Ketua 2
+  photoLeaderUrl: string | null;
+  photoViceUrl: string | null;
+  photoSecondViceUrl: string | null; // khusus DPM: foto Ketua 2
   vision: string;
   missions: string[];
   isEmptyBox: boolean;
@@ -95,6 +99,7 @@ export interface CandidateResultView {
   number: number;
   name: string;
   viceName: string | null;
+  secondViceName: string | null; // khusus DPM: Ketua 2
   isEmptyBox: boolean;
   votes: number;
   percentage: number;

@@ -40,8 +40,16 @@ function stepLabel(category: string, prodiId: string): string {
   return `HIMA ${prodiId}`;
 }
 
-function CandidateAvatar({ name, accent, size = 72 }: { name: string; accent: string; size?: number }) {
+function CandidateAvatar({ name, photo, accent, size = 72 }: { name: string; photo?: string | null; accent: string; size?: number }) {
   const initials = name === "KOTAK KOSONG" ? "□" : name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+  if (photo) {
+    return (
+      <div className="shrink-0 overflow-hidden rounded-[10px] border-2 border-[#141E19]" style={{ width: size, height: size }}>
+        { }
+        <img src={photo} alt={`Foto ${name}`} className="h-full w-full object-cover" />
+      </div>
+    );
+  }
   return (
     <div
       className="flex shrink-0 items-center justify-center rounded-[10px] border-2 border-[#141E19] font-display font-extrabold text-white select-none"
@@ -49,6 +57,40 @@ function CandidateAvatar({ name, accent, size = 72 }: { name: string; accent: st
       aria-hidden
     >
       {initials}
+    </div>
+  );
+}
+
+/** Label peran resmi per kategori — DPM punya struktur 3 peran (Ketua Umum, Ketua 1, Ketua 2) */
+function memberRoles(category: string): { leader: string; vice: string; second?: string } {
+  if (category === "DPM") return { leader: "Ketua Umum", vice: "Ketua 1", second: "Ketua 2" };
+  if (category === "PRESMA") return { leader: "Presma", vice: "Wakil Presma" };
+  return { leader: "Ketua", vice: "Wakil Ketua" };
+}
+
+/** Foto anggota kandidat: potret 3:4 + lencana peran + nama */
+function MemberPhoto({ name, role, photo, accent }: { name: string; role: string; photo?: string | null; accent: string }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <div
+        className="relative w-full overflow-hidden rounded-[10px] border-2 border-[#141E19] shadow-[2px_2px_0px_#141E19]"
+        style={{ aspectRatio: "3 / 4", background: accent }}
+      >
+        {photo ? (
+           
+          <img src={photo} alt={`Foto ${name} — ${role}`} className="h-full w-full object-cover object-top" loading="lazy" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center font-display text-xl font-extrabold text-white" aria-hidden>
+            {name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
+          </div>
+        )}
+        <span className="absolute left-1.5 top-1.5 rounded-[6px] border border-[#141E19]/50 bg-white/95 px-1.5 py-0.5 text-[8.5px] font-extrabold uppercase tracking-wide text-[#141E19]">
+          {role}
+        </span>
+      </div>
+      <p className="truncate text-[12px] font-bold leading-tight text-[#141E19]" title={name}>
+        {name}
+      </p>
     </div>
   );
 }
@@ -108,14 +150,37 @@ function BallotCandidateCard({
           Nomor Urut
         </span>
       </div>
-      <div className="flex items-center gap-3">
-        <CandidateAvatar name={candidate.presidentName} accent={candidate.isEmptyBox ? EMPTY_BOX_COLOR : color} size={56} />
-        <div>
-          <h3 className="font-display text-base font-bold leading-snug">{candidate.presidentName}</h3>
-          {candidate.viceName && <p className="text-xs text-[#4A5851] font-medium">& {candidate.viceName}</p>}
+      {/* Foto per peran — DPM: Ketua Umum/Ketua 1/Ketua 2; lainnya: Ketua + Wakil */}
+      {candidate.isEmptyBox ? (
+        <div className="flex items-center gap-3">
+          <CandidateAvatar name={candidate.presidentName} accent={EMPTY_BOX_COLOR} size={56} />
+          <div>
+            <h3 className="font-display text-base font-bold leading-snug">{candidate.presidentName}</h3>
+            {candidate.viceName && <p className="text-xs text-[#4A5851] font-medium">& {candidate.viceName}</p>}
+          </div>
         </div>
-      </div>
-      <p className="text-[13px] leading-relaxed text-[#4A5851] line-clamp-3">{candidate.vision}</p>
+      ) : (
+        <>
+          {(() => {
+            const roles = memberRoles(candidate.category);
+            const members = [
+              { role: roles.leader, name: candidate.presidentName, photo: candidate.photoLeaderUrl },
+              ...(candidate.viceName ? [{ role: roles.vice, name: candidate.viceName, photo: candidate.photoViceUrl }] : []),
+              ...(candidate.secondViceName && roles.second
+                ? [{ role: roles.second, name: candidate.secondViceName, photo: candidate.photoSecondViceUrl }]
+                : []),
+            ];
+            return (
+              <div className={`grid gap-2.5 ${members.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+                {members.map((m) => (
+                  <MemberPhoto key={m.role} name={m.name} role={m.role} photo={m.photo} accent={color} />
+                ))}
+              </div>
+            );
+          })()}
+        </>
+      )}
+      <p className="text-[13px] leading-relaxed text-[#4A5851] line-clamp-2">{candidate.vision}</p>
       {candidate.isEmptyBox && (
         <p className="text-[12px] leading-relaxed text-[#4A5851] italic">
           Pilih kotak ini apabila Anda tidak menyetujui pasangan calon tunggal.
@@ -579,10 +644,11 @@ export function PemilihPortal() {
                 </div>
                 {cand ? (
                   <div className="flex items-center gap-3">
-                    <CandidateAvatar name={cand.presidentName} accent={cand.isEmptyBox ? EMPTY_BOX_COLOR : b.color} size={52} />
+                    <CandidateAvatar name={cand.presidentName} photo={cand.photoLeaderUrl} accent={cand.isEmptyBox ? EMPTY_BOX_COLOR : b.color} size={52} />
                     <div>
                       <p className="font-display text-base font-bold leading-snug">{cand.presidentName}</p>
                       {cand.viceName && <p className="text-xs text-[#4A5851]">& {cand.viceName}</p>}
+                      {cand.secondViceName && <p className="text-xs text-[#4A5851]">& {cand.secondViceName}</p>}
                       <p className="mt-1 text-[11px] font-bold uppercase tracking-wide" style={{ color: b.color }}>
                         {cand.isEmptyBox ? "Kotak Kosong — Tidak Setuju" : `Nomor Urut ${String(cand.number).padStart(2, "0")}`}
                       </p>

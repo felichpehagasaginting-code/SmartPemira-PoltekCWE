@@ -113,8 +113,15 @@ async function main() {
   }
 
   // ---------- Kandidat ----------
+  // Struktur per peran (keputusan diskusi 2026-10-22):
+  //  - DPM : Ketua Umum (presidentName) + Ketua 1 (viceName) + Ketua 2 (secondViceName)
+  //  - BEM : Presma (presidentName) + Wakil Presma (viceName)
+  //  - HIMA: Ketua (presidentName) + Wakil Ketua (viceName)
+  //  Tiap kandidat punya foto AI palsu per orang (public/candidates).
   const mkCandidate = (data: {
     category: string; studyProgramId?: string; number: number; presidentName: string; viceName?: string;
+    secondViceName?: string;
+    photoLeaderUrl?: string; photoViceUrl?: string; photoSecondViceUrl?: string;
     vision: string; missions: string[]; photoAccent: string; isEmptyBox?: boolean;
   }) =>
     db.candidate.create({
@@ -124,6 +131,10 @@ async function main() {
         number: data.number,
         presidentName: data.presidentName,
         viceName: data.viceName,
+        secondViceName: data.secondViceName,
+        photoLeaderUrl: data.photoLeaderUrl,
+        photoViceUrl: data.photoViceUrl,
+        photoSecondViceUrl: data.photoSecondViceUrl,
         vision: data.vision,
         missionJson: JSON.stringify(data.missions),
         photoAccent: data.photoAccent,
@@ -131,26 +142,34 @@ async function main() {
       },
     });
 
-  // DPM (Surat Suara 1) — 2 pasangan calon
+  // DPM (Surat Suara 1) — 2 kandidat × struktur 3 peran: Ketua Umum, Ketua 1, Ketua 2
   const dpm1 = await mkCandidate({
     category: "DPM", number: 1,
-    presidentName: "Rangga Aditya Nugraha", viceName: "Melati Anggun Sari",
+    presidentName: "Rangga Aditya Nugraha", viceName: "Melati Anggun Sari", secondViceName: "Naufal Arya Saputra",
+    photoLeaderUrl: "/candidates/dpm-01-ketua-umum.png",
+    photoViceUrl: "/candidates/dpm-01-ketua-1.png",
+    photoSecondViceUrl: "/candidates/dpm-01-ketua-2.png",
     vision: "Legislasi mahasiswa yang adaptif, responsif, dan menjadi rumah bersama bagi seluruh elemen IKM.",
     missions: ["Revisi UUD IKM & RUU Pemira berbasis masukan publik", "Dashboard akuntabilitas anggaran DPM real-time", "Asistensi tata kelola untuk seluruh Hima prodi"],
     photoAccent: "#0F766E",
   });
   const dpm2 = await mkCandidate({
     category: "DPM", number: 2,
-    presidentName: "Fariz Aulia Rahman", viceName: "Hana Puspita Dewi",
+    presidentName: "Fariz Aulia Rahman", viceName: "Hana Puspita Dewi", secondViceName: "Salma Nadhira Putri",
+    photoLeaderUrl: "/candidates/dpm-02-ketua-umum.png",
+    photoViceUrl: "/candidates/dpm-02-ketua-1.png",
+    photoSecondViceUrl: "/candidates/dpm-02-ketua-2.png",
     vision: "DPM sebagai penjaga konstitusi yang berintegritas dan berdedikasi pada kemajuan mahasiswa.",
     missions: ["Klinik hukum organisasi mahasiswa setiap pekan", "Digitalisasi persidangan & arsip jurnal DPM", "Komisi pengawasan berita acara Pemira yang ketat"],
     photoAccent: "#0F766E",
   });
 
-  // BEM / PRESMA (Surat Suara 2) — 3 pasangan calon
+  // BEM / PRESMA (Surat Suara 2) — 2 kandidat × (Presma + Wakil Presma)
   const presma1 = await mkCandidate({
     category: "PRESMA", number: 1,
     presidentName: "Muhammad Raffi Pratama", viceName: "Salsabila Kirana Putri",
+    photoLeaderUrl: "/candidates/bem-01-ketua.png",
+    photoViceUrl: "/candidates/bem-01-wakil.png",
     vision: "Mewujudkan IKM Poltek CWE sebagai federasi mahasiswa yang digital, inklusif, dan berdaya saing industri perkebunan nasional.",
     missions: ["Digitalisasi total layanan kemahasiswaan berbasis satu portal", "Program beasiswa prestasi & literasi keuangan mahasiswa", "Penguatan incubator bisnis sawit mahasiswa bersama industri mitra"],
     photoAccent: "#1B7F4E",
@@ -158,38 +177,38 @@ async function main() {
   const presma2 = await mkCandidate({
     category: "PRESMA", number: 2,
     presidentName: "Bintang Aditya Halim", viceName: "Nadia Ayu Lestari",
+    photoLeaderUrl: "/candidates/bem-02-ketua.png",
+    photoViceUrl: "/candidates/bem-02-wakil.png",
     vision: "Eksekutif mahasiswa yang transparan, kolaboratif, dan dekat dengan aspirasi seluruh Himpunan Mahasiswa Prodi.",
     missions: ["Portal aspirasi terbuka 24 jam dengan tindak lanjut terukur", "Festival budaya & olahraga antar-prodi tahunan", "Optimalisasi data DPT & partisipasi pemilu 90%+"],
     photoAccent: "#1B7F4E",
   });
-  const presma3 = await mkCandidate({
-    category: "PRESMA", number: 3,
-    presidentName: "Yusuf Maulana Ramadhan", viceName: "Tsania Rahmadani",
-    vision: "Kepemimpinan yang berakar pada nilai keilmuan perkebunan dan teknologi untuk kesejahteraan mahasiswa.",
-    missions: ["Pusat karier & sertifikasi kompetensi sawit gratis", "Bengkel penelitian mahasiswa menuju PKM nasional", "Renovasi ruang belajar & wifi kampus merata"],
-    photoAccent: "#1B7F4E",
-  });
 
-  // HIMA (Surat Suara 3) — per prodi.
-  // TPTP = CALON TUNGGAL → memicu KOTAK KOSONG otomatis (Hukum 3 / Pasal 9 ayat 3)
+  // HIMA (Surat Suara 3) — per prodi, masing-masing 2 kandidat × (Ketua + Wakil Ketua)
   const himaTptp1 = await mkCandidate({
     category: "HIMA", studyProgramId: "TPTP", number: 1,
     presidentName: "Desi Ratna Kusumawati", viceName: "Aldi Saputra",
+    photoLeaderUrl: "/candidates/hima-tptp-01-ketua.png",
+    photoViceUrl: "/candidates/hima-tptp-01-wakil.png",
     vision: "Hima TPTP sebagai laboratorium lapangan produksi tanaman perkebunan terbaik tingkat politeknik.",
     missions: ["Praktik lapangan kebun mitra setiap semester", "Kelas sertifikasi agronomis muda & pest control", "Lomba budidaya antar-angkatan"],
     photoAccent: "#D95338",
   });
-  const himaTptpEmpty = await mkCandidate({
-    category: "HIMA", studyProgramId: "TPTP", number: 99,
-    presidentName: "KOTAK KOSONG",
-    vision: "Pilih kotak ini apabila Anda tidak menyetujui pasangan calon tunggal (Pasal 9 ayat 3 UUD IKM).",
-    missions: [],
-    photoAccent: "#3F4743", isEmptyBox: true,
+  const himaTptp2 = await mkCandidate({
+    category: "HIMA", studyProgramId: "TPTP", number: 2,
+    presidentName: "Fajar Arya Wibowo", viceName: "Putri Maharani Ayu",
+    photoLeaderUrl: "/candidates/hima-tptp-02-ketua.png",
+    photoViceUrl: "/candidates/hima-tptp-02-wakil.png",
+    vision: "TPTP yang unggul dalam praktik agronomis modern dan kewirausahaan agribisnis perkebunan.",
+    missions: ["Demplot riset budidaya mandiri di kebun kampus", "Sertifikasi pest control & pemupukan presisi", "Koperasi hasil panen mahasiswa antar-angkatan"],
+    photoAccent: "#D95338",
   });
 
   const himaTphp1 = await mkCandidate({
     category: "HIMA", studyProgramId: "TPHP", number: 1,
     presidentName: "Gilang Prakasa Wirawan", viceName: "Ayu Fitri Handayani",
+    photoLeaderUrl: "/candidates/hima-tphp-01-ketua.png",
+    photoViceUrl: "/candidates/hima-tphp-01-wakil.png",
     vision: "Menjadikan TPHP motor inovasi pengolahan sawit berbasis riset dan industri.",
     missions: ["Incubator produk olahan sawit (minyak, oleokimia)", "Kunjungan industri pabrik CPO rutin", "Pelatihan HPLC & analisis mutu untuk anggota"],
     photoAccent: "#D9822B",
@@ -197,6 +216,8 @@ async function main() {
   const himaTphp2 = await mkCandidate({
     category: "HIMA", studyProgramId: "TPHP", number: 2,
     presidentName: "Reza Fahlevi Nasution", viceName: "Cindi Amelia Wati",
+    photoLeaderUrl: "/candidates/hima-tphp-02-ketua.png",
+    photoViceUrl: "/candidates/hima-tphp-02-wakil.png",
     vision: "TPHP yang kolaboratif dengan BUMN perkebunan dan startup pangan.",
     missions: ["Magang terjamin di pabrik mitra", "Seminar nasional olahan sawit", "Studi banding institusi teknologi"],
     photoAccent: "#D9822B",
@@ -205,6 +226,8 @@ async function main() {
   const himaManlog1 = await mkCandidate({
     category: "HIMA", studyProgramId: "MANLOG", number: 1,
     presidentName: "Kevin Sapta Nugroho", viceName: "Laras Oktaviani",
+    photoLeaderUrl: "/candidates/hima-manlog-01-ketua.png",
+    photoViceUrl: "/candidates/hima-manlog-01-wakil.png",
     vision: "Sistem rantai pasok sawit yang efisien dimulai dari mahasiswa logistik yang unggul.",
     missions: ["Sertifikasi supply chain (SCOR model)", "Simulasi logistik gudang & distribusi sawit", "Klub data analytics logistik"],
     photoAccent: "#2B50AA",
@@ -212,6 +235,8 @@ async function main() {
   const himaManlog2 = await mkCandidate({
     category: "HIMA", studyProgramId: "MANLOG", number: 2,
     presidentName: "Ilham Nur Hidayat", viceName: "Sekar Ayu Ramadhani",
+    photoLeaderUrl: "/candidates/hima-manlog-02-ketua.png",
+    photoViceUrl: "/candidates/hima-manlog-02-wakil.png",
     vision: "Menjembatani teori kampus dan praktik logistik industri perkebunan nasional.",
     missions: ["Job fair logistik tahunan", "Workshop WMS/ERP gratis", "Tim lomba logistik olimpiade"],
     photoAccent: "#2B50AA",
@@ -220,6 +245,8 @@ async function main() {
   const himaBd1 = await mkCandidate({
     category: "HIMA", studyProgramId: "BD", number: 1,
     presidentName: "Alya Nirmala Sari", viceName: "Fathan Arya Maulana",
+    photoLeaderUrl: "/candidates/hima-bd-01-ketua.png",
+    photoViceUrl: "/candidates/hima-bd-01-wakil.png",
     vision: "Hima BD sebagai inkubator wirausaha digital: e-commerce, fintech, dan data-driven business.",
     missions: ["Toko digital kampus untuk produk mahasiswa", "Kelas digital marketing & SEO bulanan", "Kolaborasi proyek marketplace dengan UMKM sawit"],
     photoAccent: "#0F766E",
@@ -227,6 +254,8 @@ async function main() {
   const himaBd2 = await mkCandidate({
     category: "HIMA", studyProgramId: "BD", number: 2,
     presidentName: "Raditya Bayu Kurniawan", viceName: "Selina Maharani",
+    photoLeaderUrl: "/candidates/hima-bd-02-ketua.png",
+    photoViceUrl: "/candidates/hima-bd-02-wakil.png",
     vision: "Bisnis Digital yang berakar pada etika data dan inovasi berkelanjutan.",
     missions: ["Bootcamp data analytics & BI tools", "Competition e-commerce & business plan", "Podcast wirausaha digital mahasiswa"],
     photoAccent: "#0F766E",
@@ -235,6 +264,8 @@ async function main() {
   const himaTrpl1 = await mkCandidate({
     category: "HIMA", studyProgramId: "TRPL", number: 1,
     presidentName: "Aditya Yoga Pratama", viceName: "Naura Zahira Aulia",
+    photoLeaderUrl: "/candidates/hima-trpl-01-ketua.png",
+    photoViceUrl: "/candidates/hima-trpl-01-wakil.png",
     vision: "TRPL sebagai inkubator software engineer profesional kelas industri.",
     missions: ["Bootcamp fullstack & DevOps tiap semester", "Portofolio GitHub mahasiswa terkurasi", "Kolaborasi proyek riil dengan kampus"],
     photoAccent: "#6D28D9",
@@ -242,6 +273,8 @@ async function main() {
   const himaTrpl2 = await mkCandidate({
     category: "HIMA", studyProgramId: "TRPL", number: 2,
     presidentName: "Bagas Dwi Cahyono", viceName: "Kirana Melati Sukma",
+    photoLeaderUrl: "/candidates/hima-trpl-02-ketua.png",
+    photoViceUrl: "/candidates/hima-trpl-02-wakil.png",
     vision: "Komunitas coding yang sehat, produktif, dan berdampak pada masyarakat.",
     missions: ["Hackathon tahunan TRPL", "Mentoring algoritma & competitive programming", "Proyek sosial digital desa mitra"],
     photoAccent: "#6D28D9",
@@ -274,19 +307,19 @@ async function main() {
 
   // ---------- Suara demo pra-cast (rantai jujur per prodi + 1 demo re-vote) ----------
   const himaByProdi: Record<string, Array<{ id: string; isEmptyBox: boolean }>> = {
-    TPTP: [{ id: himaTptp1.id, isEmptyBox: false }, { id: himaTptpEmpty.id, isEmptyBox: true }],
+    TPTP: [{ id: himaTptp1.id, isEmptyBox: false }, { id: himaTptp2.id, isEmptyBox: false }],
     TPHP: [{ id: himaTphp1.id, isEmptyBox: false }, { id: himaTphp2.id, isEmptyBox: false }],
     MANLOG: [{ id: himaManlog1.id, isEmptyBox: false }, { id: himaManlog2.id, isEmptyBox: false }],
     BD: [{ id: himaBd1.id, isEmptyBox: false }, { id: himaBd2.id, isEmptyBox: false }],
     TRPL: [{ id: himaTrpl1.id, isEmptyBox: false }, { id: himaTrpl2.id, isEmptyBox: false }],
   };
-  const presmaCands = [presma1.id, presma2.id, presma3.id];
+  const presmaCands = [presma1.id, presma2.id];
   const dpmCands = [dpm1.id, dpm2.id];
 
   // Rencana deterministik: 9 pemilih sudah memilih (2 TPTP, 2 TPHP, 1 MANLOG, 2 BD, 2 TRPL)
   const perProdi = (pid: string, n: number) => createdVoters.filter((v) => v.studyProgramId === pid).slice(0, n);
   const precastPlan: Array<{ voter: { id: string; nim: string; studyProgramId: string }; himaPick: string | null }> = [
-    ...perProdi("TPTP", 2).map((v, i) => ({ voter: v, himaPick: i === 0 ? himaTptp1.id : null })), // 1 kandidat, 1 KOTAK KOSONG
+    ...perProdi("TPTP", 2).map((v, i) => ({ voter: v, himaPick: i === 0 ? himaTptp1.id : himaTptp2.id })),
     ...perProdi("TPHP", 2).map((v, i) => ({ voter: v, himaPick: i === 0 ? himaTphp1.id : himaTphp2.id })),
     ...perProdi("MANLOG", 1).map((v) => ({ voter: v, himaPick: himaManlog1.id })),
     ...perProdi("BD", 2).map((v, i) => ({ voter: v, himaPick: i === 0 ? himaBd2.id : himaBd1.id })),

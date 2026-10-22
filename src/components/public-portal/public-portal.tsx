@@ -14,26 +14,50 @@ import type { CandidateView, PortalResponse } from "@/lib/types";
 import { BeritaAcaraVerifier, ReceiptChecker } from "@/components/public-portal/public-verify-tools";
 import { CheckCircle2, Landmark, Lock, ScrollText, Users, Vote } from "lucide-react";
 
-function InitialAvatar({ name, accent, size = 64 }: { name: string; accent: string; size?: number }) {
-  const initials = name
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
+/** Label peran resmi per kategori — DPM punya struktur 3 peran */
+function memberRoles(category: string): { leader: string; vice: string; second?: string } {
+  if (category === "DPM") return { leader: "Ketua Umum", vice: "Ketua 1", second: "Ketua 2" };
+  if (category === "PRESMA") return { leader: "Presma", vice: "Wakil Presma" };
+  return { leader: "Ketua", vice: "Wakil Ketua" };
+}
+
+/** Foto anggota kandidat: potret 3:4 + lencana peran + nama */
+function MemberPhoto({ name, role, photo, accent }: { name: string; role: string; photo?: string | null; accent: string }) {
   return (
-    <div
-      className="flex items-center justify-center rounded-[10px] border-2 border-[#141E19] font-display font-extrabold text-white select-none"
-      style={{ width: size, height: size, background: accent, fontSize: size * 0.38 }}
-      aria-label={`Foto resmi ${name}`}
-    >
-      {initials}
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <div
+        className="relative w-full overflow-hidden rounded-[10px] border-2 border-[#141E19] shadow-[2px_2px_0px_#141E19]"
+        style={{ aspectRatio: "3 / 4", background: accent }}
+      >
+        {photo ? (
+           
+          <img src={photo} alt={`Foto ${name} — ${role}`} className="h-full w-full object-cover object-top" loading="lazy" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center font-display text-2xl font-extrabold text-white" aria-hidden>
+            {name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
+          </div>
+        )}
+        <span className="absolute left-1.5 top-1.5 rounded-[6px] border border-[#141E19]/50 bg-white/95 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-[#141E19]">
+          {role}
+        </span>
+      </div>
+      <p className="truncate text-[13px] font-bold leading-tight text-[#141E19]" title={name}>
+        {name}
+      </p>
     </div>
   );
 }
 
 function CandidateCard({ c, categoryLabel, accent, tint }: { c: CandidateView; categoryLabel: string; accent: string; tint: string }) {
   const missions = c.missions.slice(0, 3);
+  const roles = memberRoles(c.category);
+  const members = [
+    { role: roles.leader, name: c.presidentName, photo: c.photoLeaderUrl },
+    ...(c.viceName ? [{ role: roles.vice, name: c.viceName, photo: c.photoViceUrl }] : []),
+    ...(c.secondViceName && roles.second
+      ? [{ role: roles.second, name: c.secondViceName, photo: c.photoSecondViceUrl }]
+      : []),
+  ];
   return (
     <article className="tactile-card tactile-card-interactive p-5 flex flex-col gap-4">
       <div className="flex items-start justify-between gap-3">
@@ -52,12 +76,11 @@ function CandidateCard({ c, categoryLabel, accent, tint }: { c: CandidateView; c
         </span>
       </div>
 
-      <div className="flex items-center gap-4">
-        <InitialAvatar name={c.presidentName} accent={accent} />
-        <div>
-          <h3 className="font-display text-lg font-bold leading-snug">{c.presidentName}</h3>
-          {c.viceName && <p className="text-sm text-[#4A5851] font-medium">& {c.viceName}</p>}
-        </div>
+      {/* Foto calon pimpinan per peran — DPM: Ketua Umum/Ketua 1/Ketua 2; lainnya: Ketua + Wakil */}
+      <div className={`grid gap-3 ${members.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+        {members.map((m) => (
+          <MemberPhoto key={m.role} name={m.name} role={m.role} photo={m.photo} accent={accent} />
+        ))}
       </div>
 
       <div>

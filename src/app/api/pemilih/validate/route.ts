@@ -85,9 +85,14 @@ export async function POST(req: NextRequest) {
 
     const parse = (c: (typeof presma)[number]) => ({
       id: c.id,
+      category: c.category,
       number: c.number,
       presidentName: c.presidentName,
       viceName: c.viceName,
+      secondViceName: c.secondViceName,
+      photoLeaderUrl: c.photoLeaderUrl,
+      photoViceUrl: c.photoViceUrl,
+      photoSecondViceUrl: c.photoSecondViceUrl,
       vision: c.vision,
       missions: JSON.parse(c.missionJson || "[]") as string[],
       isEmptyBox: c.isEmptyBox,
