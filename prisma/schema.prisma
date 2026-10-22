@@ -148,7 +148,36 @@ model ElectionSetting {
   plenoUnlocked   Boolean  @default(false) // HUKUM 5: Pleno Vault Lock
   plenoUnlockedAt DateTime?
   sessionSecret   String   @default("") // HMAC secret untuk sesi operator (RBAC)
+  // Siklus hidup pemira — "Segel & Reset": tiap periode/gelombang punya label
+  // sendiri; reset periode mengarsipkan lembar lama lalu membuka lembar baru.
+  periodLabel     String   @default("Pemira Poltek CWE 2026")
+  periodStartedAt DateTime? // kapan lembar periode ini dibuka (setelah reset)
   updatedAt       DateTime @updatedAt
+}
+
+// ---------- DOMAIN ARSIP PENUTUPAN PERIODE (Segel & Reset Pemira) ----------
+// Append-only TIDAK dilanggar: sebelum rantai di-re-genesis, seluruh lembar
+// periode lama disegel ke arsip ini — rekap resmi + kanonikal BA + tanda
+// tangan kriptografis + snapshot audit log & sengketa. Arsip tidak pernah
+// diedit; hanya bertambah (satu baris per penutupan periode).
+model ElectionArchive {
+  id             String   @id @default(uuid())
+  archiveCode    String   @unique // "ARS-2026-0001"
+  periodLabel    String // label periode yang DITUTUP
+  mode           String // DEMO (gelombang ulang) | NEW_PERIOD (periode baru total)
+  sealedAt       DateTime @default(now())
+  sealedBy       String // username ITPO penyegel
+  note           String // catatan berita acara penutupan
+  summaryJson    String // rekap tally lengkap + totals + integritas rantai
+  canonical      String // kanonikal BA C-KWE saat penyegelan
+  signature      String // SHA-256 kanonikal (identik dgn BA yang dipublikasi)
+  auditLogJson   String // snapshot penuh audit log periode lama (append-only)
+  incidentsJson  String // snapshot laporan sengketa
+  candidatesJson String // snapshot kandidat (referensi pemulihan periode baru)
+  chainHeadsJson String // head kelima rantai prodi saat penyegelan
+  dptCount       Int
+  votedCount     Int
+  ballotCount    Int
 }
 
 // ---------- DOMAIN OTENTIKASI PETUGAS (RBAC — PRD Bab 3) ----------

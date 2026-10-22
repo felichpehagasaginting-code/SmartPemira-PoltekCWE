@@ -41,6 +41,7 @@ async function main() {
   console.log("🌱 Seeding Smart Pemira (100% Online, 5 rantai prodi)...");
 
   // ---------- Reset ----------
+  await db.electionArchive.deleteMany();
   await db.auditLog.deleteMany();
   await db.ballotBox.deleteMany();
   await db.votingToken.deleteMany();
@@ -53,7 +54,15 @@ async function main() {
 
   // ---------- Setting ----------
   await db.electionSetting.create({
-    data: { id: "main", votingOpen: true, emergencyFreeze: false, plenoUnlocked: false, sessionSecret: randomBytes(32).toString("hex") },
+    data: {
+      id: "main",
+      votingOpen: true,
+      emergencyFreeze: false,
+      plenoUnlocked: false,
+      sessionSecret: randomBytes(32).toString("hex"),
+      periodLabel: "Pemira Poltek CWE 2026",
+      periodStartedAt: new Date(Date.now() - 100 * 60_000),
+    },
   });
 
   // ---------- Operator RBAC (PRD Bab 3) — pos bantuan tidak terikat TPS ----------

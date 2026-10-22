@@ -9,6 +9,7 @@
 // ============================================================
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChangePasswordDialog } from "@/components/auth/change-password-dialog";
+import { ElectionResetPanel } from "@/components/admin/election-reset-panel";
 import { OperatorManager } from "@/components/admin/operator-manager";
 import { KpumDashboard } from "@/components/kpum/kpum-dashboard";
 import { LoginScreen, type DemoAccount } from "@/components/auth/login-screen";
@@ -305,7 +306,10 @@ export default function Home() {
 
         {active === "operators" &&
           (hasAccess ? (
-            <OperatorManager currentUsername={session.username} />
+            <div className="space-y-6">
+              <OperatorManager currentUsername={session.username} />
+              <ElectionResetPanel onSessionInvalidated={refreshSession} />
+            </div>
           ) : (
             <AccessDenied role={session.role} />
           ))}

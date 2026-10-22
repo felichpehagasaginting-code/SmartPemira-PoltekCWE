@@ -170,3 +170,23 @@ Work Log:
 Stage Summary:
 - Pemira kini 100% online sesuai visi user: pintu suara tunggal /pemilih dari device sendiri, 5 rantai hash per prodi, re-vote Estonia + 3 lapis anti-paksaan (kunci sukarela / override TPS dihapus → kunci + cabut-pulihkan), struk menampilkan status versi suara
 - Hukum 1-5 tetap terjaga: token tetap tanpa identitas (tokenId = kredensial anonim), rantai append-only, pleno lock, calon tunggal 50:50
+
+---
+Task ID: 8 (Fitur Segel & Reset Pemira — Siklus Hidup Periode)
+Agent: main (Z.ai)
+Task: Permintaan user — "aku mau ada fitur untuk aku bisa lakukan lagi ulang pemiranya, karena setelah buka kotak suara itu udah permanen ga bisa pemira ulang lagi"
+
+Work Log:
+- Desain "SEGEL & RESET": append-only TIDAK dilanggar — kotak suara tidak dibuka balik; seluruh lembar periode lama DISEGEL ke arsip resmi lalu sistem membuka lembar baru dengan rantai hash genesis segar (analogi: arsip pemira tahun lalu dikunci, kotak baru utk periode berikutnya)
+- Schema: model ElectionArchive (archiveCode ARS-YYYY-NNNN, periodLabel, mode, sealedBy, summaryJson/canonical/signature, snapshot auditLog+incidents+candidates+chainHeads, dptCount/votedCount/ballotCount); ElectionSetting +periodLabel/+periodStartedAt; db push sukses
+- lib/db/reset-service.ts: getResetStatus (periode aktif, hitungan, 5 rantai+blok, daftar arsip), collectSealPayload (tally penuh + kanonikal BA C-KWE + tanda tangan SHA-256 — identik dgn BA publik), sealAndReset SATU TRANSAKSI ATOMIK: create arsip ⇔ deleteMany ballot/token ⇔ (DEMO: reset status voter | NEW_PERIOD: delete voter+candidate) ⇔ delete insiden+auditLog ⇔ re-genesis 5 rantai (chainSalt baru, head "") ⇔ setting lembar baru (votingOpen=false, pleno false, sessionSecret DIROTASI, periodLabel baru) ⇔ audit PERIOD_RESET
+- Dua mode: DEMO = Gelombang Ulang (DPT & kandidat dipertahankan, status pemilih kembali BELUM_MEMILIH); NEW_PERIOD = Periode Baru Total (DPT+kandidat+sengketa dikosongkan, snapshot tersimpan di arsip utk referensi pemulihan)
+- API ITPO-only: GET/POST /api/itpo/reset (guard berlapis: ITPO 403 utk lainnya → rate limit EKSEKUSI 5/10 mnt di akhir validasi → wajib plenoUnlocked else 409 PLENO_LOCKED → frasa "RESET PEMIRA" → sandi ITPO scrypt; semua percobaan gagal diaudit ELECTION_RESET_FAILED), POST /preview (pratinjau arsip diunduh SEBELUM eksekusi), GET /archives/[id] (unduhan attachment JSON)
+- UI election-reset-panel.tsx di tab Manajemen Operator (ITPO): kartu Zona Administrasi (status periode, tahapan, isi lembar, 5 rantai, daftar arsip + tombol unduh), tombol disabled+penjelasan saat pleno terkunci; wizard 3 langkah: (1) mode radio + label periode baru (pre-fill otomatis) + catatan BA + unduh pratinjau, (2) daftar konsekuensi + ketik frasa + checkbox tanggung jawab, (3) sandi ITPO → SEGEL & RESET PERMANEN; layar sukses: kode arsip + unduh final + catatan sesi hangus; fix race revokeObjectURL (setTimeout 1.5s)
+- Seed: electionArchive.deleteMany() ditambahkan; ElectionSetting membawa periodLabel "Pemira Poltek CWE 2026" + periodStartedAt
+- Verifikasi: tsc bersih, lint bersih; E2E BARU scripts/e2e-reset-test.ts 46/46 LULUS (RBAC 401/403, validasi 400/403, PLENO_LOCKED 409, pratinjau kanonikal+signature, reset DEMO 200 ARS-2026-0001, rotasi sesi 401+relogin SEMUA peran, status lembar baru genesis kosong, unduhan arsip + hitung-ulang signature SHA-256 cocok, PERIOD_RESET di monitor Panwaslu, siklus ulang penuh: open voting→issue token→submit v1→rantai TPTP 3 blok, reset NEW_PERIOD ARS-2026-0002 dpt/candidate 0, 2 arsip utuh terbaca); E2E inti lulus; E2E fitur 37/37 (di seed segar); debug: rate-limit slot terpakai lintas run test (restart dev server sebelum run; limit memang benar utk produksi), helper api() baca text dulu, sesi hangus setiap reset → re-login di test
+- Browser 4 screenshot: panel pleno-terkunci, wizard langkah 1 (mode+unduh pratinjau+checkmark), langkah 2 (frasa, LANJUT disabled sebelum valid), langkah 3 (sandi, tombol merah disabled); console bersih; DB di-reset demo segar
+
+Stage Summary:
+- Fitur "Segel & Reset Pemira" lengkap: pemira kini bisa diulang kapan pun SETELAH pleno tanpa melanggar append-only — arsip resmi bertanda tangan selalu dibuat ATOMIK bersama pembersihan, 5 rantai re-genesis, semua sesi lama hangus, semuanya teraudit
+- Mode DEMO untuk simulasi ulang dgn data sama; mode NEW_PERIOD untuk siklus pemira sungguhan (DPT via Import, kandidat di-input ulang)
