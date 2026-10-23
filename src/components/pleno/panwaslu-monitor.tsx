@@ -373,10 +373,10 @@ export function PanwasluMonitor({ operatorRole }: { operatorRole?: string | null
                       </div>
                       <div className="mt-2.5 space-y-2">
                         {cat.results.map((r) => (
-                          <div key={r.candidateId ?? "empty"}>
+                          <div key={r.candidateId ?? "suara-kosong"}>
                             <div className="flex items-center justify-between text-[12px]">
-                              <span className="truncate font-semibold text-[#F4F1EA]">
-                                {String(r.number).padStart(2, "0")} — {r.name} {r.isEmptyBox && "(Kotak Kosong)"}
+                              <span className={`truncate font-semibold ${r.isEmptyBox ? "italic text-[#9EB0A7]" : "text-[#F4F1EA]"}`}>
+                                {r.isEmptyBox ? "Suara Kosong" : `${String(r.number).padStart(2, "0")} — ${r.name}`}
                               </span>
                               <span className="ml-2 shrink-0 font-mono-tabular text-[#9EB0A7]">{r.votes} • {r.percentage.toFixed(1)}%</span>
                             </div>
@@ -403,10 +403,10 @@ export function PanwasluMonitor({ operatorRole }: { operatorRole?: string | null
                       </div>
                       <div className="mt-2.5 space-y-2">
                         {cat.results.map((r) => (
-                          <div key={r.candidateId ?? "empty"}>
+                          <div key={r.candidateId ?? "suara-kosong"}>
                             <div className="flex items-center justify-between text-[12px]">
-                              <span className="truncate font-semibold text-[#F4F1EA]">
-                                {String(r.number).padStart(2, "0")} — {r.name} {r.isEmptyBox && "(Kotak Kosong)"}
+                              <span className={`truncate font-semibold ${r.isEmptyBox ? "italic text-[#9EB0A7]" : "text-[#F4F1EA]"}`}>
+                                {r.isEmptyBox ? "Suara Kosong" : `${String(r.number).padStart(2, "0")} — ${r.name}`}
                               </span>
                               <span className="ml-2 shrink-0 font-mono-tabular text-[#9EB0A7]">{r.votes} • {r.percentage.toFixed(1)}%</span>
                             </div>

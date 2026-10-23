@@ -398,7 +398,7 @@ export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }
             );
           })}
           <p className="text-[12px] text-[#7A8881]">
-            Nomor urut ditetapkan melalui sidang penetapan KPUM. Skenario calon tunggal otomatis mengaktifkan KOTAK KOSONG (FR-03.3).
+            Nomor urut ditetapkan melalui sidang penetapan KPUM. Sistem otomatis menyediakan opsi SUARA KOSONG di akhir setiap surat suara (DPM, BEM, HIMA) — terhitung sebagai suara sah, tidak mungkin menjadi pemenang.
           </p>
         </div>
       )}

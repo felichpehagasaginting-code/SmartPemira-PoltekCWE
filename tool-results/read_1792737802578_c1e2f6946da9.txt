@@ -1,0 +1,852 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→// ============================================================
+     4→     4→// PORTAL PEMILIH — Pemira 100% Online (BYOD) + Re-vote model Estonia
+     5→     5→// Keputusan diskusi 2026-10-20:
+     6→     6→//  - Pintu suara tunggal dari device sendiri (HP/laptop), mobile-first
+     7→     7→//  - Token dari pos bantuan PPUR (scan QR slip / ketik manual)
+     8→     8→//  - Urutan resmi: DPM → BEM → HIMA
+     9→     9→//  - Setelah submit: suara tercatat (struk + versi) → pemilih dapat
+    10→    10→//    MENGGANTI SUARA sampai pemungutan ditutup, atau KUNCI SUARAKU (final)
+    11→    11→// ============================================================
+    12→    12→import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+    13→    13→import { useSearchParams } from "next/navigation";
+    14→    14→import { Skeleton } from "@/components/ui/skeleton";
+    15→    15→import type { BallotPayload, KioskSession } from "@/lib/types";
+    16→    16→import {
+    17→    17→  AlertTriangle,
+    18→    18→  ArrowRight,
+    19→    19→  Check,
+    20→    20→  ChevronLeft,
+    21→    21→  Delete,
+    22→    22→  Lock,
+    23→    23→  RefreshCcw,
+    24→    24→  ReceiptText,
+    25→    25→  ShieldCheck,
+    26→    26→  Timer,
+    27→    27→  ScanLine,
+    28→    28→} from "lucide-react";
+    29→    29→
+    30→    30→type Phase = "gate" | "ballot" | "review" | "submitting" | "success" | "locked";
+    31→    31→type Selections = Record<string, string | "EMPTY">;
+    32→    32→
+    33→    33→const EMPTY_BOX_COLOR = "#3F4743";
+    34→    34→const EMPTY_BOX_TINT = "#ECEAE4";
+    35→    35→
+    36→    36→/** Label stepper mengikuti nomenklatur resmi: DPM → BEM → HIMA */
+    37→    37→function stepLabel(category: string, prodiId: string): string {
+    38→    38→  if (category === "PRESMA") return "BEM";
+    39→    39→  if (category === "DPM") return "DPM";
+    40→    40→  return `HIMA ${prodiId}`;
+    41→    41→}
+    42→    42→
+    43→    43→function CandidateAvatar({ name, photo, accent, size = 72 }: { name: string; photo?: string | null; accent: string; size?: number }) {
+    44→    44→  const initials = name === "KOTAK KOSONG" ? "□" : name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+    45→    45→  if (photo) {
+    46→    46→    return (
+    47→    47→      <div className="shrink-0 overflow-hidden rounded-[10px] border-2 border-[#141E19]" style={{ width: size, height: size }}>
+    48→    48→        { }
+    49→    49→        <img src={photo} alt={`Foto ${name}`} className="h-full w-full object-cover" />
+    50→    50→      </div>
+    51→    51→    );
+    52→    52→  }
+    53→    53→  return (
+    54→    54→    <div
+    55→    55→      className="flex shrink-0 items-center justify-center rounded-[10px] border-2 border-[#141E19] font-display font-extrabold text-white select-none"
+    56→    56→      style={{ width: size, height: size, background: accent, fontSize: size * 0.36 }}
+    57→    57→      aria-hidden
+    58→    58→    >
+    59→    59→      {initials}
+    60→    60→    </div>
+    61→    61→  );
+    62→    62→}
+    63→    63→
+    64→    64→/** Label peran resmi per kategori — DPM punya struktur 3 peran (Ketua Umum, Ketua 1, Ketua 2) */
+    65→    65→function memberRoles(category: string): { leader: string; vice: string; second?: string } {
+    66→    66→  if (category === "DPM") return { leader: "Ketua Umum", vice: "Ketua 1", second: "Ketua 2" };
+    67→    67→  if (category === "PRESMA") return { leader: "Presma", vice: "Wakil Presma" };
+    68→    68→  return { leader: "Ketua", vice: "Wakil Ketua" };
+    69→    69→}
+    70→    70→
+    71→    71→/** Foto anggota kandidat: potret 3:4 + lencana peran + nama */
+    72→    72→function MemberPhoto({ name, role, photo, accent }: { name: string; role: string; photo?: string | null; accent: string }) {
+    73→    73→  return (
+    74→    74→    <div className="flex min-w-0 flex-col gap-1.5">
+    75→    75→      <div
+    76→    76→        className="relative w-full overflow-hidden rounded-[10px] border-2 border-[#141E19] shadow-[2px_2px_0px_#141E19]"
+    77→    77→        style={{ aspectRatio: "3 / 4", background: accent }}
+    78→    78→      >
+    79→    79→        {photo ? (
+    80→    80→           
+    81→    81→          <img src={photo} alt={`Foto ${name} — ${role}`} className="h-full w-full object-cover object-top" loading="lazy" />
+    82→    82→        ) : (
+    83→    83→          <div className="flex h-full w-full items-center justify-center font-display text-xl font-extrabold text-white" aria-hidden>
+    84→    84→            {name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
+    85→    85→          </div>
+    86→    86→        )}
+    87→    87→        <span className="absolute left-1.5 top-1.5 rounded-[6px] border border-[#141E19]/50 bg-white/95 px-1.5 py-0.5 text-[8.5px] font-extrabold uppercase tracking-wide text-[#141E19]">
+    88→    88→          {role}
+    89→    89→        </span>
+    90→    90→      </div>
+    91→    91→      <p className="truncate text-[12px] font-bold leading-tight text-[#141E19]" title={name}>
+    92→    92→        {name}
+    93→    93→      </p>
+    94→    94→    </div>
+    95→    95→  );
+    96→    96→}
+    97→    97→
+    98→    98→/** Kartu kandidat Tactile — terpilih: border & shadow warna kategori + lencana ✓ */
+    99→    99→function BallotCandidateCard({
+   100→   100→  candidate,
+   101→   101→  color,
+   102→   102→  tint,
+   103→   103→  selected,
+   104→   104→  onClick,
+   105→   105→  disabled,
+   106→   106→}: {
+   107→   107→  candidate: BallotPayload["candidates"][number];
+   108→   108→  color: string;
+   109→   109→  tint: string;
+   110→   110→  selected: boolean;
+   111→   111→  onClick: () => void;
+   112→   112→  disabled?: boolean;
+   113→   113→}) {
+   114→   114→  return (
+   115→   115→    <button
+   116→   116→      type="button"
+   117→   117→      onClick={onClick}
+   118→   118→      disabled={disabled}
+   119→   119→      aria-pressed={selected}
+   120→   120→      className={`relative flex w-full flex-col gap-3 p-5 text-left transition-all duration-150 ${
+   121→   121→        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+   122→   122→      }`}
+   123→   123→      style={{
+   124→   124→        background: "#FFFFFF",
+   125→   125→        borderRadius: 14,
+   126→   126→        border: selected ? `3px solid ${color}` : "2px solid #141E19",
+   127→   127→        boxShadow: selected ? `6px 6px 0px ${color}` : "4px 4px 0px #141E19",
+   128→   128→        transform: selected ? "translate(-2px,-2px)" : undefined,
+   129→   129→      }}
+   130→   130→    >
+   131→   131→      {selected && (
+   132→   132→        <span
+   133→   133→          className="absolute -top-3 right-3 rounded-full border-2 border-[#141E19] px-3 py-0.5 text-[11px] font-extrabold tracking-wide text-white"
+   134→   134→          style={{ background: color }}
+   135→   135→        >
+   136→   136→          ✓ PILIHAN ANDA
+   137→   137→        </span>
+   138→   138→      )}
+   139→   139→      <div className="flex items-center justify-between">
+   140→   140→        <span
+   141→   141→          className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-[#141E19] font-display text-xl font-extrabold text-white"
+   142→   142→          style={{ background: candidate.isEmptyBox ? EMPTY_BOX_COLOR : color }}
+   143→   143→        >
+   144→   144→          {candidate.isEmptyBox ? "—" : String(candidate.number).padStart(2, "0")}
+   145→   145→        </span>
+   146→   146→        <span
+   147→   147→          className="rounded-full border border-[#141E19]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+   148→   148→          style={{ background: tint }}
+   149→   149→        >
+   150→   150→          Nomor Urut
+   151→   151→        </span>
+   152→   152→      </div>
+   153→   153→      {/* Foto per peran — DPM: Ketua Umum/Ketua 1/Ketua 2; lainnya: Ketua + Wakil */}
+   154→   154→      {candidate.isEmptyBox ? (
+   155→   155→        <div className="flex items-center gap-3">
+   156→   156→          <CandidateAvatar name={candidate.presidentName} accent={EMPTY_BOX_COLOR} size={56} />
+   157→   157→          <div>
+   158→   158→            <h3 className="font-display text-base font-bold leading-snug">{candidate.presidentName}</h3>
+   159→   159→            {candidate.viceName && <p className="text-xs text-[#4A5851] font-medium">& {candidate.viceName}</p>}
+   160→   160→          </div>
+   161→   161→        </div>
+   162→   162→      ) : (
+   163→   163→        <>
+   164→   164→          {(() => {
+   165→   165→            const roles = memberRoles(candidate.category);
+   166→   166→            const members = [
+   167→   167→              { role: roles.leader, name: candidate.presidentName, photo: candidate.photoLeaderUrl },
+   168→   168→              ...(candidate.viceName ? [{ role: roles.vice, name: candidate.viceName, photo: candidate.photoViceUrl }] : []),
+   169→   169→              ...(candidate.secondViceName && roles.second
+   170→   170→                ? [{ role: roles.second, name: candidate.secondViceName, photo: candidate.photoSecondViceUrl }]
+   171→   171→                : []),
+   172→   172→            ];
+   173→   173→            return (
+   174→   174→              <div className={`grid gap-2.5 ${members.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+   175→   175→                {members.map((m) => (
+   176→   176→                  <MemberPhoto key={m.role} name={m.name} role={m.role} photo={m.photo} accent={color} />
+   177→   177→                ))}
+   178→   178→              </div>
+   179→   179→            );
+   180→   180→          })()}
+   181→   181→        </>
+   182→   182→      )}
+   183→   183→      <p className="text-[13px] leading-relaxed text-[#4A5851] line-clamp-2">{candidate.vision}</p>
+   184→   184→      {candidate.isEmptyBox && (
+   185→   185→        <p className="text-[12px] leading-relaxed text-[#4A5851] italic">
+   186→   186→          Pilih kotak ini apabila Anda tidak menyetujui pasangan calon tunggal.
+   187→   187→        </p>
+   188→   188→      )}
+   189→   189→    </button>
+   190→   190→  );
+   191→   191→}
+   192→   192→
+   193→   193→export function PemilihPortal() {
+   194→   194→  const searchParams = useSearchParams();
+   195→   195→  const [phase, setPhase] = useState<Phase>("gate");
+   196→   196→  const [tokenChars, setTokenChars] = useState<string[]>(Array(6).fill(""));
+   197→   197→  const [gateError, setGateError] = useState<string | null>(null);
+   198→   198→  const [validating, setValidating] = useState(false);
+   199→   199→  const [session, setSession] = useState<KioskSession | null>(null);
+   200→   200→  const [isRevote, setIsRevote] = useState(false);
+   201→   201→  const [ballots, setBallots] = useState<BallotPayload[]>([]);
+   202→   202→  const [step, setStep] = useState(0);
+   203→   203→  const [selections, setSelections] = useState<Selections>({});
+   204→   204→  const [submitError, setSubmitError] = useState<string | null>(null);
+   205→   205→  const [remainingMs, setRemainingMs] = useState(0);
+   206→   206→  const [submittingMsg, setSubmittingMsg] = useState("Mengenkripsi & Mengacak Suara...");
+   207→   207→  const [receiptCode, setReceiptCode] = useState<string | null>(null);
+   208→   208→  const [voteVersion, setVoteVersion] = useState(1);
+   209→   209→  const [lockBusy, setLockBusy] = useState(false);
+   210→   210→  const activeTokenRef = useRef<string>("");
+   211→   211→  const autoTriedRef = useRef<string>("");
+   212→   212→
+   213→   213→  const current = ballots[step];
+   214→   214→
+   215→   215→  const fillToken = useCallback((token: string) => {
+   216→   216→    setTokenChars(token.slice(0, 6).padEnd(6, " ").split("").map((c) => (c === " " ? "" : c)));
+   217→   217→  }, []);
+   218→   218→
+   219→   219→  const validateToken = useCallback(async (token: string) => {
+   220→   220→    setValidating(true);
+   221→   221→    setGateError(null);
+   222→   222→    try {
+   223→   223→      const res = await fetch("/api/pemilih/validate", {
+   224→   224→        method: "POST",
+   225→   225→        headers: { "Content-Type": "application/json" },
+   226→   226→        body: JSON.stringify({ token }),
+   227→   227→      });
+   228→   228→      const json = await res.json();
+   229→   229→      if (!json.ok) {
+   230→   230→        setGateError(json.message ?? "Token tidak sah.");
+   231→   231→        return false;
+   232→   232→      }
+   233→   233→      setSession(json.session);
+   234→   234→      setBallots(json.ballots);
+   235→   235→      setIsRevote(Boolean(json.isRevote));
+   236→   236→      setVoteVersion(json.voteVersion ?? 1);
+   237→   237→      setSelections({});
+   238→   238→      setStep(0);
+   239→   239→      setPhase("ballot");
+   240→   240→      return true;
+   241→   241→    } catch {
+   242→   242→      setGateError("Koneksi ke server bilik suara gagal.");
+   243→   243→      return false;
+   244→   244→    } finally {
+   245→   245→      setValidating(false);
+   246→   246→    }
+   247→   247→  }, []);
+   248→   248→
+   249→   249→  // Auto-isi & auto-validasi token dari QR (?token=XXXXXX pada slip PPUR)
+   250→   250→  useEffect(() => {
+   251→   251→    const q = (searchParams.get("token") ?? "").trim().toUpperCase();
+   252→   252→    if (q.length === 6 && /^[A-Z0-9]{6}$/.test(q) && autoTriedRef.current !== q) {
+   253→   253→      autoTriedRef.current = q;
+   254→   254→      fillToken(q);
+   255→   255→      activeTokenRef.current = q;
+   256→   256→      void validateToken(q);
+   257→   257→    }
+   258→   258→  }, [searchParams, fillToken, validateToken]);
+   259→   259→
+   260→   260→  /** Hitung mundur TTL token — hanya vote PERTAMA (re-vote tanpa TTL) */
+   261→   261→  useEffect(() => {
+   262→   262→    if (!session || !session.expiresAt || (phase !== "ballot" && phase !== "review")) return;
+   263→   263→    const tick = () => {
+   264→   264→      const left = new Date(session.expiresAt!).getTime() - Date.now();
+   265→   265→      setRemainingMs(Math.max(0, left));
+   266→   266→      if (left <= 0) {
+   267→   267→        setPhase("gate");
+   268→   268→        setSession(null);
+   269→   269→        setBallots([]);
+   270→   270→        setSelections({});
+   271→   271→        setTokenChars(Array(6).fill(""));
+   272→   272→        setGateError("Token kedaluwarsa saat berada di bilik. Minta token baru di pos bantuan PPUR.");
+   273→   273→      }
+   274→   274→    };
+   275→   275→    tick();
+   276→   276→    const t = setInterval(tick, 1000);
+   277→   277→    return () => clearInterval(t);
+   278→   278→  }, [session, phase]);
+   279→   279→
+   280→   280→  const resetAll = useCallback(() => {
+   281→   281→    setPhase("gate");
+   282→   282→    setTokenChars(Array(6).fill(""));
+   283→   283→    setGateError(null);
+   284→   284→    setSession(null);
+   285→   285→    setBallots([]);
+   286→   286→    setStep(0);
+   287→   287→    setSelections({});
+   288→   288→    setSubmitError(null);
+   289→   289→    setReceiptCode(null);
+   290→   290→    setIsRevote(false);
+   291→   291→    activeTokenRef.current = "";
+   292→   292→  }, []);
+   293→   293→
+   294→   294→  const submitVote = useCallback(async () => {
+   295→   295→    if (!session) return;
+   296→   296→    setPhase("submitting");
+   297→   297→    setSubmittingMsg(isRevote ? "Mengganti Suara Anda..." : "Mengenkripsi & Mengacak Suara...");
+   298→   298→    try {
+   299→   299→      const res = await fetch("/api/pemilih/submit", {
+   300→   300→        method: "POST",
+   301→   301→        headers: { "Content-Type": "application/json" },
+   302→   302→        body: JSON.stringify({
+   303→   303→          token: activeTokenRef.current,
+   304→   304→          selections: {
+   305→   305→            presmaCandidateId: selections["PRESMA"],
+   306→   306→            dpmCandidateId: selections["DPM"],
+   307→   307→            himaCandidateId: selections["HIMA"] === "EMPTY" ? null : selections["HIMA"],
+   308→   308→          },
+   309→   309→        }),
+   310→   310→      });
+   311→   311→      const json = await res.json();
+   312→   312→      if (!json.ok) {
+   313→   313→        setSubmitError(json.message ?? "Gagal mengirim suara.");
+   314→   314→        setPhase("review");
+   315→   315→        return;
+   316→   316→      }
+   317→   317→      setReceiptCode(json.receiptCode ?? null);
+   318→   318→      setVoteVersion(json.voteVersion ?? 1);
+   319→   319→      setIsRevote(Boolean(json.isRevote));
+   320→   320→      setPhase("success");
+   321→   321→    } catch {
+   322→   322→      setSubmitError("Koneksi gagal saat mengirim suara. Suara tidak terkirim — coba lagi atau hubungi pos bantuan.");
+   323→   323→      setPhase("review");
+   324→   324→    }
+   325→   325→  }, [session, selections, isRevote]);
+   326→   326→
+   327→   327→  const lockVote = useCallback(async () => {
+   328→   328→    setLockBusy(true);
+   329→   329→    try {
+   330→   330→      const res = await fetch("/api/pemilih/lock", {
+   331→   331→        method: "POST",
+   332→   332→        headers: { "Content-Type": "application/json" },
+   333→   333→        body: JSON.stringify({ token: activeTokenRef.current }),
+   334→   334→      });
+   335→   335→      const json = await res.json();
+   336→   336→      if (json.ok) {
+   337→   337→        setPhase("locked");
+   338→   338→      } else {
+   339→   339→        setGateError(json.message ?? "Gagal mengunci suara.");
+   340→   340→      }
+   341→   341→    } catch {
+   342→   342→      setGateError("Koneksi gagal saat mengunci suara.");
+   343→   343→    } finally {
+   344→   344→      setLockBusy(false);
+   345→   345→    }
+   346→   346→  }, []);
+   347→   347→
+   348→   348→  const revoteAgain = useCallback(async () => {
+   349→   349→    // Buka bilik ulang dengan token yang sama — suara baru akan MENGGANTI yang lama
+   350→   350→    await validateToken(activeTokenRef.current);
+   351→   351→  }, [validateToken]);
+   352→   352→
+   353→   353→  /** Keyboard fisik juga didukung (desktop) */
+   354→   354→  const pressKey = useCallback((key: string) => {
+   355→   355→    setTokenChars((prev) => {
+   356→   356→      const idx = prev.findIndex((c) => c === "");
+   357→   357→      if (idx === -1) return prev;
+   358→   358→      const next = [...prev];
+   359→   359→      next[idx] = key;
+   360→   360→      return next;
+   361→   361→    });
+   362→   362→    setGateError(null);
+   363→   363→  }, []);
+   364→   364→
+   365→   365→  const backspace = useCallback(() => {
+   366→   366→    setTokenChars((prev) => {
+   367→   367→      const next = [...prev];
+   368→   368→      const idx = next.findIndex((c) => c === "");
+   369→   369→      const target = idx === -1 ? 5 : idx - 1;
+   370→   370→      if (target >= 0) next[target] = "";
+   371→   371→      return next;
+   372→   372→    });
+   373→   373→  }, []);
+   374→   374→
+   375→   375→  useEffect(() => {
+   376→   376→    if (phase !== "gate") return;
+   377→   377→    const handler = (e: KeyboardEvent) => {
+   378→   378→      if (/^[a-zA-Z0-9]$/.test(e.key)) pressKey(e.key.toUpperCase());
+   379→   379→      else if (e.key === "Backspace") backspace();
+   380→   380→    };
+   381→   381→    window.addEventListener("keydown", handler);
+   382→   382→    return () => window.removeEventListener("keydown", handler);
+   383→   383→  }, [phase, pressKey, backspace]);
+   384→   384→
+   385→   385→  const fullToken = tokenChars.join("");
+   386→   386→  const minutes = Math.floor(remainingMs / 60000);
+   387→   387→  const seconds = Math.floor((remainingMs % 60000) / 1000);
+   388→   388→  const timeCritical = remainingMs > 0 && remainingMs < 120_000;
+   389→   389→  const hasTtl = Boolean(session?.expiresAt);
+   390→   390→
+   391→   391→  const keypadKeys = useMemo(() => {
+   392→   392→    const digits = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
+   393→   393→    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+   394→   394→    return [...digits, ...letters];
+   395→   395→  }, []);
+   396→   396→
+   397→   397→  // ============================ GATE ============================
+   398→   398→  if (phase === "gate") {
+   399→   399→    return (
+   400→   400→      <div className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
+   401→   401→        <div className="w-full max-w-md">
+   402→   402→          <div className="mb-7 text-center">
+   403→   403→            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[14px] border-2 border-[#141E19] bg-[#1B7F4E] shadow-[4px_4px_0px_#141E19]">
+   404→   404→              <Lock className="h-7 w-7 text-white" />
+   405→   405→            </div>
+   406→   406→            <h1 className="font-display text-3xl font-extrabold tracking-[-0.03em] md:text-4xl">
+   407→   407→              PORTAL PEMILIH <span className="text-[#1B7F4E]">PEMIRA ONLINE</span>
+   408→   408→            </h1>
+   409→   409→            <p className="mt-2 text-sm font-medium text-[#4A5851]">
+   410→   410→              Pemira Poltek CWE 100% Online — pilih dari perangkatmu sendiri
+   411→   411→            </p>
+   412→   412→          </div>
+   413→   413→
+   414→   414→          <div className="mb-4 flex items-center gap-2 rounded-[10px] border border-[#D8D3C8] bg-white px-4 py-3">
+   415→   415→            <ScanLine className="h-5 w-5 shrink-0 text-[#1B7F4E]" />
+   416→   416→            <p className="text-[12.5px] leading-relaxed text-[#4A5851]">
+   417→   417→              <strong className="text-[#141E19]">Cara masuk:</strong> scan <strong>QR code</strong> pada slip token dari pos
+   418→   418→              bantuan PPUR, atau ketik 6 karakter token di bawah.
+   419→   419→            </p>
+   420→   420→          </div>
+   421→   421→
+   422→   422→          {/* 6 Kotak Token */}
+   423→   423→          <div className="mb-5 flex justify-center gap-2" role="group" aria-label="Kotak input token">
+   424→   424→            {tokenChars.map((c, i) => (
+   425→   425→              <div
+   426→   426→                key={i}
+   427→   427→                className={`flex h-[68px] w-[52px] items-center justify-center rounded-[10px] border-2 bg-white font-mono text-2xl font-bold transition-shadow sm:h-[76px] sm:w-[58px] sm:text-3xl ${
+   428→   428→                  c ? "border-[#141E19] shadow-[3px_3px_0px_#141E19]" : "border-[#141E19]/40"
+   429→   429→                }`}
+   430→   430→                aria-label={`Karakter ${i + 1}: ${c || "kosong"}`}
+   431→   431→              >
+   432→   432→                {c}
+   433→   433→              </div>
+   434→   434→            ))}
+   435→   435→          </div>
+   436→   436→
+   437→   437→          {gateError && (
+   438→   438→            <div className="mx-auto mb-4 flex items-start gap-2 rounded-[10px] border-2 border-[#E05A47] bg-[#FDE8E5] px-4 py-3" role="alert">
+   439→   439→              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#842029]" />
+   440→   440→              <p className="text-sm font-semibold text-[#842029]">{gateError}</p>
+   441→   441→            </div>
+   442→   442→          )}
+   443→   443→
+   444→   444→          {/* Keypad virtual (mobile-first) */}
+   445→   445→          <div className="tactile-card mx-auto p-4">
+   446→   446→            <div className="grid grid-cols-6 gap-1.5">
+   447→   447→              {keypadKeys.map((k) => (
+   448→   448→                <button
+   449→   449→                  key={k}
+   450→   450→                  type="button"
+   451→   451→                  onClick={() => pressKey(k)}
+   452→   452→                  className="h-10 rounded-lg border-2 border-[#141E19] bg-white font-mono text-sm font-bold shadow-[2px_2px_0px_#141E19] transition-all hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_#141E19] active:translate-y-0.5 active:shadow-none sm:h-11"
+   453→   453→                >
+   454→   454→                  {k}
+   455→   455→                </button>
+   456→   456→              ))}
+   457→   457→              <button
+   458→   458→                type="button"
+   459→   459→                onClick={backspace}
+   460→   460→                className="col-span-2 flex h-10 items-center justify-center gap-1.5 rounded-lg border-2 border-[#141E19] bg-[#F2B705] text-sm font-bold shadow-[2px_2px_0px_#141E19] transition-all hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-none sm:h-11"
+   461→   461→                aria-label="Hapus karakter terakhir"
+   462→   462→              >
+   463→   463→                <Delete className="h-4 w-4" /> HAPUS
+   464→   464→              </button>
+   465→   465→            </div>
+   466→   466→
+   467→   467→            <button
+   468→   468→              type="button"
+   469→   469→              disabled={fullToken.length !== 6 || validating}
+   470→   470→              onClick={() => {
+   471→   471→                activeTokenRef.current = fullToken;
+   472→   472→                validateToken(fullToken);
+   473→   473→              }}
+   474→   474→              className="tactile-btn mt-4 flex h-14 w-full items-center justify-center gap-2 text-base font-extrabold tracking-wide"
+   475→   475→            >
+   476→   476→              {validating ? "MEMVERIFIKASI TOKEN..." : "MASUK BILIK SUARA"}
+   477→   477→              {!validating && <ArrowRight className="h-5 w-5" />}
+   478→   478→            </button>
+   479→   479→          </div>
+   480→   480→
+   481→   481→          <p className="mt-5 text-center text-xs leading-relaxed text-[#7A8881]">
+   482→   482→            🔒 Zero-Knowledge Ballot — token anonim tanpa identitas. Pilihan Anda dipisahkan mutlak dari NIM.
+   483→   483→            Bisa ganti suara sampai pemungutan ditutup — suara terakhir yang dihitung.
+   484→   484→          </p>
+   485→   485→        </div>
+   486→   486→      </div>
+   487→   487→    );
+   488→   488→  }
+   489→   489→
+   490→   490→  // ============================ LOCKED (FINAL) ============================
+   491→   491→  if (phase === "locked") {
+   492→   492→    return (
+   493→   493→      <div className="flex min-h-screen flex-col items-center justify-center px-4 py-10 text-center">
+   494→   494→        <div className="anim-check mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full border-[3px] border-[#141E19] bg-[#141E19] shadow-[6px_6px_0px_#1B7F4E]">
+   495→   495→          <Lock className="h-11 w-11 text-[#FEF5D6]" strokeWidth={3} />
+   496→   496→        </div>
+   497→   497→        <h1 className="font-display text-3xl font-extrabold tracking-[-0.03em] md:text-4xl">Suara Anda Terkunci Final</h1>
+   498→   498→        <p className="mt-3 max-w-md text-base leading-relaxed text-[#4A5851]">
+   499→   499→          Terima kasih! Pilihan Anda sudah <strong className="text-[#141E19]">DIKUNCI</strong> dan tidak dapat diganti lagi
+   500→   500→          oleh siapa pun. Ini melindungi suara Anda dari tekanan pihak lain.
+   501→   501→        </p>
+   502→   502→
+   503→   503→        {receiptCode && (
+   504→   504→          <div className="mt-7 w-full max-w-md rounded-[14px] border-2 border-[#141E19] bg-white p-5 text-left shadow-[6px_6px_0px_#141E19]">
+   505→   505→            <div className="flex items-center justify-between gap-2">
+   506→   506→              <p className="flex items-center gap-2 font-display text-sm font-extrabold uppercase tracking-wide">
+   507→   507→                <ReceiptText className="h-4 w-4 text-[#1B7F4E]" /> Struk Suara Digital — Versi {voteVersion}
+   508→   508→              </p>
+   509→   509→              <span className="rounded-full border border-[#141E19] bg-[#FEF5D6] px-2.5 py-0.5 text-[9.5px] font-extrabold text-[#8A5200]">
+   510→   510→                TERKUNCI FINAL
+   511→   511→              </span>
+   512→   512→            </div>
+   513→   513→            <p className="mt-3 font-mono text-[26px] font-extrabold tracking-[0.12em] text-[#141E19]">{receiptCode}</p>
+   514→   514→            <p className="mt-2 text-[12px] leading-relaxed text-[#4A5851]">
+   515→   515→              Simpan kode ini sebagai bukti suara tercatat di rantai hash. Cek kapan pun di Portal Publik → “Cek Struk Suara”.
+   516→   516→            </p>
+   517→   517→          </div>
+   518→   518→        )}
+   519→   519→
+   520→   520→        <button type="button" onClick={resetAll} className="mt-8 rounded-full border-2 border-[#141E19] bg-white px-6 py-2.5 text-sm font-bold shadow-[3px_3px_0px_#141E19] transition-all hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-none">
+   521→   521→          Selesai
+   522→   522→        </button>
+   523→   523→      </div>
+   524→   524→    );
+   525→   525→  }
+   526→   526→
+   527→   527→  // ============================ SUCCESS ============================
+   528→   528→  if (phase === "success") {
+   529→   529→    return (
+   530→   530→      <div className="flex min-h-screen flex-col items-center justify-center px-4 py-10 text-center">
+   531→   531→        <div className="anim-check mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full border-[3px] border-[#141E19] bg-[#1B7F4E] shadow-[6px_6px_0px_#141E19]">
+   532→   532→          <Check className="h-12 w-12 text-white" strokeWidth={3.5} />
+   533→   533→        </div>
+   534→   534→        <h1 className="font-display text-3xl font-extrabold tracking-[-0.03em] md:text-4xl">
+   535→   535→          {isRevote ? "Suara Anda Berhasil Diganti" : "Suara Anda Telah Tersimpan Rahasia"}
+   536→   536→        </h1>
+   537→   537→        <p className="mt-3 max-w-md text-base leading-relaxed text-[#4A5851]">
+   538→   538→          {isRevote
+   539→   539→            ? `Ini versi ke-${voteVersion} dari suaramu. Versi sebelumnya otomatis tidak dihitung — suara TERAKHIR inilah yang sah.`
+   540→   540→            : "Terima kasih telah berpartisipasi. Bila berubah pikiran, Anda masih bisa mengganti suara sampai pemungutan ditutup."}
+   541→   541→        </p>
+   542→   542→
+   543→   543→        {/* ====== STRUK SUARA + AKSI RE-VOTE / KUNCI ====== */}
+   544→   544→        {receiptCode && (
+   545→   545→          <div className="mt-7 w-full max-w-md rounded-[14px] border-2 border-[#141E19] bg-white p-5 text-left shadow-[6px_6px_0px_#141E19]">
+   546→   546→            <div className="flex items-center justify-between gap-2">
+   547→   547→              <p className="flex items-center gap-2 font-display text-sm font-extrabold uppercase tracking-wide">
+   548→   548→                <ReceiptText className="h-4 w-4 text-[#1B7F4E]" /> Struk Suara Digital
+   549→   549→              </p>
+   550→   550→              <span className="rounded-full border border-[#1B7F4E] bg-[#E6F4EC] px-2.5 py-0.5 text-[9.5px] font-extrabold text-[#0F5132]">
+   551→   551→                VERSI {voteVersion} • TERCATAT ✓
+   552→   552→              </span>
+   553→   553→            </div>
+   554→   554→            <p className="mt-3 font-mono text-[26px] font-extrabold tracking-[0.12em] text-[#141E19]">{receiptCode}</p>
+   555→   555→            <p className="mt-2 text-[12px] leading-relaxed text-[#4A5851]">
+   556→   556→              <strong className="text-[#141E19]">Foto atau catat kode ini.</strong> Kode membuktikan suara masuk ke rantai
+   557→   557→              hash — tanpa membocorkan pilihan. Cek kapan pun di Portal Publik → “Cek Struk Suara”.
+   558→   558→            </p>
+   559→   559→          </div>
+   560→   560→        )}
+   561→   561→
+   562→   562→        <div className="mt-6 grid w-full max-w-md gap-3">
+   563→   563→          <button
+   564→   564→            type="button"
+   565→   565→            onClick={lockVote}
+   566→   566→            disabled={lockBusy}
+   567→   567→            className="tactile-btn flex h-14 items-center justify-center gap-2 text-base font-extrabold disabled:opacity-70"
+   568→   568→          >
+   569→   569→            <Lock className="h-5 w-5" />
+   570→   570→            {lockBusy ? "MENGUNCI..." : "KUNCI SUARAKU (FINAL)"}
+   571→   571→          </button>
+   572→   572→          <button
+   573→   573→            type="button"
+   574→   574→            onClick={revoteAgain}
+   575→   575→            disabled={lockBusy}
+   576→   576→            className="flex items-center justify-center gap-2 rounded-[10px] border-2 border-[#141E19] bg-white py-3.5 text-sm font-bold shadow-[3px_3px_0px_#141E19] transition-all hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#141E19] active:translate-y-0.5 active:shadow-none"
+   577→   577→          >
+   578→   578→            <RefreshCcw className="h-4 w-4" />
+   579→   579→            Ganti Suara Saya (Re-vote)
+   580→   580→          </button>
+   581→   581→        </div>
+   582→   582→        <p className="mt-4 max-w-md text-xs leading-relaxed text-[#7A8881]">
+   583→   583→          <strong className="text-[#141E19]">Kunci Suaraku</strong> menutup kemampuan ganti suara permanen — cocok bila Anda
+   584→   584→          yakin dan ingin melindungi suara dari tekanan pihak lain. Tanpa dikunci, token tetap bisa dipakai ganti suara
+   585→   585→          sampai pemungutan ditutup.
+   586→   586→        </p>
+   587→   587→      </div>
+   588→   588→    );
+   589→   589→  }
+   590→   590→
+   591→   591→  // ============================ SUBMITTING ============================
+   592→   592→  if (phase === "submitting") {
+   593→   593→    return (
+   594→   594→      <div className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
+   595→   595→        <div className="mb-6 h-16 w-16 animate-spin rounded-full border-4 border-[#D8D3C8] border-t-[#1B7F4E]" />
+   596→   596→        <h2 className="font-display text-2xl font-bold">{submittingMsg}</h2>
+   597→   597→        <p className="mt-2 text-sm text-[#4A5851]">
+   598→   598→          Jangan tutup halaman. Proses ini berjalan dalam satu transaksi atomik.
+   599→   599→        </p>
+   600→   600→      </div>
+   601→   601→    );
+   602→   602→  }
+   603→   603→
+   604→   604→  // ============================ REVIEW ============================
+   605→   605→  if (phase === "review") {
+   606→   606→    return (
+   607→   607→      <div className="mx-auto max-w-3xl px-4 py-8">
+   608→   608→        {isRevote && (
+   609→   609→          <div className="mb-5 flex items-center gap-2 rounded-[10px] border-2 border-[#D9822B] bg-[#FDF2E4] px-4 py-3">
+   610→   610→            <RefreshCcw className="h-4 w-4 shrink-0 text-[#8A5200]" />
+   611→   611→            <p className="text-sm font-bold text-[#8A5200]">
+   612→   612→              MODE GANTI SUARA — suara baru akan MENGGANTI suara sebelumnya (tercatat sebagai versi {voteVersion}).
+   613→   613→            </p>
+   614→   614→          </div>
+   615→   615→        )}
+   616→   616→        <div className="mb-6 text-center">
+   617→   617→          <h1 className="font-display text-3xl font-extrabold tracking-[-0.03em]">Tinjau Pilihan Anda</h1>
+   618→   618→          <p className="mt-2 text-sm font-medium text-[#4A5851]">
+   619→   619→            Pastikan ketiga pilihan sudah benar. Setelah terkirim, Anda masih bisa menggantinya nanti.
+   620→   620→          </p>
+   621→   621→        </div>
+   622→   622→
+   623→   623→        {submitError && (
+   624→   624→          <div className="mb-5 flex items-start gap-2 rounded-[10px] border-2 border-[#E05A47] bg-[#FDE8E5] px-4 py-3" role="alert">
+   625→   625→            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#842029]" />
+   626→   626→            <p className="text-sm font-semibold text-[#842029]">{submitError}</p>
+   627→   627→          </div>
+   628→   628→        )}
+   629→   629→
+   630→   630→        <div className="grid gap-5 sm:grid-cols-3">
+   631→   631→          {ballots.map((b, i) => {
+   632→   632→            const sel = selections[b.category];
+   633→   633→            const cand = b.candidates.find((c) => (sel === "EMPTY" ? c.isEmptyBox : c.id === sel));
+   634→   634→            return (
+   635→   635→              <div key={b.category} className="tactile-card flex flex-col p-5">
+   636→   636→                <div className="mb-3 flex items-center justify-between">
+   637→   637→                  <span
+   638→   638→                    className="rounded-full border-2 border-[#141E19] px-3 py-1 text-[11px] font-extrabold text-white"
+   639→   639→                    style={{ background: b.color }}
+   640→   640→                  >
+   641→   641→                    {i + 1}. {b.category === "HIMA" ? `HIMA ${session?.studyProgramId}` : stepLabel(b.category, session?.studyProgramId ?? "")}
+   642→   642→                  </span>
+   643→   643→                  <span className="font-mono-tabular text-[11px] text-[#7A8881]">{b.stepTitle}</span>
+   644→   644→                </div>
+   645→   645→                {cand ? (
+   646→   646→                  <div className="flex items-center gap-3">
+   647→   647→                    <CandidateAvatar name={cand.presidentName} photo={cand.photoLeaderUrl} accent={cand.isEmptyBox ? EMPTY_BOX_COLOR : b.color} size={52} />
+   648→   648→                    <div>
+   649→   649→                      <p className="font-display text-base font-bold leading-snug">{cand.presidentName}</p>
+   650→   650→                      {cand.viceName && <p className="text-xs text-[#4A5851]">& {cand.viceName}</p>}
+   651→   651→                      {cand.secondViceName && <p className="text-xs text-[#4A5851]">& {cand.secondViceName}</p>}
+   652→   652→                      <p className="mt-1 text-[11px] font-bold uppercase tracking-wide" style={{ color: b.color }}>
+   653→   653→                        {cand.isEmptyBox ? "Kotak Kosong — Tidak Setuju" : `Nomor Urut ${String(cand.number).padStart(2, "0")}`}
+   654→   654→                      </p>
+   655→   655→                    </div>
+   656→   656→                  </div>
+   657→   657→                ) : (
+   658→   658→                  <p className="text-sm font-semibold text-[#842029]">Belum memilih</p>
+   659→   659→                )}
+   660→   660→                <button
+   661→   661→                  type="button"
+   662→   662→                  onClick={() => {
+   663→   663→                    setStep(i);
+   664→   664→                    setSubmitError(null);
+   665→   665→                    setPhase("ballot");
+   666→   666→                  }}
+   667→   667→                  className="mt-4 w-full rounded-[10px] border-2 border-[#141E19] bg-white py-2.5 text-sm font-bold shadow-[3px_3px_0px_#141E19] transition-all hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#141E19] active:translate-y-0.5 active:shadow-none"
+   668→   668→                >
+   669→   669→                  Ubah Pilihan
+   670→   670→                </button>
+   671→   671→              </div>
+   672→   672→            );
+   673→   673→          })}
+   674→   674→        </div>
+   675→   675→
+   676→   676→        <div className="mt-6 flex items-start gap-3 rounded-[10px] border border-[#D8D3C8] bg-[#FFFFFF] px-4 py-3.5">
+   677→   677→          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#1B7F4E]" />
+   678→   678→          <p className="text-[13px] leading-relaxed text-[#4A5851]">
+   679→   679→            <strong className="text-[#141E19]">Zero-Knowledge Ballot:</strong> Pilihan Anda dipisahkan sepenuhnya dari
+   680→   680→            identitas NIM Anda — bahkan saat ganti suara sekalipun.
+   681→   681→          </p>
+   682→   682→        </div>
+   683→   683→
+   684→   684→        <div className="mt-6 flex flex-col items-center gap-3">
+   685→   685→          <button
+   686→   686→            type="button"
+   687→   687→            onClick={submitVote}
+   688→   688→            className="tactile-btn flex h-16 w-full max-w-2xl items-center justify-center text-lg font-extrabold tracking-wide"
+   689→   689→          >
+   690→   690→            {isRevote ? "KIRIM ULANG & GANTI SUARA" : "KIRIM SUARA SEKARANG"}
+   691→   691→          </button>
+   692→   692→          {hasTtl && (
+   693→   693→            <div className={`flex items-center gap-2 rounded-full border px-4 py-1.5 font-mono-tabular text-sm font-bold ${timeCritical ? "border-[#E05A47] bg-[#FDE8E5] text-[#842029] pulse-terra" : "border-[#141E19] bg-white"}`}>
+   694→   694→              <Timer className="h-4 w-4" />
+   695→   695→              {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+   696→   696→            </div>
+   697→   697→          )}
+   698→   698→        </div>
+   699→   699→      </div>
+   700→   700→    );
+   701→   701→  }
+   702→   702→
+   703→   703→  // ============================ BALLOT WIZARD ============================
+   704→   704→  if (!session || !current) return <div className="p-10"><Skeleton className="h-64 w-full" /></div>;
+   705→   705→
+   706→   706→  const selectionForCurrent = selections[current.category];
+   707→   707→  const canProceed = selectionForCurrent !== undefined;
+   708→   708→
+   709→   709→  return (
+   710→   710→    <div className="mx-auto max-w-3xl px-4 py-6">
+   711→   711→      {/* Banner mode re-vote */}
+   712→   712→      {isRevote && (
+   713→   713→        <div className="mb-4 flex items-center gap-2 rounded-[10px] border-2 border-[#D9822B] bg-[#FDF2E4] px-4 py-2.5">
+   714→   714→          <RefreshCcw className="h-4 w-4 shrink-0 text-[#8A5200]" />
+   715→   715→          <p className="text-[13px] font-bold text-[#8A5200]">
+   716→   716→            GANTI SUARA — pilihan baru akan menggantikan suara sebelumnya (suara terakhir yang dihitung).
+   717→   717→          </p>
+   718→   718→        </div>
+   719→   719→      )}
+   720→   720→
+   721→   721→      {/* Stepper */}
+   722→   722→      <nav aria-label="Tahapan surat suara" className="mb-5">
+   723→   723→        <ol className="flex flex-wrap items-center justify-center gap-1.5">
+   724→   724→          {ballots.map((b, i) => (
+   725→   725→            <li key={b.category} className="flex items-center">
+   726→   726→              <span
+   727→   727→                className={`flex items-center gap-2 rounded-full border-2 px-3.5 py-2 text-xs font-extrabold tracking-wide transition-colors ${
+   728→   728→                  i === step ? "text-white" : i < step ? "text-[#0F5132]" : "text-[#7A8881]"
+   729→   729→                }`}
+   730→   730→                style={{
+   731→   731→                  background: i === step ? b.color : i < step ? "#DCFCE7" : "#FFFFFF",
+   732→   732→                  borderColor: "#141E19",
+   733→   733→                }}
+   734→   734→              >
+   735→   735→                {i < step && <Check className="h-3.5 w-3.5" />}
+   736→   736→                {i + 1}. {b.category === "HIMA" ? `HIMA ${session.studyProgramId}` : stepLabel(b.category, session.studyProgramId)}
+   737→   737→              </span>
+   738→   738→              {i < ballots.length - 1 && <span className="mx-1 hidden h-0.5 w-6 bg-[#141E19] sm:block" aria-hidden />}
+   739→   739→            </li>
+   740→   740→          ))}
+   741→   741→        </ol>
+   742→   742→      </nav>
+   743→   743→
+   744→   744→      {/* Header banner dinamis per surat suara */}
+   745→   745→      <header
+   746→   746→        className="anim-slide mb-6 overflow-hidden rounded-[14px] border-2 border-[#141E19] px-5 py-4 text-white sm:px-6 sm:py-5"
+   747→   747→        style={{ background: current.color, boxShadow: "4px 4px 0px #141E19" }}
+   748→   748→      >
+   749→   749→        <div className="flex flex-wrap items-center justify-between gap-3">
+   750→   750→          <div>
+   751→   751→            <p className="text-[11px] font-bold uppercase tracking-[0.14em] opacity-90">
+   752→   752→              {current.institutionLabel}
+   753→   753→            </p>
+   754→   754→            <h1 className="mt-1 font-display text-2xl font-extrabold tracking-[-0.02em] md:text-3xl">
+   755→   755→              Pemilihan {current.stepTitle}
+   756→   756→            </h1>
+   757→   757→          </div>
+   758→   758→          <div className="flex items-center gap-2">
+   759→   759→            {current.singleCandidateScenario && (
+   760→   760→              <span className="rounded-full border-2 border-white/60 bg-white/15 px-3 py-1 text-[11px] font-bold">
+   761→   761→                CALON TUNGGAL — KOTAK KOSONG AKTIF
+   762→   762→              </span>
+   763→   763→            )}
+   764→   764→            {hasTtl && (
+   765→   765→              <span
+   766→   766→                className={`flex items-center gap-1.5 rounded-full border-2 border-[#141E19] px-3 py-1.5 font-mono-tabular text-sm font-bold ${
+   767→   767→                  timeCritical ? "bg-[#FDE8E5] text-[#842029] pulse-terra" : "bg-[#FEF5D6] text-[#8A5200]"
+   768→   768→                }`}
+   769→   769→              >
+   770→   770→                <Timer className="h-4 w-4" />
+   771→   771→                {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+   772→   772→              </span>
+   773→   773→            )}
+   774→   774→          </div>
+   775→   775→        </div>
+   776→   776→      </header>
+   777→   777→
+   778→   778→      {/* Grid kandidat — HUKUM 3: calon tunggal membagi 50:50 dengan Kotak Kosong */}
+   779→   779→      {current.singleCandidateScenario ? (
+   780→   780→        <div className="grid gap-5 sm:grid-cols-2" aria-label="Calon tunggal dan kotak kosong">
+   781→   781→          <BallotCandidateCard
+   782→   782→            candidate={current.candidates.find((c) => !c.isEmptyBox)!}
+   783→   783→            color={current.color}
+   784→   784→            tint={current.tint}
+   785→   785→            selected={selectionForCurrent === current.candidates.find((c) => !c.isEmptyBox)?.id}
+   786→   786→            onClick={() => setSelections((s) => ({ ...s, [current.category]: current.candidates.find((c) => !c.isEmptyBox)!.id }))}
+   787→   787→          />
+   788→   788→          <BallotCandidateCard
+   789→   789→            candidate={current.candidates.find((c) => c.isEmptyBox)!}
+   790→   790→            color={EMPTY_BOX_COLOR}
+   791→   791→            tint={EMPTY_BOX_TINT}
+   792→   792→            selected={selectionForCurrent === "EMPTY" || selections[current.category] === current.candidates.find((c) => c.isEmptyBox)?.id}
+   793→   793→            onClick={() => setSelections((s) => ({ ...s, [current.category]: "EMPTY" }))}
+   794→   794→          />
+   795→   795→        </div>
+   796→   796→      ) : (
+   797→   797→        <div className={`grid gap-5 ${current.candidates.length >= 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+   798→   798→          {current.candidates.map((c) => (
+   799→   799→            <BallotCandidateCard
+   800→   800→              key={c.id}
+   801→   801→              candidate={c}
+   802→   802→              color={current.color}
+   803→   803→              tint={current.tint}
+   804→   804→              selected={selectionForCurrent === c.id}
+   805→   805→              onClick={() => setSelections((s) => ({ ...s, [current.category]: c.id }))}
+   806→   806→            />
+   807→   807→          ))}
+   808→   808→        </div>
+   809→   809→      )}
+   810→   810→
+   811→   811→      {/* Navigasi wizard */}
+   812→   812→      <div className="mt-7 flex items-center justify-between gap-3">
+   813→   813→        <button
+   814→   814→          type="button"
+   815→   815→          disabled={step === 0}
+   816→   816→          onClick={() => setStep((s) => Math.max(0, s - 1))}
+   817→   817→          className="flex h-14 items-center gap-2 rounded-[10px] border-2 border-[#141E19] bg-white px-5 font-bold shadow-[3px_3px_0px_#141E19] transition-all enabled:hover:-translate-y-0.5 enabled:hover:shadow-[4px_4px_0px_#141E19] enabled:active:translate-y-0.5 enabled:active:shadow-none disabled:opacity-40"
+   818→   818→        >
+   819→   819→          <ChevronLeft className="h-5 w-5" /> <span className="hidden sm:inline">KEMBALI</span>
+   820→   820→        </button>
+   821→   821→
+   822→   822→        <p className="hidden text-xs font-semibold text-[#7A8881] sm:block">
+   823→   823→          {canProceed ? "Pilihan tersimpan — lanjut" : "Pilih salah satu kartu di atas"}
+   824→   824→        </p>
+   825→   825→
+   826→   826→        {step < ballots.length - 1 ? (
+   827→   827→          <button
+   828→   828→            type="button"
+   829→   829→            disabled={!canProceed}
+   830→   830→            onClick={() => setStep((s) => s + 1)}
+   831→   831→            className="tactile-btn flex h-14 items-center gap-2 px-6 font-extrabold"
+   832→   832→          >
+   833→   833→            SURAT SUARA {step + 2} <ArrowRight className="h-5 w-5" />
+   834→   834→          </button>
+   835→   835→        ) : (
+   836→   836→          <button
+   837→   837→            type="button"
+   838→   838→            disabled={!canProceed}
+   839→   839→            onClick={() => {
+   840→   840→              setSubmitError(null);
+   841→   841→              setPhase("review");
+   842→   842→            }}
+   843→   843→            className="tactile-btn flex h-14 items-center gap-2 px-6 font-extrabold"
+   844→   844→          >
+   845→   845→            TINJAU <ArrowRight className="h-5 w-5" />
+   846→   846→          </button>
+   847→   847→        )}
+   848→   848→      </div>
+   849→   849→    </div>
+   850→   850→  );
+   851→   851→}
+   852→   852→

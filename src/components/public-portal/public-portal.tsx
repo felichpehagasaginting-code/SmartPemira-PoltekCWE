@@ -12,7 +12,7 @@ import { BALLOT_CATEGORY_COLORS } from "@/lib/constants/election";
 import { getProdiMeta } from "@/lib/constants/study-programs";
 import type { CandidateView, PortalResponse } from "@/lib/types";
 import { BeritaAcaraVerifier, ReceiptChecker } from "@/components/public-portal/public-verify-tools";
-import { CheckCircle2, Landmark, Lock, ScrollText, Users, Vote } from "lucide-react";
+import { CheckCircle2, CircleSlash, Landmark, Lock, ScrollText, Users, Vote } from "lucide-react";
 
 /** Label peran resmi per kategori — DPM punya struktur 3 peran */
 function memberRoles(category: string): { leader: string; vice: string; second?: string } {
@@ -251,6 +251,29 @@ export function PublicPortal() {
           </div>
         </section>
       ))}
+
+      {/* ---------- INFO SUARA KOSONG ---------- */}
+      <section
+        className="rounded-[14px] border-2 border-dashed border-[#3F4743] bg-[#ECEAE4] p-6"
+        aria-label="Informasi opsi Suara Kosong"
+      >
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-[#141E19] bg-[#3F4743]">
+            <CircleSlash className="h-6 w-6 text-white" aria-hidden />
+          </span>
+          <div>
+            <h3 className="font-display text-lg font-extrabold tracking-[-0.01em]">Hak Memilih Suara Kosong</h3>
+            <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-[#4A5851]">
+              Di setiap surat suara — DPM, BEM, maupun HIMA prodimu — selalu tersedia opsi{" "}
+              <strong className="text-[#141E19]">SUARA KOSONG</strong> di bagian paling bawah, setelah semua paslon calon.
+              Memilihnya berarti kamu tidak mendukung paslon manapun pada pemilihan tersebut, tetapi suaramu{" "}
+              <strong className="text-[#141E19]">tetap sah tercatat</strong> dalam rantai hash dan dihitung sebagai suara
+              sah pada rekapitulasi resmi Sidang Pleno. Keputusan sepenuhnya milikmu — sistem menjamin pilihan ini
+              terhitung tanpa membocorkan identitasmu.
+            </p>
+          </div>
+        </div>
+      </section>
 
       {/* ---------- ALAT VERIFIKASI PUBLIK (Rekomendasi #6 & #9) ---------- */}
       <section className="grid gap-5 xl:grid-cols-2">

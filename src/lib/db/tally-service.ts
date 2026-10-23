@@ -9,7 +9,7 @@
 // Integritas diverifikasi per rantai prodi (5 rantai virtual).
 // ============================================================
 import { db } from "@/lib/db";
-import { SINGLE_CANDIDATE_THRESHOLD, type ElectionCategory } from "@/lib/constants/election";
+import { SINGLE_CANDIDATE_THRESHOLD, SUARA_KOSONG_LABEL, type ElectionCategory } from "@/lib/constants/election";
 
 export interface CandidateResult {
   candidateId: string | null;
@@ -228,20 +228,36 @@ function buildCategoryResult(
     };
   });
 
-  const totalValidVotes = results.reduce((s, r) => s + r.votes, 0);
+  // ---------- SUARA KOSONG (baris sintetis — bukan entitas kandidat) ----------
+  // Pemilih yang tidak mendukung paslon manapun tetap mengeluarkan suara SAH.
+  // Suara Kosong masuk ke total suara sah (denominator persentase) namun TIDAK
+  // mungkin menjadi pemenang — pemenang ditetapkan dari kandidat riil saja.
+  const blankVotes = voteMap.get("__EMPTY__") ?? 0;
+  const totalValidVotes = results.reduce((s, r) => s + r.votes, 0) + blankVotes;
   for (const r of results) {
     r.percentage = totalValidVotes > 0 ? (r.votes / totalValidVotes) * 100 : 0;
   }
+  const blankRow: CandidateResult = {
+    candidateId: null,
+    number: 0, // 0 = penanda baris sintetis Suara Kosong
+    name: SUARA_KOSONG_LABEL,
+    viceName: null,
+    secondViceName: null,
+    isEmptyBox: true,
+    votes: blankVotes,
+    percentage: totalValidVotes > 0 ? (blankVotes / totalValidVotes) * 100 : 0,
+  };
 
-  // ---------- HUKUM 3 & 7.3 ----------
-  const realCandidates = results.filter((r) => !r.isEmptyBox);
-  const sorted = [...results].sort((a, b) => b.votes - a.votes);
+  // ---------- HUKUM 3 & 7.3 (hanya di antara kandidat RIIL) ----------
+  const realCandidates = results; // sebelum baris Suara Kosong ditambahkan
+  const sorted = [...realCandidates].sort((a, b) => b.votes - a.votes);
 
   let outcome: CategoryResult["outcome"] = "PEMENANG_SEMENTARA";
   let outcomeDetail = "";
 
   if (realCandidates.length === 1) {
     // Calon tunggal: terpilih HANYA JIKA > 50% dari total suara sah
+    // (termasuk Suara Kosong — ambang tidak bisa "dibantu" suara kosong)
     const solo = realCandidates[0];
     if (solo.percentage > SINGLE_CANDIDATE_THRESHOLD) {
       outcome = "TERPILIH";
@@ -258,14 +274,18 @@ function buildCategoryResult(
   } else {
     const winner = sorted[0];
     outcomeDetail = `Pemenang sementara: nomor urut ${winner.number} (${winner.name}) dengan ${winner.votes} suara (${winner.percentage.toFixed(2)}%).`;
+    if (blankVotes > winner.votes) {
+      outcomeDetail += ` CATATAN: Suara Kosong (${blankVotes}) melebihi perolehan kandidat teratas — merekomendasikan evaluasi melalui sidang pleno.`;
+    }
   }
 
+  // Baris Suara Kosong SELALU ditampilkan di posisi TERAKHIR (opsi terakhir bilik)
   return {
     category,
     studyProgramId,
     studyProgramName,
     totalValidVotes,
-    results,
+    results: [...results, blankRow],
     outcome,
     outcomeDetail,
   };

@@ -33,7 +33,8 @@ export interface BallotPayload {
   institutionLabel: string;
   color: string;
   tint: string;
-  singleCandidateScenario: boolean;
+  /** Opsi SUARA KOSONG selalu disediakan sistem sebagai kartu TERAKHIR di setiap
+   *  surat suara — tidak lagi bergantung pada skenario calon tunggal. */
   candidates: CandidateView[];
 }
 
@@ -96,11 +97,11 @@ export interface PortalResponse {
 
 export interface CandidateResultView {
   candidateId: string | null;
-  number: number;
+  number: number; // 0 = baris sintetis SUARA KOSONG (selalu posisi terakhir)
   name: string;
   viceName: string | null;
   secondViceName: string | null; // khusus DPM: Ketua 2
-  isEmptyBox: boolean;
+  isEmptyBox: boolean; // true = SUARA KOSONG (bukan entitas kandidat di database)
   votes: number;
   percentage: number;
 }

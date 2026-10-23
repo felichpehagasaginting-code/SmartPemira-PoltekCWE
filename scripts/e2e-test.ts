@@ -94,8 +94,11 @@ async function main() {
     `Urutan resmi DPM → BEM → HIMA: ${ballots.map((b) => b.category).join(" → ")}`
   );
   const hima = ballots.find((b) => b.category === "HIMA");
-  assert(hima.singleCandidateScenario === false, "Setiap organisasi kini 2 kandidat — tidak ada skenario calon tunggal di seed demo");
-  assert(hima.candidates.length === 2, "Hima TPTP punya 2 kandidat resmi (1 paslon per kandidat tidak berlaku lagi)");
+  assert(
+    ballots.every((b) => b.candidates.every((c) => !c.isEmptyBox)),
+    "Tidak ada entitas kandidat dummy — opsi Suara Kosong kini disediakan sistem di akhir setiap surat suara"
+  );
+  assert(hima.candidates.length === 2, "Hima TPTP punya 2 kandidat resmi (+ Suara Kosong di UI)");
   assert(
     hima.candidates.every((c) => !!c.photoLeaderUrl && !!c.photoViceUrl),
     "Semua kandidat HIMA membawa foto Ketua & Wakil (photoLeaderUrl + photoViceUrl terisi)"
@@ -115,13 +118,32 @@ async function main() {
     method: "POST",
     body: JSON.stringify({
       token,
-      selections: { presmaCandidateId: presmaPick.id, dpmCandidateId: dpmPick.id, himaCandidateId: null }, // null = kotak kosong
+      selections: { presmaCandidateId: presmaPick.id, dpmCandidateId: dpmPick.id, himaCandidateId: null }, // null = SUARA KOSONG
     }),
   });
-  assert(submit.status === 200 && submit.body.ok, "Suara v1 terkirim (3 kategori, HIMA = Kotak Kosong)");
+  assert(submit.status === 200 && submit.body.ok, "Suara v1 terkirim (3 kategori, HIMA = Suara Kosong)");
   assert(submit.body.voteVersion === 1, "Versi suara tercatat: 1");
   const receiptV1 = submit.body.receiptCode;
   assert(/^[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}$/.test(receiptV1), `Struk digital terformat: ${receiptV1}`);
+
+  console.log("\n=== 4b. SUARA KOSONG di kategori DPM (opsi terakhir bilik) ===");
+  const searchTphp = await api("/api/ppur/voters?q=&filter=BELUM_MEMILIH", { headers: { Cookie: ppur.cookie } });
+  const voterTphp = searchTphp.body.voters.find((v) => v.studyProgramId === "TPHP");
+  assert(!!voterTphp, `Pemilih TPHP ditemukan utk demo Suara Kosong DPM: ${voterTphp?.nim}`);
+  const issueTphp = await api("/api/ppur/issue-token", { method: "POST", headers: { Cookie: ppur.cookie }, body: JSON.stringify({ voterId: voterTphp.id }) });
+  assert(issueTphp.status === 200 && issueTphp.body.ok, "Token diterbitkan utk pemilih TPHP");
+  const valTphp = await api("/api/pemilih/validate", { method: "POST", body: JSON.stringify({ token: issueTphp.body.token }) });
+  assert(valTphp.status === 200, "Bilik TPHP terbuka");
+  const presmaTphp = valTphp.body.ballots.find((b) => b.category === "PRESMA").candidates[0];
+  const himaTphp = valTphp.body.ballots.find((b) => b.category === "HIMA").candidates[0];
+  const submitBlankDpm = await api("/api/pemilih/submit", {
+    method: "POST",
+    body: JSON.stringify({
+      token: issueTphp.body.token,
+      selections: { presmaCandidateId: presmaTphp.id, dpmCandidateId: null, himaCandidateId: himaTphp.id }, // DPM = Suara Kosong
+    }),
+  });
+  assert(submitBlankDpm.status === 200 && submitBlankDpm.body.ok, "Suara terkirim dengan DPM = SUARA KOSONG (null diterima untuk kategori institusi)");
 
   console.log("\n=== 5. Verifikasi pasca-submit ===");
   const after = await api(`/api/ppur/voters?q=${voter.nim}`, { headers: { Cookie: ppur.cookie } });
@@ -170,24 +192,45 @@ async function main() {
   const tally = await api("/api/tally");
   assert(tally.status === 200 && tally.body.unlocked === true, "Tally terbuka");
 
-  console.log("\n=== 11. Rekap latest-wins + 5 rantai prodi ===");
+  console.log("\n=== 11. Rekap latest-wins + 5 rantai prodi + SUARA KOSONG ===");
   assert(tally.body.integrity.allValid === true, "Semua rantai VALID");
   assert(tally.body.integrity.chains.length === 5, `5 rantai prodi terverifikasi: ${tally.body.integrity.chains.map((c) => c.tpsId).join(", ")}`);
   const catOrder = tally.body.categories.map((c) => c.category);
   assert(catOrder[0] === "DPM" && catOrder[1] === "PRESMA", `Urutan rekap: ${catOrder.slice(0, 2).join(" → ")} → HIMA×5`);
+
+  // ---------- SUARA KOSONG: baris sintetis terakhir di setiap kategori ----------
+  const dpmCat = tally.body.categories.find((c) => c.category === "DPM");
+  const dpmBlank = dpmCat.results.find((r) => r.isEmptyBox);
+  assert(
+    dpmCat.results.every((r, i) => (i === dpmCat.results.length - 1) === !!r.isEmptyBox),
+    "Baris Suara Kosong selalu di posisi TERAKHIR rekap DPM"
+  );
+  assert(dpmBlank.votes === 2, `DPM Suara Kosong = ${dpmBlank.votes} (1 pra-cast TPTP + 1 E2E §4b)`);
+  const presmaCat = tally.body.categories.find((c) => c.category === "PRESMA");
+  const presmaBlank = presmaCat.results.find((r) => r.isEmptyBox);
+  assert(presmaBlank.votes === 1, `BEM Suara Kosong = ${presmaBlank.votes} (pra-cast TPHP)`);
+  assert(
+    dpmCat.totalValidVotes === dpmCat.results.reduce((s, r) => s + r.votes, 0),
+    `Suara Kosong ikut total suara sah DPM (${dpmCat.totalValidVotes})`
+  );
+
   const tptpCat = tally.body.categories.find((c) => c.category === "HIMA" && c.studyProgramId === "TPTP");
   assert(
-    tptpCat.results.length === 2 && tptpCat.results.every((r) => !r.isEmptyBox),
-    "TPTP rekap: 2 kandidat tanpa kotak kosong (seed demo kini 2 kandidat per organisasi)"
+    tptpCat.results.filter((r) => !r.isEmptyBox).length === 2 && tptpCat.results.some((r) => r.isEmptyBox),
+    "TPTP rekap: 2 kandidat riil + baris Suara Kosong"
   );
+  const tptpBlank = tptpCat.results.find((r) => r.isEmptyBox);
+  assert(tptpBlank.votes === 1, `TPTP Suara Kosong = ${tptpBlank.votes} (token E2E §4 memilih HIMA kosong di v1 & v2)`);
   console.log(`  ℹ️  Outcome TPTP: ${tptpCat.outcome} — ${tptpCat.outcomeDetail}`);
   const trplCat = tally.body.categories.find((c) => c.category === "HIMA" && c.studyProgramId === "TRPL");
   const trpl2 = trplCat.results.find((r) => r.number === 2);
   const trpl1 = trplCat.results.find((r) => r.number === 1);
   assert(trpl2.votes === 0 && trpl1.votes >= 2, `Latest-wins terbukti: TRPL paslon 2 = ${trpl2.votes} (versi lamanya tergantikan), paslon 1 = ${trpl1.votes}`);
+  const bdCat = tally.body.categories.find((c) => c.category === "HIMA" && c.studyProgramId === "BD");
+  const bdBlank = bdCat.results.find((r) => r.isEmptyBox);
+  assert(bdBlank.votes === 1, `BD Suara Kosong HIMA = ${bdBlank.votes} (pra-cast)`);
   assert(tally.body.revoteStats.supersededBallots > 0 && tally.body.revoteStats.lockedTokens >= 1, `Statistik re-vote: ${tally.body.revoteStats.supersededBallots} blok usang, ${tally.body.revoteStats.lockedTokens} terkunci`);
   // Pre-cast seed tidak boleh hilang akibat revote
-  const bdCat = tally.body.categories.find((c) => c.category === "HIMA" && c.studyProgramId === "BD");
   assert(bdCat.totalValidVotes >= 2, `Rantai BD rekap utuh (${bdCat.totalValidVotes} suara sah)`);
 
   console.log("\n=== SELESAI: hukum arsitektur + re-vote + RBAC tervalidasi ===");

@@ -1,0 +1,539 @@
+     1→"use client";
+     2→
+     3→// ============================================================
+     4→// DASHBOARD KOMISIONER KPUM — FR-01, FR-02, FR-03, FR-06.3, FR-07
+     5→// Bento Editorial: DPT import, manajemen kandidat, kontrol tahapan,
+     6→// Pleno Unlocking & Berita Acara Model C-KWE (Swiss Legal Document).
+     7→// ============================================================
+     8→import { useEffect, useState } from "react";
+     9→import QRCode from "qrcode";
+    10→import { Badge } from "@/components/ui/badge";
+    11→import { Skeleton } from "@/components/ui/skeleton";
+    12→import { Textarea } from "@/components/ui/textarea";
+    13→import { usePolling } from "@/hooks/use-polling";
+    14→import type { AdminOverviewResponse } from "@/lib/types";
+    15→import {
+    16→  AlertTriangle,
+    17→  CheckCircle2,
+    18→  Copy,
+    19→  Database,
+    20→  FileText,
+    21→  Loader2,
+    22→  Lock,
+    23→  LockOpen,
+    24→  PauseCircle,
+    25→  PlayCircle,
+    26→  Plus,
+    27→  ScrollText,
+    28→  ShieldAlert,
+    29→  Users,
+    30→} from "lucide-react";
+    31→
+    32→type TabKey = "dpt" | "kandidat" | "tahapan" | "berita";
+    33→
+    34→/** QR asli (Rekomendasi #9): encode URL verifikasi publik dokumen */
+    35→function RealQr({ text, size = 132 }: { text: string; size?: number }) {
+    36→  const [dataUrl, setDataUrl] = useState<string | null>(null);
+    37→  useEffect(() => {
+    38→    let alive = true;
+    39→    QRCode.toDataURL(text, { width: size * 2, margin: 1, color: { dark: "#141E19", light: "#FFFFFF" } })
+    40→      .then((url) => alive && setDataUrl(url))
+    41→      .catch(() => alive && setDataUrl(null));
+    42→    return () => {
+    43→      alive = false;
+    44→    };
+    45→  }, [text, size]);
+    46→  if (!dataUrl) {
+    47→    return <Loader2 className="h-8 w-8 animate-spin text-[#7A8881]" />;
+    48→  }
+    49→  return <img src={dataUrl} width={size} height={size} alt="QR verifikasi Berita Acara" className="rounded-[4px]" />;
+    50→}
+    51→
+    52→interface BaDocument {
+    53→  electionName: string;
+    54→  plenoUnlockedAt: string | null;
+    55→  generatedAt: string;
+    56→  totals: { dptTotal: number; voted: number; absent: number; ballots: number; tokenUsed: number; turnoutPct: number };
+    57→  revoteStats: { tokensVoted: number; tokensRevoted: number; supersededBallots: number; lockedTokens: number };
+    58→  integrity: { allValid: boolean; chains: Array<{ tpsId: string; name: string; valid: boolean; checkedCount: number; headHash: string }>; totalChecked: number };
+    59→  chains: Array<{ id: string; name: string; location: string; headHash: string }>;
+    60→  signatories: { kpum: string; panwaslu: string };
+    61→  signature: string;
+    62→  algorithm: string;
+    63→}
+    64→
+    65→export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }) {
+    66→  const { data, loading, refresh } = usePolling<AdminOverviewResponse>("/api/admin/overview", 6000);
+    67→  const [tab, setTab] = useState<TabKey>("tahapan");
+    68→  const [busy, setBusy] = useState(false);
+    69→  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+    70→  const [csv, setCsv] = useState("");
+    71→  const [importResult, setImportResult] = useState<string | null>(null);
+    72→  const [dptQuery, setDptQuery] = useState("");
+    73→  const [baDoc, setBaDoc] = useState<BaDocument | null>(null);
+    74→  const [baLoading, setBaLoading] = useState(false);
+    75→  const [copiedLink, setCopiedLink] = useState(false);
+    76→
+    77→  const plenoUnlocked = data?.settings.plenoUnlocked ?? false;
+    78→
+    79→  // Muat dokumen Berita Acara saat tab dibuka / pleno berubah (Rekomendasi #9)
+    80→  useEffect(() => {
+    81→    if (tab !== "berita" || !plenoUnlocked) return;
+    82→    let alive = true;
+    83→    setBaLoading(true);
+    84→    fetch("/api/kpum/berita-acara", { cache: "no-store" })
+    85→      .then((r) => r.json())
+    86→      .then((j) => alive && j.ok && setBaDoc(j.document))
+    87→      .catch(() => {})
+    88→      .finally(() => alive && setBaLoading(false));
+    89→    return () => {
+    90→      alive = false;
+    91→    };
+    92→  }, [tab, plenoUnlocked]);
+    93→
+    94→  if (loading && !data) {
+    95→    return (
+    96→      <div className="space-y-4">
+    97→        <Skeleton className="h-32 w-full rounded-xl" />
+    98→        <Skeleton className="h-64 w-full rounded-xl" />
+    99→      </div>
+   100→    );
+   101→  }
+   102→  if (!data) return <p className="text-sm text-[#4A5851]">Dashboard gagal dimuat.</p>;
+   103→
+   104→  const doAction = async (action: "TOGGLE_FREEZE" | "TOGGLE_VOTING" | "UNLOCK_PLENO") => {
+   105→    if (action === "UNLOCK_PLENO") {
+   106→      const sure = window.confirm(
+   107→        "PEMBUKAAN RESMI: Buka kotak suara digital (Pleno Unlocking)?\n\nAksi ini menutup pemungutan suara, mendekripsi distribusi suara, dan tidak dapat dibatalkan. Harus dilakukan Ketua KPUM disaksikan Panwaslu & Saksi."
+   108→      );
+   109→      if (!sure) return;
+   110→    }
+   111→    setBusy(true);
+   112→    setNotice(null);
+   113→    try {
+   114→      const res = await fetch(action === "UNLOCK_PLENO" ? "/api/tally/unlock" : "/api/admin/settings", {
+   115→        method: "POST",
+   116→        headers: { "Content-Type": "application/json" },
+   117→        body: JSON.stringify(action === "UNLOCK_PLENO" ? {} : { action }),
+   118→      });
+   119→      const json = await res.json();
+   120→      setNotice({ ok: json.ok, text: json.message ?? "Aksi selesai." });
+   121→      refresh();
+   122→    } catch {
+   123→      setNotice({ ok: false, text: "Koneksi gagal." });
+   124→    } finally {
+   125→      setBusy(false);
+   126→    }
+   127→  };
+   128→
+   129→  const doImport = async () => {
+   130→    setBusy(true);
+   131→    setImportResult(null);
+   132→    try {
+   133→      const res = await fetch("/api/admin/dpt-import", {
+   134→        method: "POST",
+   135→        headers: { "Content-Type": "application/json" },
+   136→        body: JSON.stringify({ csv }),
+   137→      });
+   138→      const json = await res.json();
+   139→      if (json.ok) {
+   140→        setImportResult(`✅ ${json.added} ditambahkan, ${json.duplicates} duplikat ditolak, ${json.invalid} invalid. Total DPT: ${json.total}.`);
+   141→        setCsv("");
+   142→        refresh();
+   143→      } else {
+   144→        setImportResult(`❌ ${json.message}`);
+   145→      }
+   146→    } catch {
+   147→      setImportResult("❌ Koneksi gagal saat import.");
+   148→    } finally {
+   149→      setBusy(false);
+   150→    }
+   151→  };
+   152→
+   153→  const { settings, stats, candidates, voters, chains } = data;
+   154→  const filteredVoters = dptQuery
+   155→    ? voters.filter((v) => v.nim.includes(dptQuery) || v.name.toLowerCase().includes(dptQuery.toLowerCase()))
+   156→    : voters;
+   157→
+   158→  const tabs: Array<{ key: TabKey; label: string; icon: React.ReactNode }> = [
+   159→    { key: "tahapan", label: "Tahapan & Pleno", icon: <Lock className="h-4 w-4" /> },
+   160→    { key: "dpt", label: "Manajemen DPT", icon: <Database className="h-4 w-4" /> },
+   161→    { key: "kandidat", label: "Kandidat", icon: <Users className="h-4 w-4" /> },
+   162→    { key: "berita", label: "Berita Acara", icon: <FileText className="h-4 w-4" /> },
+   163→  ];
+   164→
+   165→  return (
+   166→    <div className="space-y-6">
+   167→      {/* ---------- Bento Row: KPI ---------- */}
+   168→      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+   169→        {[
+   170→          { label: "Total DPT", value: stats.dptTotal, cls: "text-[#141E19]" },
+   171→          { label: "Sudah Memilih", value: stats.sudah, cls: "text-[#1B7F4E]" },
+   172→          { label: "Token Digunakan", value: stats.tokenUsed, cls: "text-[#8A5200]" },
+   173→          { label: "Surat Suara Masuk", value: stats.ballots, cls: "text-[#0F766E]" },
+   174→        ].map((k) => (
+   175→          <div key={k.label} className="bento-card p-5">
+   176→            <p className="text-[11px] font-bold uppercase tracking-wider text-[#7A8881]">{k.label}</p>
+   177→            <p className={`mt-1 font-display text-4xl font-extrabold tabular-nums ${k.cls}`}>{k.value}</p>
+   178→          </div>
+   179→        ))}
+   180→      </div>
+   181→
+   182→      {/* ---------- Status strip ---------- */}
+   183→      <div className="bento-card flex flex-wrap items-center gap-2.5 p-4">
+   184→        <Badge variant="outline" className={`gap-1.5 border ${settings.emergencyFreeze ? "border-[#E05A47] bg-[#FDE8E5] text-[#842029]" : settings.votingOpen ? "border-[#1B7F4E] bg-[#DCFCE7] text-[#0F5132]" : "border-[#D8D3C8] bg-[#EAE6DF] text-[#4A5851]"}`}>
+   185→          <span className={`h-1.5 w-1.5 rounded-full ${settings.votingOpen && !settings.emergencyFreeze ? "bg-[#1B7F4E] live-dot" : "bg-current"}`} />
+   186→          {settings.emergencyFreeze ? "EMERGENCY FREEZE" : settings.votingOpen ? "PEMUNGUTAN AKTIF" : "PEMUNGUTAN DITUTUP"}
+   187→        </Badge>
+   188→        {settings.plenoUnlocked ? (
+   189→          <Badge variant="outline" className="gap-1.5 border-[#F2B705] bg-[#FEF5D6] text-[#8A5200]">
+   190→            <LockOpen className="h-3 w-3" /> PLENO TERBUKA
+   191→          </Badge>
+   192→        ) : (
+   193→          <Badge variant="outline" className="gap-1.5 border-[#141E19] bg-white text-[#141E19]">
+   194→            <Lock className="h-3 w-3" /> PLENO VAULT TERKUNCI
+   195→          </Badge>
+   196→        )}
+   197→        {chains && chains.length > 0 && (
+   198→          <span className="text-xs text-[#7A8881]">
+   199→            {chains.length} rantai online ({chains.map((c) => c.id).join(", ")}) • Total blok: <span className="font-mono-tabular">{stats.ballots}</span>
+   200→          </span>
+   201→        )}
+   202→      </div>
+   203→
+   204→      {/* ---------- Tabs ---------- */}
+   205→      <div className="flex flex-wrap gap-2" role="tablist">
+   206→        {tabs.map((t) => (
+   207→          <button
+   208→            key={t.key}
+   209→            role="tab"
+   210→            aria-selected={tab === t.key}
+   211→            onClick={() => setTab(t.key)}
+   212→            className={`flex items-center gap-2 rounded-[10px] border-2 px-4 py-2 text-[13px] font-bold transition-all ${
+   213→              tab === t.key
+   214→                ? "border-[#141E19] bg-[#141E19] text-white shadow-[3px_3px_0px_#1B7F4E]"
+   215→                : "border-[#D8D3C8] bg-white text-[#4A5851] hover:border-[#141E19]"
+   216→            }`}
+   217→          >
+   218→            {t.icon} {t.label}
+   219→          </button>
+   220→        ))}
+   221→      </div>
+   222→
+   223→      {notice && (
+   224→        <div className={`flex items-start gap-2 rounded-[10px] border-2 px-4 py-3 ${notice.ok ? "border-[#1B7F4E] bg-[#DCFCE7]" : "border-[#E05A47] bg-[#FDE8E5]"}`} role="status">
+   225→          {notice.ok ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#0F5132]" /> : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#842029]" />}
+   226→          <p className={`text-sm font-semibold ${notice.ok ? "text-[#0F5132]" : "text-[#842029]"}`}>{notice.text}</p>
+   227→        </div>
+   228→      )}
+   229→
+   230→      {/* ================= TAB: TAHAPAN & PLENO ================= */}
+   231→      {tab === "tahapan" && (
+   232→        <div className="grid gap-4 lg:grid-cols-2">
+   233→          <div className="bento-card p-6">
+   234→            <h3 className="font-display text-lg font-bold">Kontrol Tahapan (FR-01)</h3>
+   235→            <p className="mt-1 text-[13px] text-[#4A5851]">
+   236→              Kelola waktu aktif tahapan pemilihan. Penutupan pemungutan otomatis mengunci penerbitan token di meja PPUR.
+   237→            </p>
+   238→            <div className="mt-5 space-y-3">
+   239→              <button
+   240→                type="button"
+   241→                disabled={busy || settings.plenoUnlocked}
+   242→                onClick={() => doAction("TOGGLE_VOTING")}
+   243→                className="flex h-13 w-full items-center justify-center gap-2 rounded-[10px] border-2 border-[#141E19] bg-white py-3.5 text-sm font-extrabold shadow-[4px_4px_0px_#141E19] transition-all enabled:hover:-translate-y-0.5 enabled:hover:shadow-[5px_5px_0px_#141E19] enabled:active:translate-y-0.5 enabled:active:shadow-none disabled:opacity-40"
+   244→              >
+   245→                {settings.votingOpen ? <PauseCircle className="h-5 w-5 text-[#E05A47]" /> : <PlayCircle className="h-5 w-5 text-[#1B7F4E]" />}
+   246→                {settings.votingOpen ? "TUTUP PEMUNGUTAN SUARA" : "BUKA PEMUNGUTAN SUARA"}
+   247→              </button>
+   248→
+   249→              <button
+   250→                type="button"
+   251→                disabled={busy || settings.plenoUnlocked}
+   252→                onClick={() => doAction("TOGGLE_FREEZE")}
+   253→                className="flex w-full items-center justify-center gap-2 rounded-[10px] border-2 border-[#E05A47] bg-[#FDE8E5] py-3.5 text-sm font-extrabold text-[#842029] shadow-[4px_4px_0px_#E05A47] transition-all enabled:hover:-translate-y-0.5 enabled:active:translate-y-0.5 enabled:active:shadow-none disabled:opacity-40"
+   254→              >
+   255→                <ShieldAlert className="h-5 w-5" />
+   256→                {settings.emergencyFreeze ? "CABUT EMERGENCY FREEZE" : "AKTIFKAN EMERGENCY FREEZE (FR-01.2)"}
+   257→              </button>
+   258→            </div>
+   259→          </div>
+   260→
+   261→          <div className="bento-card p-6">
+   262→            <h3 className="font-display text-lg font-bold">Pleno Vault Unlocking (FR-06.3)</h3>
+   263→            <p className="mt-1 text-[13px] text-[#4A5851]">
+   264→              Hukum 5: endpoint tally mengembalikan <span className="font-mono-tabular">423 Locked</span> selama pemungutan.
+   265→              Pembukaan dilakukan serentak oleh Ketua KPUM disaksikan Panwaslu &amp; Saksi.
+   266→            </p>
+   267→            {settings.plenoUnlocked ? (
+   268→              <div className="mt-5 flex items-start gap-3 rounded-[10px] border-2 border-[#F2B705] bg-[#FEF5D6] p-4">
+   269→                <LockOpen className="mt-0.5 h-5 w-5 shrink-0 text-[#8A5200]" />
+   270→                <div>
+   271→                  <p className="text-sm font-extrabold text-[#8A5200]">Kotak suara telah dibuka</p>
+   272→                  <p className="mt-0.5 text-[12px] text-[#8A5200]">
+   273→                    {settings.plenoUnlockedAt ? `Dibuka pada ${new Date(settings.plenoUnlockedAt).toLocaleString("id-ID")}. ` : ""}
+   274→                    Hasil tampil di Monitor Panwaslu &amp; layar publik.
+   275→                  </p>
+   276→                </div>
+   277→              </div>
+   278→            ) : (
+   279→              <>
+   280→                <button
+   281→                  type="button"
+   282→                  disabled={busy || operatorRole !== "KPUM"}
+   283→                  onClick={() => doAction("UNLOCK_PLENO")}
+   284→                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-[10px] border-2 border-[#141E19] bg-[#F2B705] py-4 text-sm font-extrabold tracking-wide text-[#141E19] shadow-[5px_5px_0px_#141E19] transition-all enabled:hover:-translate-y-0.5 enabled:hover:shadow-[6px_6px_0px_#141E19] enabled:active:translate-y-0.5 enabled:active:shadow-none disabled:cursor-not-allowed disabled:opacity-50"
+   285→                >
+   286→                  <LockOpen className="h-5 w-5" />
+   287→                  BUKA KOTAK SUARA DIGITAL (PLENO UNLOCK)
+   288→                </button>
+   289→                {operatorRole && operatorRole !== "KPUM" && (
+   290→                  <p className="mt-2 rounded-[8px] border border-[#E05A47] bg-[#FDE8E5] px-3 py-2 text-[12px] font-semibold text-[#842029]">
+   291→                    Sesi Anda {operatorRole} — Pleno Unlocking hanya kewenangan Ketua KPUM (FR-06.3). Login sebagai <span className="font-mono">kpum</span> untuk mengeksekusi.
+   292→                  </p>
+   293→                )}
+   294→              </>
+   295→            )}
+   296→            <p className="mt-3 text-[11px] leading-relaxed text-[#7A8881]">
+   297→              ⚠️ Aksi ini menutup pemungutan suara secara permanen dan mendekripsi distribusi suara untuk rekapitulasi sidang pleno.
+   298→            </p>
+   299→          </div>
+   300→        </div>
+   301→      )}
+   302→
+   303→      {/* ================= TAB: DPT ================= */}
+   304→      {tab === "dpt" && (
+   305→        <div className="space-y-4">
+   306→          <div className="bento-card p-5">
+   307→            <h3 className="flex items-center gap-2 font-display text-lg font-bold">
+   308→              <Plus className="h-5 w-5 text-[#1B7F4E]" /> Import DPT dari BAAK (FR-02.1)
+   309→            </h3>
+   310→            <p className="mt-1 text-[13px] text-[#4A5851]">
+   311→              Tempel data CSV — format per baris: <span className="font-mono-tabular">NIM,Nama,ProdiID,Angkatan</span>. Kode prodi: BKS, TPHP, LOGISTIK, TRPL.
+   312→            </p>
+   313→            <Textarea
+   314→              value={csv}
+   315→              onChange={(e) => setCsv(e.target.value)}
+   316→              placeholder={"22111005,Ahmad Saputra,BKS,2022\n22121033,Dewi Lestari,TPHP,2022"}
+   317→              className="mt-3 min-h-24 rounded-[10px] border-[#D8D3C8] font-mono-tabular text-[13px] focus-visible:ring-2 focus-visible:ring-[#1B7F4E]"
+   318→            />
+   319→            <button
+   320→              type="button"
+   321→              disabled={busy || !csv.trim()}
+   322→              onClick={doImport}
+   323→              className="mt-3 rounded-[10px] border-2 border-[#141E19] bg-[#1B7F4E] px-5 py-2.5 text-[13px] font-extrabold text-white shadow-[3px_3px_0px_#141E19] transition-all enabled:hover:-translate-y-0.5 enabled:active:translate-y-0.5 enabled:active:shadow-none disabled:opacity-40"
+   324→            >
+   325→              {busy ? "MENGIMPOR…" : "IMPORT & VALIDASI"}
+   326→            </button>
+   327→            {importResult && <p className="mt-3 rounded-[8px] bg-[#F6F4EE] px-3 py-2 text-[13px] font-semibold text-[#141E19]">{importResult}</p>}
+   328→          </div>
+   329→
+   330→          <div className="bento-card overflow-hidden">
+   331→            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D8D3C8] px-5 py-4">
+   332→              <h3 className="font-display text-lg font-bold">DPT Terkunci — {stats.dptTotal} Pemilih (FR-02.4)</h3>
+   333→              <input
+   334→                value={dptQuery}
+   335→                onChange={(e) => setDptQuery(e.target.value)}
+   336→                placeholder="Cari NIM/nama…"
+   337→                className="h-10 w-64 rounded-[8px] border border-[#D8D3C8] bg-white px-3 text-sm outline-none focus:border-[#1B7F4E]"
+   338→              />
+   339→            </div>
+   340→            <div className="nice-scroll max-h-[440px] overflow-y-auto">
+   341→              <table className="w-full text-sm">
+   342→                <thead className="sticky top-0 bg-[#EAE6DF] text-[11px] uppercase tracking-wider text-[#4A5851]">
+   343→                  <tr>
+   344→                    <th className="px-5 py-3 text-left font-bold">NIM</th>
+   345→                    <th className="px-5 py-3 text-left font-bold">Nama</th>
+   346→                    <th className="px-5 py-3 text-left font-bold">Prodi</th>
+   347→                    <th className="px-5 py-3 text-center font-bold">Status</th>
+   348→                  </tr>
+   349→                </thead>
+   350→                <tbody className="divide-y divide-[#D8D3C8]">
+   351→                  {filteredVoters.map((v) => (
+   352→                    <tr key={v.id} className="hover:bg-[#F6F4EE]">
+   353→                      <td className="px-5 py-2 font-mono-tabular text-[13px]">{v.nim}</td>
+   354→                      <td className="px-5 py-2 font-semibold">{v.name}</td>
+   355→                      <td className="px-5 py-2 text-[12px] text-[#4A5851]">{v.studyProgramId}</td>
+   356→                      <td className="px-5 py-2 text-center">
+   357→                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${v.status === "SUDAH_MEMILIH" ? "border-[#1B7F4E] bg-[#DCFCE7] text-[#0F5132]" : v.status === "DALAM_ANTREAN" ? "border-[#F2B705] bg-[#FEF5D6] text-[#8A5200]" : "border-[#D8D3C8] bg-[#EAE6DF] text-[#4A5851]"}`}>
+   358→                          {v.status}
+   359→                        </span>
+   360→                      </td>
+   361→                    </tr>
+   362→                  ))}
+   363→                </tbody>
+   364→              </table>
+   365→            </div>
+   366→          </div>
+   367→        </div>
+   368→      )}
+   369→
+   370→      {/* ================= TAB: KANDIDAT ================= */}
+   371→      {tab === "kandidat" && (
+   372→        <div className="space-y-5">
+   373→          {(["PRESMA", "DPM", "HIMA"] as const).map((cat) => {
+   374→            const list = candidates.filter((c) => c.category === cat && !c.isEmptyBox);
+   375→            if (list.length === 0) return null;
+   376→            return (
+   377→              <div key={cat} className="bento-card p-5">
+   378→                <h3 className="font-display text-lg font-bold">
+   379→                  {cat === "PRESMA" ? "Presma & Wapresma (BEM)" : cat === "DPM" ? "Pimpinan DPM" : "Ketua Hima Prodi"}
+   380→                </h3>
+   381→                <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+   382→                  {list.map((c) => (
+   383→                    <div key={c.id} className="rounded-[10px] border border-[#D8D3C8] bg-[#F6F4EE] p-4">
+   384→                      <div className="flex items-center justify-between">
+   385→                        <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#141E19] font-display text-sm font-extrabold text-white" style={{ background: c.photoAccent }}>
+   386→                          {String(c.number).padStart(2, "0")}
+   387→                        </span>
+   388→                        {cat === "HIMA" && <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A8881]">{c.studyProgramId}</span>}
+   389→                      </div>
+   390→                      <p className="mt-2 font-bold leading-snug">{c.presidentName}</p>
+   391→                      {c.viceName && <p className="text-[12px] text-[#4A5851]">& {c.viceName}</p>}
+   392→                      {c.secondViceName && <p className="text-[12px] text-[#4A5851]">& {c.secondViceName}</p>}
+   393→                      <p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-[#4A5851]">{c.vision}</p>
+   394→                    </div>
+   395→                  ))}
+   396→                </div>
+   397→              </div>
+   398→            );
+   399→          })}
+   400→          <p className="text-[12px] text-[#7A8881]">
+   401→            Nomor urut ditetapkan melalui sidang penetapan KPUM. Skenario calon tunggal otomatis mengaktifkan KOTAK KOSONG (FR-03.3).
+   402→          </p>
+   403→        </div>
+   404→      )}
+   405→
+   406→      {/* ================= TAB: BERITA ACARA ================= */}
+   407→      {tab === "berita" && (
+   408→        <div className="print-area bento-card p-8 md:p-10">
+   409→          <div className="mx-auto max-w-3xl">
+   410→            <div className="text-center">
+   411→              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#7A8881]">
+   412→                Ikatan Keluarga Mahasiswa Politeknik Kelapa Sawit Citra Widya Edukasi
+   413→              </p>
+   414→              <h2 className="mt-2 font-display text-2xl font-extrabold tracking-[-0.02em]">
+   415→                BERITA ACARA REKAPITULASI HASIL PEMIRA — MODEL C-KWE
+   416→              </h2>
+   417→              <p className="mt-1 text-[12px] text-[#4A5851]">
+   418→                Sesuai RUU Pemira Pasal 64 — Pemungutan Online ({chains.map((c) => c.id).join(", ")})
+   419→              </p>
+   420→            </div>
+   421→
+   422→            {settings.plenoUnlocked ? (
+   423→              <p className="mt-6 rounded-[8px] border border-[#1B7F4E] bg-[#DCFCE7] px-4 py-2.5 text-center text-[13px] font-bold text-[#0F5132]">
+   424→                Dokumen sah — Pleno dibuka pada {settings.plenoUnlockedAt ? new Date(settings.plenoUnlockedAt).toLocaleString("id-ID") : "-"}
+   425→              </p>
+   426→            ) : (
+   427→              <p className="mt-6 flex items-center justify-center gap-2 rounded-[8px] border border-[#D8D3C8] bg-[#EAE6DF] px-4 py-2.5 text-center text-[13px] font-bold text-[#4A5851]">
+   428→                <Lock className="h-4 w-4" /> DRAF — dokumen final terbit setelah Pleno Unlocking
+   429→              </p>
+   430→            )}
+   431→
+   432→            <table className="mt-6 w-full border-collapse text-[13px]">
+   433→              <thead>
+   434→                <tr className="bg-[#EAE6DF] text-[11px] uppercase tracking-wider">
+   435→                  <th className="border border-[#D8D3C8] px-3 py-2 text-left">Komponen</th>
+   436→                  <th className="border border-[#D8D3C8] px-3 py-2 text-right">Jumlah</th>
+   437→                </tr>
+   438→              </thead>
+   439→              <tbody className="divide-y divide-[#D8D3C8]">
+   440→                {[
+   441→                  ["Total Daftar Pemilih Tetap (DPT)", stats.dptTotal],
+   442→                  ["Pemilih yang menggunakan hak pilih", stats.sudah],
+   443→                  ["Pemilih tidak hadir / absen", stats.dptTotal - stats.sudah],
+   444→                  ["Tingkat partisipasi", `${stats.dptTotal > 0 ? ((stats.sudah / stats.dptTotal) * 100).toFixed(2) : "0.00"} %`],
+   445→                  ["Total surat suara tercatat", stats.ballots],
+   446→                  ["Token digunakan & dihanguskan", stats.tokenUsed],
+   447→                ].map(([k, v]) => (
+   448→                  <tr key={String(k)}>
+   449→                    <td className="border border-[#D8D3C8] px-3 py-2">{k}</td>
+   450→                    <td className="border border-[#D8D3C8] px-3 py-2 text-right font-mono-tabular font-bold">{v}</td>
+   451→                  </tr>
+   452→                ))}
+   453→              </tbody>
+   454→            </table>
+   455→
+   456→            {/* Panel tanda tangan + seal QR asli (Rekomendasi #9) */}
+   457→            <div className="mt-8 grid gap-6 md:grid-cols-2">
+   458→              <div className="space-y-4">
+   459→                <p className="text-[11px] font-bold uppercase tracking-wider text-[#7A8881]">Panel Status Tanda Tangan Digital</p>
+   460→                {baDoc && (
+   461→                  <>
+   462→                    <div className="flex items-center justify-between rounded-[8px] border border-[#1B7F4E] bg-[#F0FAF4] px-4 py-3">
+   463→                      <div>
+   464→                        <p className="text-[13px] font-bold">Ketua KPUM</p>
+   465→                        <p className="text-[11px] text-[#7A8881]">{baDoc.signatories.kpum}</p>
+   466→                      </div>
+   467→                      <span className="rounded-full border border-[#1B7F4E] bg-[#DCFCE7] px-2.5 py-1 text-[10px] font-bold text-[#0F5132]">TTD ELEKTRONIK ✓</span>
+   468→                    </div>
+   469→                    <div className="flex items-center justify-between rounded-[8px] border border-[#1B7F4E] bg-[#F0FAF4] px-4 py-3">
+   470→                      <div>
+   471→                        <p className="text-[13px] font-bold">Ketua Panwaslu</p>
+   472→                        <p className="text-[11px] text-[#7A8881]">{baDoc.signatories.panwaslu}</p>
+   473→                      </div>
+   474→                      <span className="rounded-full border border-[#1B7F4E] bg-[#DCFCE7] px-2.5 py-1 text-[10px] font-bold text-[#0F5132]">TTD ELEKTRONIK ✓</span>
+   475→                    </div>
+   476→                  </>
+   477→                )}
+   478→                {["Ketua PPUR TPS 01", "Saksi Paslon"].map((role) => (
+   479→                  <div key={role} className="flex items-center justify-between rounded-[8px] border border-[#D8D3C8] bg-white px-4 py-3">
+   480→                    <p className="text-[13px] font-bold">{role}</p>
+   481→                    <span className="rounded-full border border-[#D8D3C8] bg-[#EAE6DF] px-2.5 py-1 text-[10px] font-bold text-[#4A5851]">TERCATAT</span>
+   482→                  </div>
+   483→                ))}
+   484→                {baDoc && (
+   485→                  <div className="rounded-[8px] border border-[#141E19] bg-[#F6F4EE] px-4 py-3">
+   486→                    <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#7A8881]">Tanda Tangan SHA-256 ({baDoc.algorithm})</p>
+   487→                    <p className="mt-1 break-all font-mono text-[11px] leading-relaxed text-[#141E19]">{baDoc.signature}</p>
+   488→                  </div>
+   489→                )}
+   490→              </div>
+   491→
+   492→              <div className="flex flex-col items-center justify-center gap-3 rounded-[10px] border border-dashed border-[#D8D3C8] bg-[#F6F4EE] p-6">
+   493→                {baLoading ? (
+   494→                  <Loader2 className="h-8 w-8 animate-spin text-[#7A8881]" />
+   495→                ) : baDoc ? (
+   496→                  <>
+   497→                    <div className="rounded-[8px] border-2 border-[#141E19] bg-white p-2 shadow-[3px_3px_0px_#141E19]">
+   498→                      <RealQr text={`${typeof window !== "undefined" ? window.location.origin : ""}/verify?sig=${baDoc.signature}`} />
+   499→                    </div>
+   500→                    <p className="text-center text-[11px] font-semibold text-[#4A5851]">
+   501→                      QR Verifikasi Publik — pindai untuk memeriksa keaslian dokumen
+   502→                      <br />
+   503→                      <span className="font-mono-tabular text-[10px] text-[#7A8881]">
+   504→                        {baDoc.integrity.chains.filter((c) => c.valid).length}/{baDoc.integrity.chains.length} rantai sah • {baDoc.integrity.totalChecked} blok ✓ • Re-vote: {baDoc.revoteStats.tokensRevoted} token
+   505→                      </span>
+   506→                    </p>
+   507→                    <button
+   508→                      type="button"
+   509→                      onClick={async () => {
+   510→                        await navigator.clipboard.writeText(`${window.location.origin}/verify?sig=${baDoc.signature}`);
+   511→                        setCopiedLink(true);
+   512→                        setTimeout(() => setCopiedLink(false), 2000);
+   513→                      }}
+   514→                      className="no-print flex h-9 items-center gap-1.5 rounded-full border-2 border-[#141E19] bg-white px-4 text-[11px] font-extrabold shadow-[2px_2px_0px_#141E19] transition-all hover:-translate-y-0.5"
+   515→                    >
+   516→                      {copiedLink ? <CheckCircle2 className="h-3.5 w-3.5 text-[#1B7F4E]" /> : <Copy className="h-3.5 w-3.5" />}
+   517→                      {copiedLink ? "TAUTAN TERSALIN" : "SALIN TAUTAN VERIFIKASI"}
+   518→                    </button>
+   519→                  </>
+   520→                ) : (
+   521→                  <p className="text-center text-[12px] text-[#7A8881]">Dokumen final & QR verifikasi terbit setelah Pleno Unlocking.</p>
+   522→                )}
+   523→              </div>
+   524→            </div>
+   525→
+   526→            <button
+   527→              type="button"
+   528→              onClick={() => window.print()}
+   529→              className="no-print mx-auto mt-8 flex items-center gap-2 rounded-[10px] border-2 border-[#141E19] bg-white px-6 py-3 text-sm font-extrabold shadow-[4px_4px_0px_#141E19] transition-all hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-none"
+   530→            >
+   531→              <ScrollText className="h-4 w-4" /> Ekspor / Cetak PDF Berita Acara
+   532→            </button>
+   533→          </div>
+   534→        </div>
+   535→      )}
+   536→    </div>
+   537→  );
+   538→}
+   539→

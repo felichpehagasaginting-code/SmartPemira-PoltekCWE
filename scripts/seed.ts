@@ -317,13 +317,48 @@ async function main() {
   const dpmCands = [dpm1.id, dpm2.id];
 
   // Rencana deterministik: 9 pemilih sudah memilih (2 TPTP, 2 TPHP, 1 MANLOG, 2 BD, 2 TRPL)
+  // + demo SUARA KOSONG di ketiga kategori (keputusan 2026-10-23):
+  //  - TPTP #1  : DPM = Suara Kosong
+  //  - TPHP #2  : BEM (PRESMA) = Suara Kosong
+  //  - BD   #2  : HIMA = Suara Kosong
   const perProdi = (pid: string, n: number) => createdVoters.filter((v) => v.studyProgramId === pid).slice(0, n);
-  const precastPlan: Array<{ voter: { id: string; nim: string; studyProgramId: string }; himaPick: string | null }> = [
-    ...perProdi("TPTP", 2).map((v, i) => ({ voter: v, himaPick: i === 0 ? himaTptp1.id : himaTptp2.id })),
-    ...perProdi("TPHP", 2).map((v, i) => ({ voter: v, himaPick: i === 0 ? himaTphp1.id : himaTphp2.id })),
-    ...perProdi("MANLOG", 1).map((v) => ({ voter: v, himaPick: himaManlog1.id })),
-    ...perProdi("BD", 2).map((v, i) => ({ voter: v, himaPick: i === 0 ? himaBd2.id : himaBd1.id })),
-    ...perProdi("TRPL", 2).map((v, i) => ({ voter: v, himaPick: i === 0 ? himaTrpl1.id : himaTrpl2.id })),
+  interface PrecastPlan {
+    voter: { id: string; nim: string; studyProgramId: string };
+    dpmPick: string | null;
+    presmaPick: string | null;
+    himaPick: string | null; // null = Suara Kosong HIMA
+  }
+  const precastPlan: PrecastPlan[] = [
+    ...perProdi("TPTP", 2).map((v, i) => ({
+      voter: v,
+      dpmPick: i === 0 ? null : rand(dpmCands), // TPTP #1: Suara Kosong DPM
+      presmaPick: rand(presmaCands),
+      himaPick: i === 0 ? himaTptp1.id : himaTptp2.id,
+    })),
+    ...perProdi("TPHP", 2).map((v, i) => ({
+      voter: v,
+      dpmPick: rand(dpmCands),
+      presmaPick: i === 1 ? null : rand(presmaCands), // TPHP #2: Suara Kosong BEM
+      himaPick: i === 0 ? himaTphp1.id : himaTphp2.id,
+    })),
+    ...perProdi("MANLOG", 1).map((v) => ({
+      voter: v,
+      dpmPick: rand(dpmCands),
+      presmaPick: rand(presmaCands),
+      himaPick: himaManlog1.id,
+    })),
+    ...perProdi("BD", 2).map((v, i) => ({
+      voter: v,
+      dpmPick: rand(dpmCands),
+      presmaPick: rand(presmaCands),
+      himaPick: i === 0 ? himaBd2.id : null, // BD #2: Suara Kosong HIMA
+    })),
+    ...perProdi("TRPL", 2).map((v, i) => ({
+      voter: v,
+      dpmPick: rand(dpmCands),
+      presmaPick: rand(presmaCands),
+      himaPick: i === 0 ? himaTrpl1.id : himaTrpl2.id,
+    })),
   ];
   // Re-vote demo: pemilih TRPL kedua mengganti suaranya (versi 2 → himaTrpl1)
   const revoter = precastPlan.find((p) => p.voter.studyProgramId === "TRPL" && p.himaPick === himaTrpl2.id)!;
@@ -335,17 +370,20 @@ async function main() {
 
   async function castVote(opts: {
     voter: { id: string; nim: string; studyProgramId: string };
+    dpmCandidateId: string | null;
+    presmaCandidateId: string | null;
     himaCandidateId: string | null;
     voteAt: Date;
     voteVersion: number;
     tokenId: string;
     isRevote: boolean;
   }) {
-    const { voter, himaCandidateId, voteAt, voteVersion, tokenId, isRevote } = opts;
+    const { voter, dpmCandidateId, presmaCandidateId, himaCandidateId, voteAt, voteVersion, tokenId, isRevote } = opts;
     const salt = chains[voter.studyProgramId].chainSalt;
+    // null = SUARA KOSONG (isEmptyBox) — tercatat di rantai hash sebagai suara sah
     const entries = [
-      { category: "DPM", candidateId: rand(dpmCands), isEmptyBox: false },
-      { category: "PRESMA", candidateId: rand(presmaCands), isEmptyBox: false },
+      { category: "DPM", candidateId: dpmCandidateId, isEmptyBox: dpmCandidateId === null },
+      { category: "PRESMA", candidateId: presmaCandidateId, isEmptyBox: presmaCandidateId === null },
       { category: "HIMA", candidateId: himaCandidateId, isEmptyBox: himaCandidateId === null },
     ];
     let head = "";
@@ -384,6 +422,8 @@ async function main() {
     });
     await castVote({
       voter: plan.voter,
+      dpmCandidateId: plan.dpmPick,
+      presmaCandidateId: plan.presmaPick,
       himaCandidateId: plan.himaPick,
       voteAt,
       voteVersion: 1,
@@ -404,6 +444,8 @@ async function main() {
       });
       revoteHead = await castVote({
         voter: plan.voter,
+        dpmCandidateId: plan.dpmPick,
+        presmaCandidateId: plan.presmaPick,
         himaCandidateId: revotePick,
         voteAt: revoteAt,
         voteVersion: 2,
@@ -455,6 +497,7 @@ async function main() {
     candidates: await db.candidate.count(),
     voters: await db.voter.count(),
     ballots: await db.ballotBox.count(),
+    suaraKosong: await db.ballotBox.count({ where: { isEmptyBox: true } }),
     voted: await db.voter.count({ where: { hasVoted: true } }),
     tokensRevoted: await db.votingToken.count({ where: { revoteCount: { gt: 0 } } }),
   };

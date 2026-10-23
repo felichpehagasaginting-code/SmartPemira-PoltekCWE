@@ -18,9 +18,11 @@ import { jitteredTimestamp } from "@/lib/crypto/time-jitter";
 import { TOKEN_TTL_MINUTES } from "@/lib/constants/election";
 
 export interface BallotSelections {
-  presmaCandidateId: string;
-  dpmCandidateId: string;
-  /** null = memilih KOTAK KOSONG di kategori Hima (calon tunggal) */
+  /** null = SUARA KOSONG — pemilih tidak mendukung paslon manapun di kategori ini.
+   *  Setiap kategori (PRESMA/BEM, DPM, HIMA) wajib punya pilihan eksplisit:
+   *  id paslon ATAU null (opsi Suara Kosong di posisi terakhir bilik). */
+  presmaCandidateId: string | null;
+  dpmCandidateId: string | null;
   himaCandidateId: string | null;
 }
 
@@ -94,7 +96,8 @@ export async function submitBallots(
       voteVersionOut = voteVersion;
       isRevoteOut = isRevote;
 
-      // 2. Server-side assertion prodi (Hukum 4) — kandidat Hima milik prodi token
+      // 2. Server-side assertion prodi (Hukum 4) — kandidat Hima milik prodi token.
+      //     Suara Kosong (null) lolos tanpa lookup — tidak terikat kandidat apapun.
       const himaCandidate = selections.himaCandidateId
         ? await tx.candidate.findUnique({ where: { id: selections.himaCandidateId } })
         : null;
@@ -103,13 +106,19 @@ export async function submitBallots(
         if (himaCandidate.studyProgramId !== token.studyProgramId) throw new Error("PRODI_MISMATCH");
       }
 
-      // Kandidat PRESMA (BEM) & DPM harus ada
+      // Kandidat PRESMA (BEM) & DPM divalidasi HANYA bila bukan Suara Kosong
       const [presma, dpm] = await Promise.all([
-        tx.candidate.findUnique({ where: { id: selections.presmaCandidateId } }),
-        tx.candidate.findUnique({ where: { id: selections.dpmCandidateId } }),
+        selections.presmaCandidateId
+          ? tx.candidate.findUnique({ where: { id: selections.presmaCandidateId } })
+          : Promise.resolve(null),
+        selections.dpmCandidateId
+          ? tx.candidate.findUnique({ where: { id: selections.dpmCandidateId } })
+          : Promise.resolve(null),
       ]);
-      if (!presma || presma.category !== "PRESMA") throw new Error("PRODI_MISMATCH");
-      if (!dpm || dpm.category !== "DPM") throw new Error("PRODI_MISMATCH");
+      if (selections.presmaCandidateId && (!presma || presma.category !== "PRESMA"))
+        throw new Error("PRODI_MISMATCH");
+      if (selections.dpmCandidateId && (!dpm || dpm.category !== "DPM"))
+        throw new Error("PRODI_MISMATCH");
 
       // 3. Simpan 3 surat suara dengan jitter + hash chaining per rantai prodi
       const tps = await tx.tps.findUnique({ where: { id: token.tpsId } });
@@ -127,11 +136,9 @@ export async function submitBallots(
       const floorTs = lastBallot ? lastBallot.createdAt.getTime() + 1 : 0;
 
       const entries: Array<{ category: string; candidateId: string | null; isEmptyBox: boolean }> = [
-        { category: "PRESMA", candidateId: presma.id, isEmptyBox: false },
-        { category: "DPM", candidateId: dpm.id, isEmptyBox: false },
-        selections.himaCandidateId
-          ? { category: "HIMA", candidateId: himaCandidate!.id, isEmptyBox: false }
-          : { category: "HIMA", candidateId: null, isEmptyBox: true },
+        { category: "PRESMA", candidateId: presma?.id ?? null, isEmptyBox: !selections.presmaCandidateId },
+        { category: "DPM", candidateId: dpm?.id ?? null, isEmptyBox: !selections.dpmCandidateId },
+        { category: "HIMA", candidateId: himaCandidate?.id ?? null, isEmptyBox: !selections.himaCandidateId },
       ];
 
       let prevChain = tps.lastChainHash;

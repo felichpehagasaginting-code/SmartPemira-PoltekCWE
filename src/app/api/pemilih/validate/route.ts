@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
         orderBy: { number: "asc" },
       }),
       db.candidate.findMany({
-        where: { category: "HIMA", studyProgramId: token.studyProgramId },
+        where: { category: "HIMA", studyProgramId: token.studyProgramId, isEmptyBox: false },
         orderBy: { number: "asc" },
       }),
       db.studyProgram.findUnique({ where: { id: token.studyProgramId } }),
@@ -98,9 +98,8 @@ export async function POST(req: NextRequest) {
       isEmptyBox: c.isEmptyBox,
     });
 
-    // Skema Hukum 3: jika hanya 1 paslon real → kandidat tunggal + entitas kotak kosong
-    const realHima = himaProdi.filter((c) => !c.isEmptyBox);
-    const isEmptyBoxScenario = realHima.length === 1;
+    // SUARA KOSONG tidak lagi entitas kandidat — opsi ini selalu disediakan
+    // sistem sebagai kartu TERAKHIR di setiap surat suara (keputusan 2026-10-23).
 
     const himaColor = getProdiMeta(token.studyProgramId);
 
@@ -124,7 +123,6 @@ export async function POST(req: NextRequest) {
           institutionLabel: "Surat Suara 1 — Tingkat Institusi (Legislatif)",
           color: BALLOT_CATEGORY_COLORS.DPM.primary,
           tint: BALLOT_CATEGORY_COLORS.DPM.tint,
-          singleCandidateScenario: false,
           candidates: dpm.map(parse),
         },
         {
@@ -133,7 +131,6 @@ export async function POST(req: NextRequest) {
           institutionLabel: "Surat Suara 2 — Tingkat Institusi (Eksekutif)",
           color: BALLOT_CATEGORY_COLORS.PRESMA.primary,
           tint: BALLOT_CATEGORY_COLORS.PRESMA.tint,
-          singleCandidateScenario: false,
           candidates: presma.map(parse),
         },
         {
@@ -142,7 +139,6 @@ export async function POST(req: NextRequest) {
           institutionLabel: `Surat Suara 3 — Tingkat Program Studi: ${prodi?.name ?? ""}`,
           color: himaColor?.colorPrimary ?? "#3F4743",
           tint: himaColor?.colorTint ?? "#ECEAE4",
-          singleCandidateScenario: isEmptyBoxScenario,
           candidates: himaProdi.map(parse),
         },
       ],

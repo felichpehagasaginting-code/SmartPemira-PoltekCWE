@@ -212,3 +212,24 @@ Work Log:
 Stage Summary:
 - Seluruh kandidat kini berfoto AI (30 foto, gaya potret formal konsisten), struktur 2 kandidat per organisasi, DPM memakai struktur 3 peran Ketua Umum/Ketua 1/Ketua 2 — tampil di portal publik, bilik suara, review, dashboard KPUM, dan rekap tally
 - Skenario calon tunggal/Kotak Kosong tidak lagi ada di seed demo (logika Hukum 3 tetap utuh di kode bila sewaktu-waktu hanya 1 kandidat)
+
+---
+Task ID: 10 (Opsi SUARA KOSONG Universal — Semua Surat Suara)
+Agent: main (Z.ai)
+Task: Permintaan user — "di opsi terakhir semua calon ormawa itu dibuat suara kosong, yang artinya ga mau memilih satupun dari paslon yang ada, lalu sesuaikan lainnya"
+
+Work Log:
+- Desain: Suara Kosong = pilihan EKSPLISIT di posisi TERAKHIR setiap surat suara (DPM, BEM/PRESMA, HIMA prodi) — pemilih boleh tidak mendukung paslon manapun; tercatat via BallotBox.isEmptyBox=true + candidateId=null (repr lama "Kotak Kosong" HIMA digeneralisasi; TANPA perubahan schema)
+- Semantik rekap: Suara Kosong adalah SUARA SAH — masuk totalValidVotes & denominator persentase; TIDAK mungkin jadi pemenang (pemenang & status seri hanya di antara kandidat riil); catatan otomatis di outcomeDetail bila Suara Kosong > kandidat teratas
+- ballot-service: BallotSelections ketiga kategori kini string|null (null = Suara Kosong); validasi kandidat hanya utk pilihan non-null; entries dibangun dari null-check
+- API submit: null diterima utk presma/dpm/hima (wajib eksplisit ada di payload — 400 bila undefined); validate: singleCandidateScenario/isEmptyBoxScenario DIHAPUS, HIMA difilter isEmptyBox:false
+- tally-service: baris sintetis "Suara Kosong" (number 0, isEmptyBox) SELALU ditambahkan di AKHIR results tiap kategori; Hukum 3 & 7.3 dihitung hanya antar kandidat riil
+- UI pemilih-portal: komponen SuaraKosongCard (border putus-putus netral #3F4743, ikon CircleSlash, badge ✓ PILIHAN ANDA) dirender setelah semua kartu paslon; wizard grid terpadu (hapus cabang calon tunggal); badge header "OPSI TERAKHIR: SUARA KOSONG"; review menampilkan "SUARA KOSONG — TIDAK MEMILIH PASLON MANAPUN"; submit map "EMPTY"→null utk ketiga kategori; cabang mati isEmptyBox di BallotCandidateCard dibersihkan
+- Monitor Panwaslu: baris kosong label italic "Suara Kosong" (bukan "00 — …(Kotak Kosong)"); portal publik: kartu info "Hak Memilih Suara Kosong" (dashed); dashboard KPUM: catatan FR-03 diperbarui
+- Seed: 3 demo suara kosong pra-cast — TPTP#1 (DPM kosong), TPHP#2 (BEM kosong), BD#2 (HIMA kosong); castVote menerima pick null per kategori; log ringkasan +suaraKosong
+- E2E inti: §4b BARU (submit DPM=null via token TPHP) + asersi §11: posisi terakhir, DPM kosong=2, BEM=1, TPTP=1, BD=1, totalValid konsisten
+- Verifikasi: tsc 0 error; lint bersih; E2E inti LULUS penuh (termasuk 6 asersi Suara Kosong); E2E fitur 37/37; E2E reset LULUS semua; browser 9 screenshot (bilik DPM+BEM+HIMA dgn kartu kosong, selected state, review kosong, sukses struk E193-018F-FF1D, monitor DPM 5/3/2-Kosong & BD Kosong 50%, kartu info publik); console bersih
+- DB di-reset demo segar: 44 DPT, 9 voted, 30 blok (3 suara kosong), pleno terkunci, 1 demo re-vote
+
+Stage Summary:
+- Setiap surat suara (DPM/BEM/HIMA) kini punya opsi SUARA KOSONG resmi di posisi paling bawah — suara sah tercatat di rantai hash, dihitung dalam rekap Pleno, tidak bisa memenangkan pemilihan; seluruh alur (bilik → review → struk → monitor → BA kanonikal) konsisten dan tervalidasi penuh

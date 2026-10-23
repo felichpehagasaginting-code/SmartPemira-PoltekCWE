@@ -19,18 +19,23 @@ export async function POST(req: NextRequest) {
     const token = String(body?.token ?? "").trim().toUpperCase();
     const { presmaCandidateId, dpmCandidateId, himaCandidateId } = body?.selections ?? {};
 
-    if (!token || !presmaCandidateId || !dpmCandidateId) {
+    // Setiap kategori wajib punya pilihan EKSPLISIT: id paslon ATAU null (SUARA KOSONG).
+    if (
+      !token ||
+      typeof presmaCandidateId === "undefined" ||
+      typeof dpmCandidateId === "undefined" ||
+      typeof himaCandidateId === "undefined"
+    ) {
       return NextResponse.json(
-        { ok: false, message: "Payload tidak lengkap: token dan seluruh pilihan institusi wajib ada." },
+        { ok: false, message: "Payload tidak lengkap: pilih satu paslon ATAU Suara Kosong untuk setiap organisasi (DPM, BEM, HIMA)." },
         { status: 400 }
       );
     }
-    // himaCandidateId boleh null (KOTAK KOSONG) — Hukum 3
 
     const result = await submitBallots(token, {
-      presmaCandidateId,
-      dpmCandidateId,
-      himaCandidateId: himaCandidateId ?? null,
+      presmaCandidateId: presmaCandidateId ? String(presmaCandidateId) : null,
+      dpmCandidateId: dpmCandidateId ? String(dpmCandidateId) : null,
+      himaCandidateId: himaCandidateId ? String(himaCandidateId) : null,
     });
 
     if (!result.ok) {

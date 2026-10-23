@@ -33,12 +33,16 @@ export const BALLOT_CATEGORY_COLORS = {
   },
 } as const;
 
-/** Warna Kotak Kosong (Pasal 9 ayat 3 UUD IKM) */
+/** Warna & label SUARA KOSONG — opsi sah di posisi TERAKHIR setiap surat suara.
+ *  Pemilih yang tidak mendukung paslon manapun memilih ini; terhitung sebagai
+ *  suara sah (masuk total suara sah) namun tidak mungkin menjadi pemenang. */
 export const EMPTY_BOX_COLOR = {
   name: "Neutral Slate Ink",
   primary: "#3F4743",
   tint: "#ECEAE4",
 } as const;
+
+export const SUARA_KOSONG_LABEL = "Suara Kosong";
 
 /** TTL Token Bilik Suara (FR-04.3) */
 export const TOKEN_TTL_MINUTES = 10;

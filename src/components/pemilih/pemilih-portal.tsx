@@ -18,6 +18,7 @@ import {
   ArrowRight,
   Check,
   ChevronLeft,
+  CircleSlash,
   Delete,
   Lock,
   RefreshCcw,
@@ -41,7 +42,7 @@ function stepLabel(category: string, prodiId: string): string {
 }
 
 function CandidateAvatar({ name, photo, accent, size = 72 }: { name: string; photo?: string | null; accent: string; size?: number }) {
-  const initials = name === "KOTAK KOSONG" ? "□" : name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+  const initials = name === "KOTAK KOSONG" || name === "SUARA KOSONG" ? "□" : name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
   if (photo) {
     return (
       <div className="shrink-0 overflow-hidden rounded-[10px] border-2 border-[#141E19]" style={{ width: size, height: size }}>
@@ -139,9 +140,9 @@ function BallotCandidateCard({
       <div className="flex items-center justify-between">
         <span
           className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-[#141E19] font-display text-xl font-extrabold text-white"
-          style={{ background: candidate.isEmptyBox ? EMPTY_BOX_COLOR : color }}
+          style={{ background: color }}
         >
-          {candidate.isEmptyBox ? "—" : String(candidate.number).padStart(2, "0")}
+          {String(candidate.number).padStart(2, "0")}
         </span>
         <span
           className="rounded-full border border-[#141E19]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
@@ -150,42 +151,80 @@ function BallotCandidateCard({
           Nomor Urut
         </span>
       </div>
-      {/* Foto per peran — DPM: Ketua Umum/Ketua 1/Ketua 2; lainnya: Ketua + Wakil */}
-      {candidate.isEmptyBox ? (
-        <div className="flex items-center gap-3">
-          <CandidateAvatar name={candidate.presidentName} accent={EMPTY_BOX_COLOR} size={56} />
-          <div>
-            <h3 className="font-display text-base font-bold leading-snug">{candidate.presidentName}</h3>
-            {candidate.viceName && <p className="text-xs text-[#4A5851] font-medium">& {candidate.viceName}</p>}
+      {/* Foto per peran — DPM: Ketua Umum/Ketua 1/Ketua 2; lainnya: Ketua + Wakil.
+          Opsi Suara Kosong BUKAN lewat kartu ini — lihat SuaraKosongCard (terakhir). */}
+      {(() => {
+        const roles = memberRoles(candidate.category);
+        const members = [
+          { role: roles.leader, name: candidate.presidentName, photo: candidate.photoLeaderUrl },
+          ...(candidate.viceName ? [{ role: roles.vice, name: candidate.viceName, photo: candidate.photoViceUrl }] : []),
+          ...(candidate.secondViceName && roles.second
+            ? [{ role: roles.second, name: candidate.secondViceName, photo: candidate.photoSecondViceUrl }]
+            : []),
+        ];
+        return (
+          <div className={`grid gap-2.5 ${members.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+            {members.map((m) => (
+              <MemberPhoto key={m.role} name={m.name} role={m.role} photo={m.photo} accent={color} />
+            ))}
           </div>
-        </div>
-      ) : (
-        <>
-          {(() => {
-            const roles = memberRoles(candidate.category);
-            const members = [
-              { role: roles.leader, name: candidate.presidentName, photo: candidate.photoLeaderUrl },
-              ...(candidate.viceName ? [{ role: roles.vice, name: candidate.viceName, photo: candidate.photoViceUrl }] : []),
-              ...(candidate.secondViceName && roles.second
-                ? [{ role: roles.second, name: candidate.secondViceName, photo: candidate.photoSecondViceUrl }]
-                : []),
-            ];
-            return (
-              <div className={`grid gap-2.5 ${members.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
-                {members.map((m) => (
-                  <MemberPhoto key={m.role} name={m.name} role={m.role} photo={m.photo} accent={color} />
-                ))}
-              </div>
-            );
-          })()}
-        </>
-      )}
+        );
+      })()}
       <p className="text-[13px] leading-relaxed text-[#4A5851] line-clamp-2">{candidate.vision}</p>
-      {candidate.isEmptyBox && (
-        <p className="text-[12px] leading-relaxed text-[#4A5851] italic">
-          Pilih kotak ini apabila Anda tidak menyetujui pasangan calon tunggal.
-        </p>
+    </button>
+  );
+}
+
+/** Kartu SUARA KOSONG — opsi TERAKHIR di setiap surat suara (semua organisasi).
+ *  Gaya netral putus-putus: bukan paslon, tapi pilihan sah yang dihargai sistem. */
+function SuaraKosongCard({
+  selected,
+  onClick,
+  disabled,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={selected}
+      className={`relative flex w-full flex-col items-center justify-center gap-3 p-5 text-center transition-all duration-150 ${
+        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+      }`}
+      style={{
+        background: selected ? EMPTY_BOX_TINT : "#FFFFFF",
+        borderRadius: 14,
+        border: selected ? `3px dashed ${EMPTY_BOX_COLOR}` : "2px dashed #9AA5A0",
+        boxShadow: selected ? `6px 6px 0px ${EMPTY_BOX_COLOR}` : "4px 4px 0px #141E19",
+        transform: selected ? "translate(-2px,-2px)" : undefined,
+        minHeight: 180,
+      }}
+    >
+      {selected && (
+        <span
+          className="absolute -top-3 right-3 rounded-full border-2 border-[#141E19] px-3 py-0.5 text-[11px] font-extrabold tracking-wide text-white"
+          style={{ background: EMPTY_BOX_COLOR }}
+        >
+          ✓ PILIHAN ANDA
+        </span>
       )}
+      <span
+        className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#141E19]"
+        style={{ background: selected ? EMPTY_BOX_COLOR : "#F2F1EC" }}
+        aria-hidden
+      >
+        <CircleSlash className={`h-7 w-7 ${selected ? "text-white" : "text-[#3F4743]"}`} />
+      </span>
+      <div>
+        <h3 className="font-display text-lg font-extrabold tracking-wide text-[#141E19]">SUARA KOSONG</h3>
+        <p className="mt-1 text-[12.5px] leading-relaxed text-[#4A5851]">
+          Tidak mendukung paslon manapun pada pemilihan ini? Pilih ini — suaramu tetap sah tercatat.
+        </p>
+      </div>
     </button>
   );
 }
@@ -302,8 +341,9 @@ export function PemilihPortal() {
         body: JSON.stringify({
           token: activeTokenRef.current,
           selections: {
-            presmaCandidateId: selections["PRESMA"],
-            dpmCandidateId: selections["DPM"],
+            // "EMPTY" = SUARA KOSONG → null (opsi terakhir di setiap surat suara)
+            presmaCandidateId: selections["PRESMA"] === "EMPTY" ? null : selections["PRESMA"],
+            dpmCandidateId: selections["DPM"] === "EMPTY" ? null : selections["DPM"],
             himaCandidateId: selections["HIMA"] === "EMPTY" ? null : selections["HIMA"],
           },
         }),
@@ -630,7 +670,8 @@ export function PemilihPortal() {
         <div className="grid gap-5 sm:grid-cols-3">
           {ballots.map((b, i) => {
             const sel = selections[b.category];
-            const cand = b.candidates.find((c) => (sel === "EMPTY" ? c.isEmptyBox : c.id === sel));
+            const cand = sel && sel !== "EMPTY" ? b.candidates.find((c) => c.id === sel) : null;
+            const isBlank = sel === "EMPTY";
             return (
               <div key={b.category} className="tactile-card flex flex-col p-5">
                 <div className="mb-3 flex items-center justify-between">
@@ -642,15 +683,31 @@ export function PemilihPortal() {
                   </span>
                   <span className="font-mono-tabular text-[11px] text-[#7A8881]">{b.stepTitle}</span>
                 </div>
-                {cand ? (
+                {isBlank ? (
                   <div className="flex items-center gap-3">
-                    <CandidateAvatar name={cand.presidentName} photo={cand.photoLeaderUrl} accent={cand.isEmptyBox ? EMPTY_BOX_COLOR : b.color} size={52} />
+                    <span
+                      className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[#141E19]"
+                      style={{ background: EMPTY_BOX_COLOR }}
+                      aria-hidden
+                    >
+                      <CircleSlash className="h-6 w-6 text-white" />
+                    </span>
+                    <div>
+                      <p className="font-display text-base font-bold leading-snug">SUARA KOSONG</p>
+                      <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-[#4A5851]">
+                        Tidak memilih paslon manapun
+                      </p>
+                    </div>
+                  </div>
+                ) : cand ? (
+                  <div className="flex items-center gap-3">
+                    <CandidateAvatar name={cand.presidentName} photo={cand.photoLeaderUrl} accent={b.color} size={52} />
                     <div>
                       <p className="font-display text-base font-bold leading-snug">{cand.presidentName}</p>
                       {cand.viceName && <p className="text-xs text-[#4A5851]">& {cand.viceName}</p>}
                       {cand.secondViceName && <p className="text-xs text-[#4A5851]">& {cand.secondViceName}</p>}
                       <p className="mt-1 text-[11px] font-bold uppercase tracking-wide" style={{ color: b.color }}>
-                        {cand.isEmptyBox ? "Kotak Kosong — Tidak Setuju" : `Nomor Urut ${String(cand.number).padStart(2, "0")}`}
+                        Nomor Urut {String(cand.number).padStart(2, "0")}
                       </p>
                     </div>
                   </div>
@@ -756,11 +813,9 @@ export function PemilihPortal() {
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            {current.singleCandidateScenario && (
-              <span className="rounded-full border-2 border-white/60 bg-white/15 px-3 py-1 text-[11px] font-bold">
-                CALON TUNGGAL — KOTAK KOSONG AKTIF
-              </span>
-            )}
+            <span className="rounded-full border-2 border-white/60 bg-white/15 px-3 py-1 text-[11px] font-bold">
+              OPSI TERAKHIR: SUARA KOSONG
+            </span>
             {hasTtl && (
               <span
                 className={`flex items-center gap-1.5 rounded-full border-2 border-[#141E19] px-3 py-1.5 font-mono-tabular text-sm font-bold ${
@@ -775,38 +830,27 @@ export function PemilihPortal() {
         </div>
       </header>
 
-      {/* Grid kandidat — HUKUM 3: calon tunggal membagi 50:50 dengan Kotak Kosong */}
-      {current.singleCandidateScenario ? (
-        <div className="grid gap-5 sm:grid-cols-2" aria-label="Calon tunggal dan kotak kosong">
+      {/* Grid kandidat + SUARA KOSONG — opsi terakhir selalu tersedia di setiap
+          surat suara (DPM/BEM/HIMA): pemilih boleh tidak mendukung siapapun. */}
+      <div
+        className={`grid gap-5 ${current.candidates.length + 1 >= 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
+        aria-label="Kandidat dan opsi Suara Kosong"
+      >
+        {current.candidates.map((c) => (
           <BallotCandidateCard
-            candidate={current.candidates.find((c) => !c.isEmptyBox)!}
+            key={c.id}
+            candidate={c}
             color={current.color}
             tint={current.tint}
-            selected={selectionForCurrent === current.candidates.find((c) => !c.isEmptyBox)?.id}
-            onClick={() => setSelections((s) => ({ ...s, [current.category]: current.candidates.find((c) => !c.isEmptyBox)!.id }))}
+            selected={selectionForCurrent === c.id}
+            onClick={() => setSelections((s) => ({ ...s, [current.category]: c.id }))}
           />
-          <BallotCandidateCard
-            candidate={current.candidates.find((c) => c.isEmptyBox)!}
-            color={EMPTY_BOX_COLOR}
-            tint={EMPTY_BOX_TINT}
-            selected={selectionForCurrent === "EMPTY" || selections[current.category] === current.candidates.find((c) => c.isEmptyBox)?.id}
-            onClick={() => setSelections((s) => ({ ...s, [current.category]: "EMPTY" }))}
-          />
-        </div>
-      ) : (
-        <div className={`grid gap-5 ${current.candidates.length >= 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
-          {current.candidates.map((c) => (
-            <BallotCandidateCard
-              key={c.id}
-              candidate={c}
-              color={current.color}
-              tint={current.tint}
-              selected={selectionForCurrent === c.id}
-              onClick={() => setSelections((s) => ({ ...s, [current.category]: c.id }))}
-            />
-          ))}
-        </div>
-      )}
+        ))}
+        <SuaraKosongCard
+          selected={selectionForCurrent === "EMPTY"}
+          onClick={() => setSelections((s) => ({ ...s, [current.category]: "EMPTY" }))}
+        />
+      </div>
 
       {/* Navigasi wizard */}
       <div className="mt-7 flex items-center justify-between gap-3">
@@ -820,7 +864,7 @@ export function PemilihPortal() {
         </button>
 
         <p className="hidden text-xs font-semibold text-[#7A8881] sm:block">
-          {canProceed ? "Pilihan tersimpan — lanjut" : "Pilih salah satu kartu di atas"}
+          {canProceed ? "Pilihan tersimpan — lanjut" : "Pilih paslon atau Suara Kosong"}
         </p>
 
         {step < ballots.length - 1 ? (
