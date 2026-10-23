@@ -1,0 +1,512 @@
+     1→"use client";
+     2→
+     3→// ============================================================
+     4→// LIVE AUDIT MONITOR PANWASLU & LAYAR PLENO — FR-06, FR-08
+     5→// High-Craft Dark Mode (.theme-pleno-dark / Obsidian Forest).
+     6→// Menampilkan metrik operasional TANPA membocorkan isi suara.
+     7→// Hukum 5: grafik perolehan suara tertutup Cryptographic Vault
+     8→// hingga Pleno Unlocking.
+     9→// ============================================================
+    10→import { useState } from "react";
+    11→import { Badge } from "@/components/ui/badge";
+    12→import { Input } from "@/components/ui/input";
+    13→import { Skeleton } from "@/components/ui/skeleton";
+    14→import { Textarea } from "@/components/ui/textarea";
+    15→import { usePolling } from "@/hooks/use-polling";
+    16→import { useSSE } from "@/hooks/use-sse";
+    17→import type { RealtimeSnapshot } from "@/lib/db/monitor-service";
+    18→import type { IncidentRow, MonitorLiveResponse, TallyResponse } from "@/lib/types";
+    19→import {
+    20→  Activity,
+    21→  CheckCircle2,
+    22→  FileWarning,
+    23→  Hash,
+    24→  Hourglass,
+    25→  Lock,
+    26→  LockOpen,
+    27→  LogIn,
+    28→  Send,
+    29→  ShieldAlert,
+    30→  ShieldCheck,
+    31→  Users,
+    32→  Vote,
+    33→  Wifi,
+    34→  WifiOff,
+    35→} from "lucide-react";
+    36→
+    37→const EVENT_META: Record<string, { label: string; cls: string }> = {
+    38→  TOKEN_ISSUED: { label: "TOKEN TERBIT", cls: "bg-[#1D2E27] text-[#F5C431]" },
+    39→  TOKEN_REVOKED: { label: "TOKEN DICABUT", cls: "bg-[#1D2E27] text-[#F5C431]" },
+    40→  TOKEN_EXPIRED: { label: "TOKEN KEDALUWARSA", cls: "bg-[#2A1B18] text-[#E05A47]" },
+    41→  BALLOT_SUBMITTED: { label: "SUARA MASUK", cls: "bg-[#163325] text-[#28A769]" },
+    42→  PLENO_UNLOCK: { label: "PLENO UNLOCK", cls: "bg-[#3A3113] text-[#F5C431]" },
+    43→  SYSTEM_INIT: { label: "SISTEM", cls: "bg-[#1D2E27] text-[#9EB0A7]" },
+    44→  DPT_LOCKED: { label: "DPT DIKUNCI", cls: "bg-[#1D2E27] text-[#9EB0A7]" },
+    45→  TPS_OPENED: { label: "TPS DIBUKA", cls: "bg-[#163325] text-[#28A769]" },
+    46→  INCIDENT_REPORTED: { label: "SENGKETA", cls: "bg-[#2A1B18] text-[#E05A47]" },
+    47→  OPERATOR_LOGIN: { label: "LOGIN OK", cls: "bg-[#163325] text-[#28A769]" },
+    48→  OPERATOR_LOGIN_FAILED: { label: "LOGIN GAGAL", cls: "bg-[#2A1B18] text-[#E05A47]" },
+    49→  OPERATOR_LOGOUT: { label: "LOGOUT", cls: "bg-[#1D2E27] text-[#9EB0A7]" },
+    50→  OPERATOR_PASSWORD_CHANGED: { label: "SANDI DIGANTI", cls: "bg-[#3A3113] text-[#F5C431]" },
+    51→  OPERATOR_PASSWORD_CHANGE_FAILED: { label: "SANDI DITOLAK", cls: "bg-[#2A1B18] text-[#E05A47]" },
+    52→};
+    53→
+    54→interface LoginLogEvent {
+    55→  id: string;
+    56→  event: string;
+    57→  detail: string;
+    58→  createdAt: string;
+    59→}
+    60→
+    61→function KpiCard({ label, value, sub, icon, accent }: { label: string; value: string; sub?: string; icon: React.ReactNode; accent: string }) {
+    62→  return (
+    63→    <div className="bento-card p-5">
+    64→      <div className="flex items-center justify-between">
+    65→        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#9EB0A7]">{label}</p>
+    66→        <div className="flex h-8 w-8 items-center justify-center rounded-[8px]" style={{ background: "#1D2E27", color: accent }}>
+    67→          {icon}
+    68→        </div>
+    69→      </div>
+    70→      <p className="mt-2 font-display text-3xl font-extrabold tabular-nums text-[#F4F1EA]">{value}</p>
+    71→      {sub && <p className="mt-1 text-[11px] font-semibold text-[#9EB0A7]">{sub}</p>}
+    72→    </div>
+    73→  );
+    74→}
+    75→
+    76→export function PanwasluMonitor({ operatorRole }: { operatorRole?: string | null }) {
+    77→  const canManageIncidents = operatorRole === "PANWASLU" || operatorRole === "ITPO";
+    78→  // Log aktivitas login: khusus PANWASLU / ITPO / KPUM (SAKSI ditolak 403 oleh server)
+    79→  const canViewLoginLog = operatorRole === "PANWASLU" || operatorRole === "ITPO" || operatorRole === "KPUM";
+    80→
+    81→  // ---------- REALTIME SSE (Rekomendasi #8) — polling hanya fallback ----------
+    82→  const sse = useSSE<RealtimeSnapshot>("/api/realtime/monitor");
+    83→  const sseActive = sse.connected && !!sse.data;
+    84→  const monitor = usePolling<MonitorLiveResponse>("/api/monitor/live", 8000, { enabled: !sseActive });
+    85→  const tally = usePolling<TallyResponse>("/api/tally", 10000, { enabled: !sseActive });
+    86→  const incidents = usePolling<{ incidents: IncidentRow[] }>("/api/monitor/incidents", 10000);
+    87→  const loginLog = usePolling<{ ok: boolean; events: LoginLogEvent[] }>("/api/auth/login-log", 8000, {
+    88→    enabled: canViewLoginLog && !sseActive,
+    89→  });
+    90→
+    91→  // Sumber data: SSE dulu, fallback polling
+    92→  const monData = (sseActive ? sse.data?.monitor : null) ?? monitor.data;
+    93→  const talData: TallyResponse | null = (sseActive ? sse.data?.tally : null) ?? tally.data;
+    94→  const logData = (sseActive && canViewLoginLog ? sse.data?.loginLog : null) ?? loginLog.data;
+    95→  const failedLogins5m = monData?.failedLogins5m ?? 0;
+    96→
+    97→  const [form, setForm] = useState({ reporterName: "", reporterNim: "", incidentType: "KECURANGAN_TPS", location: "", description: "" });
+    98→  const [sendState, setSendState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+    99→
+   100→  const submitIncident = async () => {
+   101→    if (!form.reporterName || !form.location || !form.description) return;
+   102→    setSendState("sending");
+   103→    try {
+   104→      const res = await fetch("/api/monitor/incidents", {
+   105→        method: "POST",
+   106→        headers: { "Content-Type": "application/json" },
+   107→        body: JSON.stringify(form),
+   108→      });
+   109→      const json = await res.json();
+   110→      if (json.ok) {
+   111→        setSendState("sent");
+   112→        setForm({ reporterName: "", reporterNim: "", incidentType: "KECURANGAN_TPS", location: "", description: "" });
+   113→        incidents.refresh();
+   114→      } else setSendState("error");
+   115→    } catch {
+   116→      setSendState("error");
+   117→    }
+   118→  };
+   119→
+   120→  if (monitor.loading && !monData) {
+   121→    return (
+   122→      <div className="space-y-4">
+   123→        <div className="grid gap-4 md:grid-cols-4">
+   124→          <Skeleton className="h-28 rounded-xl" /><Skeleton className="h-28 rounded-xl" /><Skeleton className="h-28 rounded-xl" /><Skeleton className="h-28 rounded-xl" />
+   125→        </div>
+   126→        <Skeleton className="h-72 rounded-xl" />
+   127→      </div>
+   128→    );
+   129→  }
+   130→  if (!monData) return <p className="text-sm text-[#9EB0A7]">Monitor gagal terhubung.</p>;
+   131→
+   132→  const data = monData;
+   133→
+   134→  const turnout = Math.round(data.kpis.turnoutPct * 10) / 10;
+   135→  const maxHour = Math.max(1, ...data.attendanceByHour.map((h) => h.count));
+   136→
+   137→  return (
+   138→    <div className="theme-pleno-dark min-h-full rounded-[14px] bg-[#0D1512] p-5 md:p-7" style={{ color: "#F4F1EA" }}>
+   139→      {/* Header */}
+   140→      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+   141→        <div>
+   142→          <h2 className="font-display text-2xl font-extrabold tracking-[-0.02em] text-[#F4F1EA]">
+   143→            LIVE AUDIT MONITOR <span className="text-[#28A769]">PANWASLU</span>
+   144→          </h2>
+   145→          <p className="mt-1 text-[13px] text-[#9EB0A7]">
+   146→            Pemantauan pemungutan online 100% — audit trail append-only tanpa akses isi suara (FR-08.1, FR-08.4)
+   147→          </p>
+   148→        </div>
+   149→        <div className="flex flex-wrap gap-2">
+   150→          {/* Indikator koneksi realtime (Rekomendasi #8) */}
+   151→          <Badge variant="outline" className={`gap-1.5 rounded-full border ${sseActive ? "border-[#28A769] text-[#28A769]" : "border-[#64786F] text-[#9EB0A7]"}`}>
+   152→            {sseActive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+   153→            {sseActive ? "REALTIME SSE" : "MODE POLLING"}
+   154→          </Badge>
+   155→          <Badge variant="outline" className={`gap-1.5 rounded-full border ${data.votingOpen && !data.emergencyFreeze ? "border-[#28A769] text-[#28A769]" : "border-[#64786F] text-[#9EB0A7]"}`}>
+   156→            <span className={`h-1.5 w-1.5 rounded-full ${data.votingOpen && !data.emergencyFreeze ? "bg-[#28A769] live-dot" : "bg-[#64786F]"}`} />
+   157→            {data.emergencyFreeze ? "EMERGENCY FREEZE" : data.votingOpen ? "PEMUNGUTAN AKTIF" : "PEMUNGUTAN DITUTUP"}
+   158→          </Badge>
+   159→          <Badge variant="outline" className={`gap-1.5 rounded-full border font-mono-tabular ${data.integrity.allValid ? "border-[#28A769] text-[#28A769]" : "border-[#E05A47] text-[#E05A47]"}`}>
+   160→            <ShieldCheck className="h-3 w-3" />
+   161→            {data.integrity.allValid
+   162→              ? `✓ SHA-256 VERIFIED — ${data.integrity.chains.filter((c) => c.valid).length}/${data.integrity.chains.length} RANTAI`
+   163→              : "✗ CHAIN BROKEN"}
+   164→          </Badge>
+   165→        </div>
+   166→      </div>
+   167→
+   168→      {/* Alarm keamanan realtime (Rekomendasi #8) */}
+   169→      {(failedLogins5m > 0 || sse.lastAuth) && (
+   170→        <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[10px] border-2 border-[#E05A47] bg-[#2A1B18] px-4 py-3">
+   171→          <span className="flex items-center gap-2 text-[13px] font-extrabold text-[#FF8A7A]">
+   172→            <ShieldAlert className="h-4 w-4" />
+   173→            {failedLogins5m > 0
+   174→              ? `${failedLogins5m} percobaan login gagal/terblokir dalam 5 menit terakhir`
+   175→              : "Aktivitas otentikasi baru terdeteksi"}
+   176→          </span>
+   177→          {sse.lastAuth && (
+   178→            <span className="flex-1 text-[12px] font-semibold text-[#E8B4AC]">
+   179→              {new Date(sse.lastAuth.at).toLocaleTimeString("id-ID")} — {sse.lastAuth.detail}
+   180→            </span>
+   181→          )}
+   182→        </div>
+   183→      )}
+   184→
+   185→      {/* KPI Row */}
+   186→      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+   187→        <KpiCard label="Total DPT Terdaftar" value={String(data.kpis.dptTotal)} sub={`${data.kpis.belumMemilih} belum memilih`} icon={<Users className="h-4 w-4" />} accent="#F5C431" />
+   188→        <div className="bento-card p-5">
+   189→          <div className="flex items-center justify-between">
+   190→            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#9EB0A7]">Turnout</p>
+   191→            <div className="flex h-8 w-8 items-center justify-center rounded-[8px] bg-[#1D2E27] text-[#28A769]"><Vote className="h-4 w-4" /></div>
+   192→          </div>
+   193→          <p className="mt-2 font-display text-3xl font-extrabold tabular-nums text-[#F4F1EA]">{turnout}%</p>
+   194→          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[#1D2E27]">
+   195→            <div className="h-full rounded-full bg-[#28A769] transition-all duration-700" style={{ width: `${Math.min(100, turnout)}%` }} />
+   196→          </div>
+   197→          <p className="mt-1.5 text-[11px] font-semibold text-[#9EB0A7]">{data.kpis.sudahMemilih} dari {data.kpis.dptTotal} pemilih</p>
+   198→        </div>
+   199→        <KpiCard label="Token Aktif Online" value={String(data.kpis.tokenAktif)} sub={`${data.kpis.dalamAntrean} pemilih dalam antrean • ${data.kpis.tokenExpired} kedaluwarsa`} icon={<Hourglass className="h-4 w-4" />} accent="#F5C431" />
+   200→        <KpiCard
+   201→          label="Integritas 5 Rantai Prodi"
+   202→          value={data.integrity.allValid ? "VALID" : "BROKEN"}
+   203→          sub={`${data.integrity.totalChecked} blok diverifikasi • ${data.integrity.chains.filter((c) => c.valid).length}/${data.integrity.chains.length} rantai sah`}
+   204→          icon={<Hash className="h-4 w-4" />}
+   205→          accent={data.integrity.allValid ? "#28A769" : "#E05A47"}
+   206→        />
+   207→      </div>
+   208→
+   209→      {/* Strip 5 rantai prodi + statistik re-vote (Pemira 100% online + Estonia) */}
+   210→      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+   211→        <div className="bento-card p-4 lg:col-span-2">
+   212→          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#9EB0A7]">Rantai Hash per Prodi — Head & Integritas</p>
+   213→          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+   214→            {data.integrity.chains.map((c) => (
+   215→              <div
+   216→                key={c.tpsId}
+   217→                className={`rounded-[8px] border-2 px-3 py-2 ${c.valid ? "border-[#28A769]/60 bg-[#15221D]" : "border-[#E05A47] bg-[#2A1B18]"}`}
+   218→                title={`${c.name} — head ${c.headHash.slice(0, 16)}…`}
+   219→              >
+   220→                <p className={`font-mono text-[11px] font-extrabold tracking-wide ${c.valid ? "text-[#28A769]" : "text-[#FF8A7A]"}`}>
+   221→                  {c.tpsId} {c.valid ? "✓" : "✗"}
+   222→                </p>
+   223→                <p className="font-mono-tabular text-[10px] text-[#9EB0A7]">{c.checkedCount} blok</p>
+   224→                <p className="font-mono-tabular text-[9px] text-[#64786F]">{c.headHash.slice(0, 10)}…</p>
+   225→              </div>
+   226→            ))}
+   227→          </div>
+   228→        </div>
+   229→        <div className="bento-card p-4">
+   230→          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#9EB0A7]">Re-vote (Model Estonia)</p>
+   231→          <div className="mt-2 grid grid-cols-2 gap-2">
+   232→            <div className="rounded-[8px] bg-[#1D2E27] px-3 py-2">
+   233→              <p className="font-display text-xl font-extrabold tabular-nums text-[#F4F1EA]">{data.revoteStats?.tokensRevoted ?? 0}</p>
+   234→              <p className="text-[10px] font-semibold text-[#9EB0A7]">token ganti suara</p>
+   235→            </div>
+   236→            <div className="rounded-[8px] bg-[#1D2E27] px-3 py-2">
+   237→              <p className="font-display text-xl font-extrabold tabular-nums text-[#F4F1EA]">{data.revoteStats?.supersededBallots ?? 0}</p>
+   238→              <p className="text-[10px] font-semibold text-[#9EB0A7]">blok usang (tak dihitung)</p>
+   239→            </div>
+   240→            <div className="rounded-[8px] bg-[#1D2E27] px-3 py-2">
+   241→              <p className="font-display text-xl font-extrabold tabular-nums text-[#F4F1EA]">{data.revoteStats?.lockedTokens ?? 0}</p>
+   242→              <p className="text-[10px] font-semibold text-[#9EB0A7]">suara dikunci final</p>
+   243→            </div>
+   244→            <div className="rounded-[8px] bg-[#1D2E27] px-3 py-2">
+   245→              <p className="font-display text-xl font-extrabold tabular-nums text-[#F4F1EA]">{data.kpis.revokedTokens ?? 0}</p>
+   246→              <p className="text-[10px] font-semibold text-[#9EB0A7]">token dicabut petugas</p>
+   247→            </div>
+   248→          </div>
+   249→          <p className="mt-2 text-[10.5px] leading-relaxed text-[#64786F]">
+   250→            Suara terakhir per token yang dihitung; token REVOKED dikecualikan seluruhnya.
+   251→          </p>
+   252→        </div>
+   253→      </div>
+   254→
+   255→      <div className="mt-6 grid gap-5 xl:grid-cols-3">
+   256→        {/* ---------- Kolom kiri: attendance + logs ---------- */}
+   257→        <div className="space-y-5 xl:col-span-2">
+   258→          {/* Laju kedatangan per jam */}
+   259→          <div className="bento-card p-5">
+   260→            <h3 className="flex items-center gap-2 font-display text-base font-bold text-[#F4F1EA]">
+   261→              <Activity className="h-4 w-4 text-[#28A769]" /> Laju Kedatangan Pemilih per Jam
+   262→            </h3>
+   263→            {data.attendanceByHour.length === 0 ? (
+   264→              <p className="mt-4 text-[13px] text-[#9EB0A7]">Belum ada pemilih yang hadir.</p>
+   265→            ) : (
+   266→              <div className="mt-4 flex items-end gap-3" style={{ height: 120 }}>
+   267→                {data.attendanceByHour.map((h) => (
+   268→                  <div key={h.hour} className="flex flex-1 flex-col items-center gap-1.5">
+   269→                    <span className="font-mono-tabular text-[11px] font-bold text-[#9EB0A7]">{h.count}</span>
+   270→                    <div
+   271→                      className="w-full max-w-14 rounded-t-[4px] bg-[#28A769] transition-all duration-700"
+   272→                      style={{ height: `${(h.count / maxHour) * 88}px` }}
+   273→                    />
+   274→                    <span className="font-mono-tabular text-[10px] text-[#64786F]">{String(h.hour).padStart(2, "0")}:00</span>
+   275→                  </div>
+   276→                ))}
+   277→              </div>
+   278→            )}
+   279→          </div>
+   280→
+   281→          {/* Audit log feed */}
+   282→          <div className="bento-card p-5">
+   283→            <h3 className="flex items-center gap-2 font-display text-base font-bold text-[#F4F1EA]">
+   284→              <FileWarning className="h-4 w-4 text-[#F5C431]" /> Audit Log — Append Only (FR-08.4)
+   285→            </h3>
+   286→            <div className="nice-scroll mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
+   287→              {data.logs.map((log) => {
+   288→                const meta = EVENT_META[log.event] ?? { label: log.event, cls: "bg-[#1D2E27] text-[#9EB0A7]" };
+   289→                return (
+   290→                  <div key={log.id} className="flex items-start gap-3 rounded-[8px] bg-[#1D2E27]/50 px-3.5 py-2.5">
+   291→                    <span className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[9px] font-extrabold tracking-wide ${meta.cls}`}>{meta.label}</span>
+   292→                    <p className="flex-1 text-[12px] leading-relaxed text-[#C9D4CE]">{log.detail}</p>
+   293→                    <span className="shrink-0 font-mono-tabular text-[10px] text-[#64786F]">
+   294→                      {new Date(log.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+   295→                    </span>
+   296→                  </div>
+   297→                );
+   298→              })}
+   299→            </div>
+   300→          </div>
+   301→
+   302→          {/* Log aktivitas login operator — khusus PANWASLU / ITPO / KPUM */}
+   303→          {canViewLoginLog && (
+   304→            <div className="bento-card p-5">
+   305→              <div className="flex flex-wrap items-center justify-between gap-2">
+   306→                <h3 className="flex items-center gap-2 font-display text-base font-bold text-[#F4F1EA]">
+   307→                  <LogIn className="h-4 w-4 text-[#28A769]" /> Log Aktivitas Login — Operator
+   308→                </h3>
+   309→                <span className="rounded-full border border-[#39564A] bg-[#15221D] px-2.5 py-0.5 font-mono-tabular text-[9.5px] font-bold tracking-wide text-[#9EB0A7]">
+   310→                  RBAC: PANWASLU • ITPO • KPUM — SAKSI 403
+   311→                </span>
+   312→              </div>
+   313→              <p className="mt-1 text-[11.5px] leading-relaxed text-[#9EB0A7]">
+   314→                Jejak otentikasi append-only: login sukses, percobaan gagal, logout, dan pergantian password (menu SANDI di navbar).
+   315→              </p>
+   316→              <div className="nice-scroll mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
+   317→                {!logData ? (
+   318→                  <p className="px-1 py-2 text-[12px] text-[#64786F]">Memuat log otentikasi…</p>
+   319→                ) : (logData.events.length ?? 0) === 0 ? (
+   320→                  <p className="px-1 py-2 text-[12px] text-[#64786F]">Belum ada aktivitas login tercatat.</p>
+   321→                ) : (
+   322→                  logData.events.map((ev) => {
+   323→                    const meta = EVENT_META[ev.event] ?? { label: ev.event, cls: "bg-[#1D2E27] text-[#9EB0A7]" };
+   324→                    const d = new Date(ev.createdAt);
+   325→                    return (
+   326→                      <div key={ev.id} className="flex items-start gap-3 rounded-[8px] bg-[#1D2E27]/50 px-3.5 py-2.5">
+   327→                        <span className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[9px] font-extrabold tracking-wide ${meta.cls}`}>{meta.label}</span>
+   328→                        <p className="flex-1 text-[12px] leading-relaxed text-[#C9D4CE]">{ev.detail}</p>
+   329→                        <span className="shrink-0 font-mono-tabular text-[10px] text-[#64786F]">
+   330→                          {d.toLocaleDateString("id-ID", { day: "2-digit", month: "short" })} {d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+   331→                        </span>
+   332→                      </div>
+   333→                    );
+   334→                  })
+   335→                )}
+   336→              </div>
+   337→            </div>
+   338→          )}
+   339→        </div>
+   340→
+   341→        {/* ---------- Kolom kanan: vault + sengketa ---------- */}
+   342→        <div className="space-y-5">
+   343→          {/* Pleno Vault (FR-06.3) */}
+   344→          <div className="bento-card relative overflow-hidden p-5">
+   345→            <h3 className="flex items-center gap-2 font-display text-base font-bold text-[#F4F1EA]">
+   346→              {talData?.locked ? <Lock className="h-4 w-4 text-[#F5C431]" /> : <LockOpen className="h-4 w-4 text-[#28A769]" />}
+   347→              Kotak Suara Digital
+   348→            </h3>
+   349→
+   350→            {talData?.locked ? (
+   351→              <div className="mt-4 flex flex-col items-center rounded-[10px] border-2 border-dashed border-[#39564A] bg-[#0D1512] px-4 py-10 text-center">
+   352→                <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#39564A] bg-[#15221D]">
+   353→                  <Lock className="h-6 w-6 text-[#F5C431]" />
+   354→                </div>
+   355→                <p className="font-display text-sm font-extrabold tracking-wide text-[#F4F1EA]">CRYPTOGRAPHIC VAULT LOCKED</p>
+   356→                <p className="mt-2 max-w-xs text-[12px] leading-relaxed text-[#9EB0A7]">
+   357→                  Distribusi perolehan suara tidak dapat diakses sebelum Ketua KPUM mengeksekusi Pleno Unlocking
+   358→                  (endpoint mengembalikan 423 Locked).
+   359→                </p>
+   360→                <p className="mt-3 font-mono-tabular text-[10px] text-[#64786F]">STATUS: 423 LOCKED — {data.kpis.ballotsCount} blok suara tersegel</p>
+   361→              </div>
+   362→            ) : (
+   363→              <div className="mt-4 space-y-3">
+   364→                {talData?.categories
+   365→                  ?.filter((cat) => cat.category !== "HIMA")
+   366→                  .map((cat) => (
+   367→                    <div key={cat.category} className="rounded-[10px] border border-[#263B33] bg-[#0D1512] p-3.5">
+   368→                      <div className="flex items-center justify-between">
+   369→                        <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#9EB0A7]">{cat.category}</p>
+   370→                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-extrabold ${cat.outcome === "TERPILIH" ? "bg-[#163325] text-[#28A769]" : cat.outcome === "STATUS_SERI_PENDING_PLENO" ? "bg-[#3A3113] text-[#F5C431]" : "bg-[#1D2E27] text-[#9EB0A7]"}`}>
+   371→                          {cat.outcome}
+   372→                        </span>
+   373→                      </div>
+   374→                      <div className="mt-2.5 space-y-2">
+   375→                        {cat.results.map((r) => (
+   376→                          <div key={r.candidateId ?? "suara-kosong"}>
+   377→                            <div className="flex items-center justify-between text-[12px]">
+   378→                              <span className={`truncate font-semibold ${r.isEmptyBox ? "italic text-[#9EB0A7]" : "text-[#F4F1EA]"}`}>
+   379→                                {r.isEmptyBox ? "Suara Kosong" : `${String(r.number).padStart(2, "0")} — ${r.name}`}
+   380→                              </span>
+   381→                              <span className="ml-2 shrink-0 font-mono-tabular text-[#9EB0A7]">{r.votes} • {r.percentage.toFixed(1)}%</span>
+   382→                            </div>
+   383→                            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[#1D2E27]">
+   384→                              <div
+   385→                                className="h-full rounded-full transition-all duration-700"
+   386→                                style={{ width: `${r.percentage}%`, background: r.isEmptyBox ? "#64786F" : "#28A769" }}
+   387→                              />
+   388→                            </div>
+   389→                          </div>
+   390→                        ))}
+   391→                      </div>
+   392→                    </div>
+   393→                  ))}
+   394→                {talData?.categories
+   395→                  ?.filter((c) => c.category === "HIMA")
+   396→                  .map((cat) => (
+   397→                    <div key={cat.studyProgramId} className="rounded-[10px] border border-[#263B33] bg-[#0D1512] p-3.5">
+   398→                      <div className="flex items-center justify-between">
+   399→                        <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#9EB0A7]">HIMA {cat.studyProgramId}</p>
+   400→                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-extrabold ${cat.outcome === "TERPILIH" ? "bg-[#163325] text-[#28A769]" : cat.outcome === "MANDAT_KEMBALI_KE_MUSYAWARAH_MAHASISWA" ? "bg-[#2A1B18] text-[#E05A47]" : "bg-[#1D2E27] text-[#9EB0A7]"}`}>
+   401→                          {cat.outcome === "MANDAT_KEMBALI_KE_MUSYAWARAH_MAHASISWA" ? "MANDAT → MUSMAH" : cat.outcome}
+   402→                        </span>
+   403→                      </div>
+   404→                      <div className="mt-2.5 space-y-2">
+   405→                        {cat.results.map((r) => (
+   406→                          <div key={r.candidateId ?? "suara-kosong"}>
+   407→                            <div className="flex items-center justify-between text-[12px]">
+   408→                              <span className={`truncate font-semibold ${r.isEmptyBox ? "italic text-[#9EB0A7]" : "text-[#F4F1EA]"}`}>
+   409→                                {r.isEmptyBox ? "Suara Kosong" : `${String(r.number).padStart(2, "0")} — ${r.name}`}
+   410→                              </span>
+   411→                              <span className="ml-2 shrink-0 font-mono-tabular text-[#9EB0A7]">{r.votes} • {r.percentage.toFixed(1)}%</span>
+   412→                            </div>
+   413→                            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[#1D2E27]">
+   414→                              <div
+   415→                                className="h-full rounded-full transition-all duration-700"
+   416→                                style={{ width: `${r.percentage}%`, background: r.isEmptyBox ? "#64786F" : "#28A769" }}
+   417→                              />
+   418→                            </div>
+   419→                          </div>
+   420→                        ))}
+   421→                      </div>
+   422→                      <p className="mt-2 text-[10px] leading-relaxed text-[#64786F]">{cat.outcomeDetail}</p>
+   423→                    </div>
+   424→                  ))}
+   425→              </div>
+   426→            )}
+   427→          </div>
+   428→
+   429→          {/* Formulir Sengketa (FR-08.2) — RBAC: PANWASLU/ITPO */}
+   430→          <div className="bento-card p-5">
+   431→            <h3 className="flex items-center gap-2 font-display text-base font-bold text-[#F4F1EA]">
+   432→              <FileWarning className="h-4 w-4 text-[#E05A47]" /> Laporan Sengketa &amp; Pelanggaran
+   433→            </h3>
+   434→            {operatorRole && !canManageIncidents && (
+   435→              <p className="mt-3 rounded-[8px] border border-[#39564A] bg-[#0D1512] px-3 py-2 text-[12px] leading-relaxed text-[#9EB0A7]">
+   436→                Sesi Anda <span className="font-mono font-bold text-[#F5C431]">{operatorRole}</span> bersifat pemantau — pencatatan sengketa hanya kewenangan Panwaslu (PRD Bab 3 / FR-08.2).
+   437→              </p>
+   438→            )}
+   439→            <div className={`mt-3 space-y-2.5 ${canManageIncidents ? "" : "pointer-events-none opacity-40"}`} aria-hidden={!canManageIncidents}>
+   440→              <Input
+   441→                value={form.reporterName}
+   442→                onChange={(e) => setForm((f) => ({ ...f, reporterName: e.target.value }))}
+   443→                placeholder="Nama pelapor"
+   444→                className="h-10 rounded-[8px] border-[#263B33] bg-[#0D1512] text-[13px] text-[#F4F1EA] placeholder:text-[#64786F] focus-visible:ring-[#28A769]"
+   445→              />
+   446→              <div className="grid grid-cols-2 gap-2.5">
+   447→                <Input
+   448→                  value={form.reporterNim}
+   449→                  onChange={(e) => setForm((f) => ({ ...f, reporterNim: e.target.value }))}
+   450→                  placeholder="NIM (opsional)"
+   451→                  className="h-10 rounded-[8px] border-[#263B33] bg-[#0D1512] font-mono-tabular text-[13px] text-[#F4F1EA] placeholder:text-[#64786F] focus-visible:ring-[#28A769]"
+   452→                />
+   453→                <select
+   454→                  value={form.incidentType}
+   455→                  onChange={(e) => setForm((f) => ({ ...f, incidentType: e.target.value }))}
+   456→                  aria-label="Jenis pelanggaran"
+   457→                  className="h-10 rounded-[8px] border border-[#263B33] bg-[#0D1512] px-2 text-[13px] text-[#F4F1EA] outline-none focus:border-[#28A769]"
+   458→                >
+   459→                  <option value="PELANGGARAN_KAMPANYE">Pelanggaran Kampanye</option>
+   460→                  <option value="KECURANGAN_TPS">Kecurangan TPS</option>
+   461→                  <option value="MALFUNGSI_SISTEM">Malfungsi Sistem</option>
+   462→                  <option value="LAINNYA">Lainnya</option>
+   463→                </select>
+   464→              </div>
+   465→              <Input
+   466→                value={form.location}
+   467→                onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+   468→                placeholder="Lokasi kejadian"
+   469→                className="h-10 rounded-[8px] border-[#263B33] bg-[#0D1512] text-[13px] text-[#F4F1EA] placeholder:text-[#64786F] focus-visible:ring-[#28A769]"
+   470→              />
+   471→              <Textarea
+   472→                value={form.description}
+   473→                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+   474→                placeholder="Deskripsi peristiwa…"
+   475→                className="min-h-20 rounded-[8px] border-[#263B33] bg-[#0D1512] text-[13px] text-[#F4F1EA] placeholder:text-[#64786F] focus-visible:ring-[#28A769]"
+   476→              />
+   477→              <button
+   478→                type="button"
+   479→                disabled={sendState === "sending" || !form.reporterName || !form.location || !form.description}
+   480→                onClick={submitIncident}
+   481→                className="flex h-11 w-full items-center justify-center gap-2 rounded-[8px] border-2 border-[#0D1512] bg-[#28A769] text-[13px] font-extrabold text-[#0D1512] transition-all enabled:hover:brightness-110 disabled:opacity-40"
+   482→              >
+   483→                <Send className="h-4 w-4" /> {sendState === "sending" ? "MENGIRIM…" : "KIRIM LAPORAN SENGKETA"}
+   484→              </button>
+   485→              {sendState === "sent" && (
+   486→                <p className="flex items-center gap-1.5 text-[12px] font-semibold text-[#28A769]">
+   487→                  <CheckCircle2 className="h-3.5 w-3.5" /> Laporan tersimpan dengan nomor tiket.
+   488→                </p>
+   489→              )}
+   490→            </div>
+   491→
+   492→            {/* Daftar sengketa */}
+   493→            <div className="nice-scroll mt-4 max-h-44 space-y-2 overflow-y-auto pr-1">
+   494→              {(incidents.data?.incidents ?? []).map((inc) => (
+   495→                <div key={inc.id} className="rounded-[8px] border border-[#263B33] bg-[#0D1512] px-3 py-2.5">
+   496→                  <div className="flex items-center justify-between gap-2">
+   497→                    <span className="font-mono-tabular text-[11px] font-bold text-[#F5C431]">{inc.ticketNumber}</span>
+   498→                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-extrabold ${inc.status === "RESOLVED" ? "bg-[#163325] text-[#28A769]" : inc.status === "IN_REVIEW" ? "bg-[#3A3113] text-[#F5C431]" : "bg-[#1D2E27] text-[#9EB0A7]"}`}>
+   499→                      {inc.status}
+   500→                    </span>
+   501→                  </div>
+   502→                  <p className="mt-1 text-[12px] leading-snug text-[#C9D4CE]">{inc.incidentType.replaceAll("_", " ")} — {inc.location}</p>
+   503→                </div>
+   504→              ))}
+   505→            </div>
+   506→          </div>
+   507→        </div>
+   508→      </div>
+   509→    </div>
+   510→  );
+   511→}
+   512→

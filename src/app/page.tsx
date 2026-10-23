@@ -56,12 +56,12 @@ const DEMO_ACCOUNTS: (DemoAccount & { landing: string })[] = [
   { username: "saksi01", password: "saksi123", role: "SAKSI", fullName: "Dimas Prakoso — Saksi Paslon Presma 01", landing: "Monitor Panwaslu (baca)" },
 ];
 
-const MODULES: Array<{ key: ModuleKey; label: string; short: string; icon: React.ReactNode; dark: boolean }> = [
-  { key: "public", label: "Portal Publik", short: "PUBLIK", icon: <Landmark className="h-4 w-4" />, dark: false },
-  { key: "ppur", label: "Pos Bantuan PPUR", short: "PPUR", icon: <ScanBarcode className="h-4 w-4" />, dark: false },
-  { key: "kpum", label: "Dashboard KPUM", short: "KPUM", icon: <MonitorCheck className="h-4 w-4" />, dark: false },
-  { key: "panwaslu", label: "Monitor Panwaslu & Pleno", short: "PANWASLU", icon: <ShieldHalf className="h-4 w-4" />, dark: true },
-  { key: "operators", label: "Manajemen Operator", short: "OPERATOR", icon: <UserCog className="h-4 w-4" />, dark: false },
+const MODULES: Array<{ key: ModuleKey; label: string; short: string; icon: React.ReactNode }> = [
+  { key: "public", label: "Portal Publik", short: "PUBLIK", icon: <Landmark className="h-4 w-4" /> },
+  { key: "ppur", label: "Pos Bantuan PPUR", short: "PPUR", icon: <ScanBarcode className="h-4 w-4" /> },
+  { key: "kpum", label: "Dashboard KPUM", short: "KPUM", icon: <MonitorCheck className="h-4 w-4" /> },
+  { key: "panwaslu", label: "Monitor Panwaslu & Pleno", short: "PANWASLU", icon: <ShieldHalf className="h-4 w-4" /> },
+  { key: "operators", label: "Manajemen Operator", short: "OPERATOR", icon: <UserCog className="h-4 w-4" /> },
 ];
 
 export default function Home() {
@@ -70,7 +70,6 @@ export default function Home() {
   const [sessionLoaded, setSessionLoaded] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const landedFor = useRef<string | null>(null); // agar auto-landing hanya sekali per login
-  const current = MODULES.find((m) => m.key === active)!;
 
   const refreshSession = useCallback(async () => {
     try {
@@ -153,11 +152,9 @@ export default function Home() {
             : "bg-[#E05A47]";
 
   return (
-    <div className={`flex min-h-screen flex-col ${current.dark ? "bg-[#0D1512]" : "bg-[#F6F4EE]"}`}>
+    <div className="flex min-h-screen flex-col bg-[#F6F4EE]">
       {/* ================= NAVBAR ================= */}
-      <header
-        className={`sticky top-0 z-40 border-b ${current.dark ? "border-[#263B33] bg-[#0D1512]/95" : "border-[#D8D3C8] bg-[#F6F4EE]/95"} backdrop-blur`}
-      >
+      <header className="sticky top-0 z-40 border-b border-[#D8D3C8] bg-[#F6F4EE]/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-5 gap-y-3 px-4 py-3 md:px-6">
           {/* Brand */}
           <div className="flex items-center gap-3">
@@ -168,10 +165,10 @@ export default function Home() {
               </svg>
             </div>
             <div>
-              <p className={`font-display text-lg font-extrabold leading-none tracking-[-0.02em] ${current.dark ? "text-[#F4F1EA]" : "text-[#141E19]"}`}>
+              <p className="font-display text-lg font-extrabold leading-none tracking-[-0.02em] text-[#141E19]">
                 SMART PEMIRA
               </p>
-              <p className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${current.dark ? "text-[#9EB0A7]" : "text-[#7A8881]"}`}>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#7A8881]">
                 Poltek CWE • IKM
               </p>
             </div>
@@ -190,9 +187,7 @@ export default function Home() {
                   className={`relative flex shrink-0 items-center gap-2 rounded-full border-2 px-4 py-2 text-[12px] font-extrabold tracking-wide transition-all ${
                     isActive
                       ? "border-[#141E19] bg-[#141E19] text-white shadow-[3px_3px_0px_#1B7F4E]"
-                      : current.dark
-                        ? "border-[#263B33] bg-[#15221D] text-[#9EB0A7] hover:border-[#39564A] hover:text-[#F4F1EA]"
-                        : "border-[#D8D3C8] bg-white text-[#4A5851] hover:border-[#141E19] hover:text-[#141E19]"
+                      : "border-[#D8D3C8] bg-white text-[#4A5851] hover:border-[#141E19] hover:text-[#141E19]"
                   }`}
                 >
                   {m.icon}
@@ -205,12 +200,12 @@ export default function Home() {
 
           {/* Session badge */}
           <div className="flex items-center gap-2">
-            <div className={`flex items-center gap-2 rounded-full border-2 border-[#141E19] px-3 py-1.5 ${current.dark ? "bg-[#15221D]" : "bg-white"}`}>
+            <div className="flex items-center gap-2 rounded-full border-2 border-[#141E19] bg-white px-3 py-1.5">
               <span className={`flex h-6 w-6 items-center justify-center rounded-full font-display text-[10px] font-extrabold text-white ${roleBadgeColor}`} aria-hidden>
                 {session.fullName.slice(0, 1).toUpperCase()}
               </span>
               <div className="leading-tight">
-                <p className={`text-[11px] font-extrabold ${current.dark ? "text-[#F4F1EA]" : "text-[#141E19]"}`}>{session.fullName.split(" — ")[0]}</p>
+                <p className="text-[11px] font-extrabold text-[#141E19]">{session.fullName.split(" — ")[0]}</p>
                 <p className="font-mono text-[9.5px] font-bold tracking-[0.08em] text-[#1B7F4E]">{session.role}{session.tpsId ? ` • ${session.tpsId}` : ""}</p>
               </div>
             </div>
@@ -219,9 +214,7 @@ export default function Home() {
               onClick={() => setPwOpen(true)}
               title="Ganti password akun ini"
               aria-label="Ganti password"
-              className={`flex h-9 items-center gap-1.5 rounded-full border-2 border-[#141E19] px-3 text-[11px] font-extrabold transition-all hover:-translate-y-0.5 ${
-                current.dark ? "bg-[#15221D] text-[#F4F1EA] shadow-[2px_2px_0px_#39564A]" : "bg-white text-[#141E19] shadow-[2px_2px_0px_#141E19]"
-              } active:translate-y-0`}
+              className="flex h-9 items-center gap-1.5 rounded-full border-2 border-[#141E19] bg-white px-3 text-[11px] font-extrabold shadow-[2px_2px_0px_#141E19] transition-all hover:-translate-y-0.5 active:translate-y-0"
             >
               <KeyRound className="h-3.5 w-3.5" aria-hidden />
               <span className="hidden sm:inline">SANDI</span>
@@ -229,9 +222,7 @@ export default function Home() {
             <button
               type="button"
               onClick={logout}
-              className={`flex h-9 items-center gap-1.5 rounded-full border-2 border-[#141E19] px-3 text-[11px] font-extrabold transition-all hover:-translate-y-0.5 ${
-                current.dark ? "bg-[#15221D] text-[#F4F1EA] shadow-[2px_2px_0px_#39564A]" : "bg-white text-[#141E19] shadow-[2px_2px_0px_#141E19]"
-              } active:translate-y-0`}
+              className="flex h-9 items-center gap-1.5 rounded-full border-2 border-[#141E19] bg-white px-3 text-[11px] font-extrabold shadow-[2px_2px_0px_#141E19] transition-all hover:-translate-y-0.5 active:translate-y-0"
             >
               <LogOut className="h-3.5 w-3.5" aria-hidden />
               KELUAR
@@ -301,7 +292,7 @@ export default function Home() {
           (hasAccess ? (
             <PanwasluMonitor operatorRole={session.role} />
           ) : (
-            <AccessDenied role={session.role} dark />
+            <AccessDenied role={session.role} />
           ))}
 
         {active === "operators" &&
@@ -316,9 +307,9 @@ export default function Home() {
       </main>
 
       {/* ================= FOOTER (sticky) ================= */}
-      <footer className={`mt-auto border-t ${current.dark ? "border-[#263B33] bg-[#0D1512]" : "border-[#D8D3C8] bg-[#F6F4EE]"}`}>
+      <footer className="mt-auto border-t border-[#D8D3C8] bg-[#F6F4EE]">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-3 px-4 py-4 md:px-6">
-          <p className={`text-[12px] font-semibold ${current.dark ? "text-[#9EB0A7]" : "text-[#7A8881]"}`}>
+          <p className="text-[12px] font-semibold text-[#7A8881]">
             {APP_CONSTANTS.appName} — {APP_CONSTANTS.institute} • {APP_CONSTANTS.legalBasis}
           </p>
           <div className="flex items-center gap-4">
@@ -326,15 +317,13 @@ export default function Home() {
               href="/pemilih"
               target="_blank"
               rel="noreferrer"
-              className={`flex items-center gap-1.5 text-[12px] font-bold underline decoration-dotted underline-offset-4 transition-colors ${
-                current.dark ? "text-[#9EB0A7] hover:text-[#F4F1EA]" : "text-[#4A5851] hover:text-[#141E19]"
-              }`}
+              className="flex items-center gap-1.5 text-[12px] font-bold text-[#4A5851] underline decoration-dotted underline-offset-4 transition-colors hover:text-[#141E19]"
             >
               <ExternalLink className="h-3.5 w-3.5" aria-hidden />
               Portal Pemilih (mahasiswa)
             </a>
-            <p className={`flex items-center gap-2 text-[12px] ${current.dark ? "text-[#64786F]" : "text-[#C9C3B6]"}`}>
-              <span className={`inline-block h-1.5 w-1.5 rounded-full ${current.dark ? "bg-[#28A769]" : "bg-[#1B7F4E]"}`} />
+            <p className="flex items-center gap-2 text-[12px] text-[#C9C3B6]">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#1B7F4E]" />
               Zero-Knowledge • 100% Online • Re-vote Estonia
             </p>
           </div>
@@ -355,14 +344,14 @@ export default function Home() {
 }
 
 // Kartu akses ditolak (lapisan UI; server tetap menolak 403 di API)
-function AccessDenied({ role, dark = false }: { role: string; dark?: boolean }) {
+function AccessDenied({ role }: { role: string }) {
   return (
     <div className="mx-auto max-w-lg py-16 text-center">
-      <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full border-2 ${dark ? "border-[#39564A] bg-[#15221D] text-[#E05A47]" : "border-[#141E19] bg-[#FDE8E5] text-[#E05A47]"}`}>
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#141E19] bg-[#FDE8E5] text-[#E05A47]">
         <Ban className="h-7 w-7" aria-hidden />
       </div>
-      <h2 className={`mt-4 font-display text-xl font-extrabold ${dark ? "text-[#F4F1EA]" : "text-[#141E19]"}`}>Akses Ditolak (403)</h2>
-      <p className={`mt-2 text-sm leading-relaxed ${dark ? "text-[#9EB0A7]" : "text-[#4A5851]"}`}>
+      <h2 className="mt-4 font-display text-xl font-extrabold text-[#141E19]">Akses Ditolak (403)</h2>
+      <p className="mt-2 text-sm leading-relaxed text-[#4A5851]">
         Peran <span className="font-mono font-bold">{role}</span> tidak memiliki kewenangan pada modul ini sesuai matriks RBAC PRD Bab 3.
         Silakan keluar dan login dengan akun petugas yang berwenang.
       </p>

@@ -112,57 +112,6 @@
   --sidebar-ring: #1B7F4E;
 }
 
-/* ============================================================
-   HIGH-CRAFT DARK MODE — OBSIDIAN FOREST (Live Panwaslu & Pleno)
-   Dipasang via class .theme-pleno-dark pada container modul.
-   Menimpa SEMUA token: shadcn (--background) & Smart Pemira (--sp-*).
-   ============================================================ */
-.theme-pleno-dark {
-  --background: #0D1512;
-  --foreground: #F4F1EA;
-  --card: #15221D;
-  --card-foreground: #F4F1EA;
-  --popover: #15221D;
-  --popover-foreground: #F4F1EA;
-  --primary: #28A769;
-  --primary-foreground: #0D1512;
-  --secondary: #1D2E27;
-  --secondary-foreground: #F4F1EA;
-  --muted: #1D2E27;
-  --muted-foreground: #9EB0A7;
-  --accent: #1D2E27;
-  --accent-foreground: #F4F1EA;
-  --destructive: #E05A47;
-  --border: #263B33;
-  --input: #263B33;
-  --ring: #28A769;
-  --chart-1: #28A769;
-  --chart-2: #F5C431;
-  --chart-3: #0F766E;
-  --chart-4: #E05A47;
-  --chart-5: #2B50AA;
-  --sidebar: #15221D;
-  --sidebar-foreground: #F4F1EA;
-  --sidebar-primary: #28A769;
-  --sidebar-primary-foreground: #0D1512;
-  --sidebar-accent: #1D2E27;
-  --sidebar-accent-foreground: #F4F1EA;
-  --sidebar-border: #263B33;
-  --sidebar-ring: #28A769;
-
-  /* === SMART PEMIRA TOKENS — PLENO VARIANT (DESIGN.md Bab 3.2) === */
-  --sp-canvas: #0D1512;        /* Obsidian Forest */
-  --sp-surface: #15221D;       /* Deep Pine Slate */
-  --sp-subtle: #1D2E27;        /* Elevated Moss */
-  --sp-ink: #F4F1EA;           /* Crisp Alabaster (teks & garis tegas) */
-  --sp-ink-2: #9EB0A7;         /* Sage Mist */
-  --sp-ink-3: #64786F;         /* Muted Sage */
-  --sp-green: #28A769;         /* Luminous Tropic */
-  --sp-green-deep: #34C77E;
-  --sp-marigold: #F5C431;      /* Glowing Marigold */
-  --sp-border: #263B33;        /* Subtle Pine Line */
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -233,17 +182,11 @@
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(20, 30, 25, 0.04);
   }
-  .theme-pleno-dark .bento-card {
-    box-shadow: none;
-  }
-
   /* --- Scrollbar halus --- */
   .nice-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
   .nice-scroll::-webkit-scrollbar-track { background: transparent; }
   .nice-scroll::-webkit-scrollbar-thumb { background: #C9C3B6; border-radius: 999px; }
   .nice-scroll::-webkit-scrollbar-thumb:hover { background: #AFA99A; }
-  .theme-pleno-dark .nice-scroll::-webkit-scrollbar-thumb { background: #263B33; }
-  .theme-pleno-dark .nice-scroll::-webkit-scrollbar-thumb:hover { background: #39564A; }
 
   /* --- Animasi pulse untuk token countdown --- */
   @keyframes sp-pulse-terra {
@@ -287,4 +230,3 @@
   .no-print { display: none !important; }
 }
 
-/* pleno-tokens-v2 */

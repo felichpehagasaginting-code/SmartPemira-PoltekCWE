@@ -233,3 +233,20 @@ Work Log:
 
 Stage Summary:
 - Setiap surat suara (DPM/BEM/HIMA) kini punya opsi SUARA KOSONG resmi di posisi paling bawah — suara sah tercatat di rantai hash, dihitung dalam rekap Pleno, tidak bisa memenangkan pemilihan; seluruh alur (bilik → review → struk → monitor → BA kanonikal) konsisten dan tervalidasi penuh
+
+---
+Task ID: 11 (Monitor Panwaslu & Pleno — Samakan Tema Terang)
+Agent: main (Z.ai)
+Task: Permintaan user — "untuk page monitor panwaslu & pleno itu samain aja temanya dengan page lain, jangan gelap gtu, jelek banget trus ga konsisten juga"
+
+Work Log:
+- globals.css: blok token .theme-pleno-dark ("Obsidian Forest", ±50 baris) DIHAPUS total, termasuk override .theme-pleno-dark .bento-card & .nice-scroll + komentar pleno-tokens-v2 — kini seluruh app 1 tema (Neo-Editorial Botanical terang)
+- page.tsx: flag dark: boolean pada MODULES dihapus; 14 conditional `current.dark ? … : …` (bg shell, header, tab nav, session badge, tombol SANDI/KELUAR, footer, AccessDenied) disederhanakan ke cabang terang; const current & prop dark AccessDenied dihapus
+- panwaslu-monitor.tsx: ~60 hardcoded warna gelap dikonversi 1:1 ke palet botanical (mengikuti kosakata KPUM dashboard): F4F1EA→141E19, 9EB0A7→4A5851 (label kecil→7A8881), 64786F→7A8881, C9D4CE→4A5851, 1D2E27→EAE6DF, 0D1512/15221D→F6F4EE/putih, 263B33→D8D3C8, 39564A→C9C3B6, 28A769→1B7F4E, 163325→DCFCE7+0F5132, 2A1B18→FDE8E5+842029, 3A3113→FEF5D6+8A5200, F5C431→B45309 (ikon/aksen) & 8A5200 (teks), FF8A7A/E8B4AC→842029; container dark canvas diganti div polos (padding via main shell, konsisten modul lain); tombol kirim sengketa memakai gaya tactile (border ink + shadow 3px + hover translate); vault locked: dashed C9C3B6 + lingkaran FEF5D6 shadow tactile; bar Suara Kosong #7A8881
+- Verifikasi: tsc 0 error; eslint . bersih; browser test login PANWASLU — monitor terang penuh (badge/KPI/rantai/grafik/log/sengketa), console & page errors nihil
+- Uji Pleno Unlock sesungguhnya utk panel hasil terbuka: login KPUM → POST /api/tally/unlock (window.confirm di-auto-dismiss Playwright, jadi via fetch sesi) → screenshot hasil terbuka (DPM 77.8% pemenang sementara, PRESMA, HIMA TPTP/TPHP STATUS_SERI_PENDING_PLENO, baris Suara Kosong italic, PLENO UNLOCK badge amber) — semua konsisten tema terang
+- DB di-restore demo segar via npx tsx scripts/seed.ts: 14 kandidat, 44 DPT, 30 blok, 3 suara kosong, 9 voted, pleno TERKUNCI kembali, 1 demo re-vote; screenshot final PANWASLU pada state segar dikonfirmasi
+- Catatan: login-screen (panel kiri gelap) & loading splash adalah aksen branding split-panel, sengaja dipertahankan (user hanya komplain modul monitor); DESIGN.md Bab 3.2 (dark PLENO variant) kini usang secara desain — tidak diubah karena dokumen spesifikasi historis
+
+Stage Summary:
+- Monitor Panwaslu & Pleno kini memakai tema terang Neo-Editorial Botanical yang identik dengan seluruh modul lain — mode gelap dihapus total dari kode (globals.css, shell, monitor); tidak ada perubahan logika/logika data sama sekali (pure restyle), seluruh state demo segar terjaga
