@@ -263,3 +263,18 @@ Work Log:
 
 Stage Summary:
 - Layar login kini punya dua pintu masuk eksplisit untuk pemilih (kartu hijau besar di kolom kanan + item terminal klikabel di panel kiri) tanpa mengubah alur auth apa pun; operator tetap via akun, pemilih tetap via token anonim
+
+---
+Task ID: 13 (Keputusan Model Gerbang Token — Tetap Hybrid)
+Agent: main (Z.ai)
+Task: Pertanyaan user "jadi token didapat hanya dari pos PPUR?? ya jadi ga bisa 100% online dong?" + "jadi emang bagusan BYOD yah? daripada dibuat 100% online?" — keputusan arsitektur gerbang identitas
+
+Work Log:
+- Diverifikasi dari schema + PRD: VotingToken anonim (tanpa NIM), Voter→token satu arah & diputus setelah submit, PRD asli memang "Model Pemungutan Suara Hibrida On-Premise" — voting online BYOD, gerbang token fisik
+- Dijelaskan ke user: BYOD bukan lawan 100% online; perbedaan murni di gerbang penerbitan token (fisik vs mandiri online)
+- Perbandingan disampaikan: identitas (kuat vs selemah kredensial), risiko pinjam-NIM/jual suara, partisipasi, beban ops H-day, kebutuhan infrastruktur
+- User skip pertanyaan klarifikasi → diputuskan default rekomendasi: TETAP HYBRID, tanpa perubahan kode
+- Jalur upgrade terbuka didokumentasikan: self-service online (NIM + OTP email institusi) + pos PPUR jadi meja bantuan; arsitektur token saat ini tidak perlu berubah (hanya penerbit token yang berubah); verifikasi alternatif yang dipertimbangkan: OTP email institusi (rekomendasi), NIM+password (rawan pinjam), SSO SIAKAD simulasi
+
+Stage Summary:
+- KEPUTUSAN ARSITEKTUR: gerbang token tetap fisik di pos PPUR (verifikasi KTM/KRS) + voting 100% online BYOD — sistem tidak diubah; claim UI "100% Online" merujuk pada pemungutan suara, bukan penerbitan token
