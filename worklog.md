@@ -250,3 +250,16 @@ Work Log:
 
 Stage Summary:
 - Monitor Panwaslu & Pleno kini memakai tema terang Neo-Editorial Botanical yang identik dengan seluruh modul lain — mode gelap dihapus total dari kode (globals.css, shell, monitor); tidak ada perubahan logika/logika data sama sekali (pure restyle), seluruh state demo segar terjaga
+
+---
+Task ID: 12 (Tombol Pintu Pemilih di Layar Login)
+Agent: main (Z.ai)
+Task: Permintaan user — "ini nanti pemilih kea gimana? gada tombol buat mereka gini" (layar login tidak punya pintu masuk yang jelas untuk pemilih/mahasiswa; Portal Pemilih hanya daftar statis di panel kiri + link footer pasca-login)
+
+Work Log:
+- Diagnosis: pemilih memang TIDAK login akun (auth = token anonim), tetapi layar login tak menawarkan pintu masuk sama sekali — /pemilih hanya tertulis sebagai item statis di "Peta Terminal & Kewenangan", link nyata pertama ada di footer shell setelah petugas login
+- login-screen.tsx: (1) tambah KARTU PINTU PEMILIH di antara form login & Matriks Akun Demo — kartu hijau E6F4EC border-2 ink + shadow 6px #1B7F4E, teks "Anda mahasiswa / pemilih? Pemilih tidak perlu akun — token 6 karakter dari slip QR pos bantuan PPUR", tombol besar tactile "BUKA PORTAL PEMILIH →" href /pemilih target _blank; (2) item "Portal Pemilih Online (/pemilih)" di panel kiri kini anchor klikabel (hover border #28A769) + chip "BUKA →"
+- Verifikasi: tsc 0 error; curl / dan /pemilih 200; test Playwright (scripts/shot-login-voter-button.ts) — tombol ada 1, link terminal ada 1, klik membuka tab baru ke /pemilih dan gate "PORTAL PEMILIH" tampil; screenshot shot-login-voter-button.png (viewport) & shot-login-voter-button-full.png (fullpage)
+
+Stage Summary:
+- Layar login kini punya dua pintu masuk eksplisit untuk pemilih (kartu hijau besar di kolom kanan + item terminal klikabel di panel kiri) tanpa mengubah alur auth apa pun; operator tetap via akun, pemilih tetap via token anonim

@@ -7,7 +7,7 @@
 // (matriks RBAC PRD Bab 3). Ditegakkan server-side via requireRole.
 // ============================================================
 import { useState } from "react";
-import { Fingerprint, KeyRound, Landmark, LogIn, MonitorCheck, ScanBarcode, ShieldCheck, ShieldHalf, Vote } from "lucide-react";
+import { ArrowRight, Fingerprint, KeyRound, Landmark, LogIn, MonitorCheck, ScanBarcode, ShieldCheck, ShieldHalf, Vote } from "lucide-react";
 
 export interface DemoAccount {
   username: string;
@@ -28,10 +28,10 @@ const ROLE_BADGE: Record<string, string> = {
 const TERMINALS = [
   { icon: <Landmark className="h-3.5 w-3.5" />, label: "Portal Informasi Publik", access: "Semua pengguna" },
   { icon: <ScanBarcode className="h-3.5 w-3.5" />, label: "Meja Registrasi PPUR", access: "PPUR • ITPO" },
-  { icon: <Vote className="h-3.5 w-3.5" />, label: "Portal Pemilih Online (/pemilih)", access: "Token pemilih" },
+  { icon: <Vote className="h-3.5 w-3.5" />, label: "Portal Pemilih Online (/pemilih)", access: "Token pemilih", href: "/pemilih" },
   { icon: <MonitorCheck className="h-3.5 w-3.5" />, label: "Dashboard KPUM", access: "KPUM • ITPO" },
   { icon: <ShieldHalf className="h-3.5 w-3.5" />, label: "Monitor Panwaslu & Pleno", access: "PANWASLU • SAKSI • KPUM • ITPO" },
-];
+] as Array<{ icon: React.ReactNode; label: string; access: string; href?: string }>;
 
 export function LoginScreen({ accounts, onLogin }: { accounts: DemoAccount[]; onLogin: () => Promise<void> }) {
   const [username, setUsername] = useState("");
@@ -119,13 +119,38 @@ export function LoginScreen({ accounts, onLogin }: { accounts: DemoAccount[]; on
             <Fingerprint className="h-3.5 w-3.5" aria-hidden /> Peta Terminal & Kewenangan
           </p>
           <ul className="space-y-2">
-            {TERMINALS.map((t) => (
-              <li key={t.label} className="flex items-center gap-3 rounded-[10px] border border-[#263B33] bg-[#0D1512]/80 px-3.5 py-2.5">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#39564A] bg-[#15221D] text-[#28A769]">{t.icon}</span>
-                <span className="flex-1 text-[13px] font-bold">{t.label}</span>
-                <span className="hidden font-mono text-[10px] font-bold tracking-wide text-[#64786F] sm:inline">{t.access}</span>
-              </li>
-            ))}
+            {TERMINALS.map((t) => {
+              const row = (
+                <>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#39564A] bg-[#15221D] text-[#28A769]">{t.icon}</span>
+                  <span className="flex-1 text-[13px] font-bold">{t.label}</span>
+                  <span className="hidden font-mono text-[10px] font-bold tracking-wide text-[#64786F] sm:inline">{t.access}</span>
+                  {t.href && (
+                    <span className="flex items-center gap-0.5 rounded-full border border-[#28A769] bg-[#15221D] px-2 py-0.5 font-mono text-[9.5px] font-extrabold tracking-wide text-[#28A769]">
+                      BUKA <ArrowRight className="h-3 w-3" aria-hidden />
+                    </span>
+                  )}
+                </>
+              );
+              const rowCls = "flex items-center gap-3 rounded-[10px] border px-3.5 py-2.5";
+              return (
+                <li key={t.label}>
+                  {t.href ? (
+                    <a
+                      href={t.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Buka Portal Pemilih di tab baru — tanpa login akun"
+                      className={`${rowCls} border-[#263B33] bg-[#0D1512]/80 transition-colors hover:border-[#28A769] hover:bg-[#15221D]`}
+                    >
+                      {row}
+                    </a>
+                  ) : (
+                    <div className={`${rowCls} border-[#263B33] bg-[#0D1512]/80`}>{row}</div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
 
@@ -208,6 +233,31 @@ export function LoginScreen({ accounts, onLogin }: { accounts: DemoAccount[]; on
               Sesi berlaku 8 jam (shift petugas) • cookie httpOnly bertanda tangan HMAC • seluruh endpoint modul divalidasi ulang server-side (401/403) sesuai matriks RBAC.
             </p>
           </form>
+
+          {/* ===== KARTU PINTU PEMILIH — pemilih TIDAK login akun, masuk via token ===== */}
+          <div className="mt-5 rounded-[14px] border-2 border-[#141E19] bg-[#E6F4EC] p-5 shadow-[6px_6px_0px_#1B7F4E]">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] border-2 border-[#141E19] bg-[#1B7F4E] shadow-[3px_3px_0px_#141E19]">
+                <Vote className="h-6 w-6 text-white" aria-hidden />
+              </div>
+              <div className="min-w-[200px] flex-1">
+                <h3 className="font-display text-[16px] font-extrabold tracking-[-0.01em] text-[#141E19]">Anda mahasiswa / pemilih?</h3>
+                <p className="mt-0.5 text-[12.5px] leading-relaxed text-[#3D4A43]">
+                  Pemilih <strong className="text-[#141E19]">tidak perlu akun</strong> — masuk bilik suara pakai <strong className="text-[#141E19]">token 6 karakter</strong> dari slip QR pos bantuan PPUR, langsung dari HP Anda.
+                </p>
+              </div>
+              <a
+                href="/pemilih"
+                target="_blank"
+                rel="noreferrer"
+                className="flex h-12 shrink-0 items-center gap-2 rounded-[10px] border-2 border-[#141E19] bg-[#1B7F4E] px-5 text-[13.5px] font-extrabold tracking-wide text-white shadow-[4px_4px_0px_#141E19] transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_#141E19] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[2px_2px_0px_#141E19]"
+              >
+                <Vote className="h-4 w-4" aria-hidden />
+                BUKA PORTAL PEMILIH
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </a>
+            </div>
+          </div>
 
           {/* Matriks akun demo */}
           <div className="mt-5 rounded-[14px] border border-[#D8D3C8] bg-white/70 p-5">
