@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { RegisterSW } from "@/components/pwa/register-sw";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,9 +24,24 @@ export const metadata: Metadata = {
   description:
     "Sistem Informasi Pemilihan Umum Raya Terintegrasi Ikatan Keluarga Mahasiswa Politeknik Kelapa Sawit Citra Widya Edukasi. Zero-Knowledge Ballot, aman, rahasia, dan transparan.",
   keywords: ["Smart Pemira", "Pemira", "E-Voting", "Poltek CWE", "KPUM", "Mahasiswa"],
+  manifest: "/manifest.json",
   icons: {
-    icon: "/logo.svg",
+    icon: [
+      { url: "/logo.svg", type: "image/svg+xml" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/icon-192.png",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Bilik Suara Pemira",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#1B7F4E",
 };
 
 export default function RootLayout({
@@ -40,6 +56,7 @@ export default function RootLayout({
       >
         {children}
         <Toaster />
+        <RegisterSW />
       </body>
     </html>
   );

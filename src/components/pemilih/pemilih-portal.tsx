@@ -10,16 +10,21 @@
 //    MENGGANTI SUARA sampai pemungutan ditutup, atau KUNCI SUARAKU (final)
 // ============================================================
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
+import QRCode from "qrcode";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { BallotPayload, KioskSession } from "@/lib/types";
+import type { BallotPayload, CandidateView, KioskSession } from "@/lib/types";
 import {
   AlertTriangle,
   ArrowRight,
   Check,
   ChevronLeft,
   CircleSlash,
+  Copy,
   Delete,
+  GraduationCap,
+  History,
   Lock,
   RefreshCcw,
   ReceiptText,
@@ -34,6 +39,57 @@ type Selections = Record<string, string | "EMPTY">;
 const EMPTY_BOX_COLOR = "#3F4743";
 const EMPTY_BOX_TINT = "#ECEAE4";
 
+/** Getar halus (mobile) — konfirmasi fisik saat memilih & mengirim. Aman dipanggil di mana saja. */
+function buzz(pattern: number | number[] = 10) {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    try {
+      navigator.vibrate(pattern);
+    } catch {
+      /* perangkat tanpa vibrator — abaikan */
+    }
+  }
+}
+
+// ---------- Draf pilihan tahan-refresh (localStorage per-token) ----------
+// Simpan pilihan yang belum dikirim agar refresh/back-swipe tidak mengulang
+// pengisian dari nol. Draf terhapus otomatis setelah suara terkirim/dikunci.
+const DRAFT_PREFIX = "pemira-draft-v1-";
+
+type DraftValue = string;
+
+function draftKey(token: string): string {
+  return `${DRAFT_PREFIX}${token.toUpperCase()}`;
+}
+
+function loadDraft(token: string): Record<string, DraftValue> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(draftKey(token));
+    const parsed = raw ? (JSON.parse(raw) as Record<string, DraftValue>) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveDraft(token: string, s: Record<string, DraftValue>): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(draftKey(token), JSON.stringify(s));
+  } catch {
+    /* penyimpanan penuh/diblokir — draf bersifat opsional */
+  }
+}
+
+function clearDraft(token: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(draftKey(token));
+  } catch {
+    /* noop */
+  }
+}
+
 /** Label stepper mengikuti nomenklatur resmi: DPM → BEM → HIMA */
 function stepLabel(category: string, prodiId: string): string {
   if (category === "PRESMA") return "BEM";
@@ -46,8 +102,7 @@ function CandidateAvatar({ name, photo, accent, size = 72 }: { name: string; pho
   if (photo) {
     return (
       <div className="shrink-0 overflow-hidden rounded-[10px] border-2 border-[#141E19]" style={{ width: size, height: size }}>
-        { }
-        <img src={photo} alt={`Foto ${name}`} className="h-full w-full object-cover" />
+        <Image src={photo} alt={`Foto ${name}`} width={size} height={size} className="h-full w-full object-cover" />
       </div>
     );
   }
@@ -79,7 +134,13 @@ function MemberPhoto({ name, role, photo, accent }: { name: string; role: string
       >
         {photo ? (
            
-          <img src={photo} alt={`Foto ${name} — ${role}`} className="h-full w-full object-cover object-top" loading="lazy" />
+          <Image
+            src={photo}
+            alt={`Foto ${name} — ${role}`}
+            fill
+            sizes="(max-width: 640px) 33vw, 180px"
+            className="h-full w-full object-cover object-top"
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center font-display text-xl font-extrabold text-white" aria-hidden>
             {name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
@@ -229,6 +290,99 @@ function SuaraKosongCard({
   );
 }
 
+// ---------- MODE LATIHAN — bilik simulasi penuh, tanpa server/database ----------
+function buildPracticeBallots(): BallotPayload[] {
+  const mk = (category: CandidateView["category"], stepTitle: string, color: string, tint: string, orgName: string): BallotPayload => ({
+    category,
+    stepTitle,
+    institutionLabel: "MODE LATIHAN • TIDAK DIHITUNG",
+    color,
+    tint,
+    candidates: ([1, 2] as const).map((i) => ({
+      id: `LATIHAN-${category}-${i}`,
+      category,
+      studyProgramId: null,
+      number: i,
+      presidentName: `Calon ${orgName} ${i === 1 ? "Satu" : "Dua"} (Simulasi)`,
+      viceName: category === "DPM" ? `Ketua 1 Simulasi ${i}` : `Wakil Calon ${i === 1 ? "Satu" : "Dua"} (Simulasi)`,
+      secondViceName: category === "DPM" ? `Ketua 2 Simulasi ${i}` : null,
+      photoLeaderUrl: null,
+      photoViceUrl: null,
+      photoSecondViceUrl: null,
+      vision:
+        "Contoh visi untuk latihan — mewujudkan organisasi yang aktif, kolaboratif, dan benar-benar melayani mahasiswa.",
+      missions: ["Contoh program kerja latihan pertama", "Contoh program kerja latihan kedua"],
+      isEmptyBox: false,
+      photoAccent: color,
+    })),
+  });
+  return [
+    mk("DPM", "Latihan — DPM", "#0F766E", "#E2F3F1", "DPM"),
+    mk("PRESMA", "Latihan — BEM", "#1B7F4E", "#E6F4EC", "BEM"),
+    mk("HIMA", "Latihan — HIMA", "#B45309", "#FBEFDA", "HIMA"),
+  ];
+}
+
+/** Ekstra struk: tombol salin + QR berisi tautan “Cek Struk Suara” (?cek=KODE) */
+function StrukExtras({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false);
+  const [qr, setQr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    QRCode.toDataURL(`${window.location.origin}/cek-struk?cek=${encodeURIComponent(code)}`, {
+      margin: 1,
+      width: 220,
+      color: { dark: "#141E19", light: "#FFFFFF" },
+    })
+      .then((url) => {
+        if (alive) setQr(url);
+      })
+      .catch(() => {
+        /* QR gagal dibuat — tombol salin tetap tersedia */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [code]);
+
+  async function copyCode() {
+    buzz(10);
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard diblokir browser — kode tetap bisa diseleksi manual */
+    }
+  }
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-dashed border-[#D8D3C8] pt-3">
+      <button
+        type="button"
+        onClick={copyCode}
+        className="flex h-10 shrink-0 items-center gap-1.5 rounded-[8px] border-2 border-[#141E19] bg-white px-3.5 text-[12.5px] font-extrabold shadow-[2px_2px_0px_#141E19] transition-all hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-none"
+      >
+        {copied ? <Check className="h-4 w-4 text-[#1B7F4E]" /> : <Copy className="h-4 w-4" />}
+        {copied ? "TERSALIN!" : "SALIN KODE"}
+      </button>
+      {qr && (
+        <div className="flex items-center gap-3">
+          <img
+            src={qr}
+            alt="QR kode struk — pindai untuk membuka halaman Cek Struk Suara"
+            className="h-[74px] w-[74px] rounded-[6px] border-2 border-[#141E19]"
+          />
+          <p className="max-w-[180px] text-[11px] leading-snug text-[#4A5851]">
+            Pindai QR untuk membuka <strong className="text-[#141E19]">Cek Struk Suara</strong> di perangkat mana pun.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function PemilihPortal() {
   const searchParams = useSearchParams();
   const [phase, setPhase] = useState<Phase>("gate");
@@ -246,6 +400,8 @@ export function PemilihPortal() {
   const [receiptCode, setReceiptCode] = useState<string | null>(null);
   const [voteVersion, setVoteVersion] = useState(1);
   const [lockBusy, setLockBusy] = useState(false);
+  const [practice, setPractice] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
   const activeTokenRef = useRef<string>("");
   const autoTriedRef = useRef<string>("");
 
@@ -273,8 +429,13 @@ export function PemilihPortal() {
       setBallots(json.ballots);
       setIsRevote(Boolean(json.isRevote));
       setVoteVersion(json.voteVersion ?? 1);
-      setSelections({});
-      setStep(0);
+      // Pulihkan draf bila halaman sempat ter-refresh di tengah pengisian
+      const restored = loadDraft(token);
+      const hasDraft = Object.keys(restored).length > 0;
+      setSelections(hasDraft ? restored : {});
+      setDraftRestored(hasDraft);
+      const firstUnfilled = (json.ballots as BallotPayload[]).findIndex((b) => restored[b.category] === undefined);
+      setStep(firstUnfilled === -1 ? 0 : firstUnfilled);
       setPhase("ballot");
       return true;
     } catch {
@@ -316,6 +477,55 @@ export function PemilihPortal() {
     return () => clearInterval(t);
   }, [session, phase]);
 
+  // Penjaga tutup/refresh tab — lindungi pilihan yang belum dikirim (di luar mode latihan)
+  useEffect(() => {
+    if (practice) return;
+    if (phase !== "ballot" && phase !== "review") return;
+    if (Object.keys(selections).length === 0) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [phase, selections, practice]);
+
+  /** Pilih kandidat / Suara Kosong — getar halus + simpan draf tahan-refresh */
+  const makeSelection = useCallback(
+    (category: string, value: string) => {
+      buzz(10);
+      setSelections((s) => {
+        const next = { ...s, [category]: value };
+        if (!practice && activeTokenRef.current) saveDraft(activeTokenRef.current, next);
+        return next;
+      });
+    },
+    [practice]
+  );
+
+  /** MODE LATIHAN — bilik simulasi penuh dengan kandidat contoh, tanpa menyentuh server/DB */
+  const startPractice = useCallback(() => {
+    buzz(12);
+    setPractice(true);
+    setGateError(null);
+    setSession({
+      expiresAt: null,
+      tpsName: "Simulasi",
+      studyProgramId: "SIM",
+      studyProgramName: "Simulasi Latihan",
+      himaName: "HIMA Simulasi",
+    });
+    setBallots(buildPracticeBallots());
+    setIsRevote(false);
+    setVoteVersion(1);
+    setSelections({});
+    setStep(0);
+    setSubmitError(null);
+    setReceiptCode(null);
+    setDraftRestored(false);
+    setPhase("ballot");
+  }, []);
+
   const resetAll = useCallback(() => {
     setPhase("gate");
     setTokenChars(Array(6).fill(""));
@@ -327,10 +537,23 @@ export function PemilihPortal() {
     setSubmitError(null);
     setReceiptCode(null);
     setIsRevote(false);
+    setPractice(false);
+    setDraftRestored(false);
     activeTokenRef.current = "";
   }, []);
 
   const submitVote = useCallback(async () => {
+    if (practice) {
+      // MODE LATIHAN — simulasi lokal; tidak ada request jaringan sama sekali
+      setPhase("submitting");
+      setSubmittingMsg("Simulasi Mengenkripsi & Mengacak Suara...");
+      window.setTimeout(() => {
+        buzz([40, 60, 40]);
+        setReceiptCode(null);
+        setPhase("success");
+      }, 700);
+      return;
+    }
     if (!session) return;
     setPhase("submitting");
     setSubmittingMsg(isRevote ? "Mengganti Suara Anda..." : "Mengenkripsi & Mengacak Suara...");
@@ -357,12 +580,14 @@ export function PemilihPortal() {
       setReceiptCode(json.receiptCode ?? null);
       setVoteVersion(json.voteVersion ?? 1);
       setIsRevote(Boolean(json.isRevote));
+      if (activeTokenRef.current) clearDraft(activeTokenRef.current); // suara terkirim — draf selesai
+      buzz([40, 60, 40]);
       setPhase("success");
     } catch {
       setSubmitError("Koneksi gagal saat mengirim suara. Suara tidak terkirim — coba lagi atau hubungi pos bantuan.");
       setPhase("review");
     }
-  }, [session, selections, isRevote]);
+  }, [session, selections, isRevote, practice]);
 
   const lockVote = useCallback(async () => {
     setLockBusy(true);
@@ -374,6 +599,8 @@ export function PemilihPortal() {
       });
       const json = await res.json();
       if (json.ok) {
+        if (activeTokenRef.current) clearDraft(activeTokenRef.current);
+        buzz([30, 50, 30]);
         setPhase("locked");
       } else {
         setGateError(json.message ?? "Gagal mengunci suara.");
@@ -392,6 +619,7 @@ export function PemilihPortal() {
 
   /** Keyboard fisik juga didukung (desktop) */
   const pressKey = useCallback((key: string) => {
+    buzz(6);
     setTokenChars((prev) => {
       const idx = prev.findIndex((c) => c === "");
       if (idx === -1) return prev;
@@ -489,7 +717,7 @@ export function PemilihPortal() {
                   key={k}
                   type="button"
                   onClick={() => pressKey(k)}
-                  className="h-10 rounded-lg border-2 border-[#141E19] bg-white font-mono text-sm font-bold shadow-[2px_2px_0px_#141E19] transition-all hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_#141E19] active:translate-y-0.5 active:shadow-none sm:h-11"
+                  className="h-11 rounded-lg border-2 border-[#141E19] bg-white font-mono text-sm font-bold shadow-[2px_2px_0px_#141E19] transition-all hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_#141E19] active:translate-y-0.5 active:shadow-none"
                 >
                   {k}
                 </button>
@@ -497,7 +725,7 @@ export function PemilihPortal() {
               <button
                 type="button"
                 onClick={backspace}
-                className="col-span-2 flex h-10 items-center justify-center gap-1.5 rounded-lg border-2 border-[#141E19] bg-[#F2B705] text-sm font-bold shadow-[2px_2px_0px_#141E19] transition-all hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-none sm:h-11"
+                className="col-span-2 flex h-11 items-center justify-center gap-1.5 rounded-lg border-2 border-[#141E19] bg-[#F2B705] text-sm font-bold shadow-[2px_2px_0px_#141E19] transition-all hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-none sm:h-11"
                 aria-label="Hapus karakter terakhir"
               >
                 <Delete className="h-4 w-4" /> HAPUS
@@ -516,6 +744,21 @@ export function PemilihPortal() {
               {validating ? "MEMVERIFIKASI TOKEN..." : "MASUK BILIK SUARA"}
               {!validating && <ArrowRight className="h-5 w-5" />}
             </button>
+
+            {/* MODE LATIHAN — bilik simulasi tanpa suara nyata */}
+            <div className="mt-3 rounded-[12px] border-2 border-dashed border-[#1B7F4E] bg-[#E6F4EC] p-3">
+              <button
+                type="button"
+                onClick={startPractice}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-[8px] border-2 border-[#141E19] bg-white text-[13.5px] font-extrabold tracking-wide text-[#0F5132] shadow-[3px_3px_0px_#141E19] transition-all hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#141E19] active:translate-y-0.5 active:shadow-none"
+              >
+                <GraduationCap className="h-5 w-5" aria-hidden />
+                MODE LATIHAN — COBA BILIK DULU
+              </button>
+              <p className="mt-1.5 text-center text-[11px] leading-snug text-[#3D4A43]">
+                Simulasi penuh dengan kandidat contoh — <strong>tidak ada suara tercatat</strong>.
+              </p>
+            </div>
           </div>
 
           <p className="mt-5 text-center text-xs leading-relaxed text-[#7A8881]">
@@ -554,6 +797,7 @@ export function PemilihPortal() {
             <p className="mt-2 text-[12px] leading-relaxed text-[#4A5851]">
               Simpan kode ini sebagai bukti suara tercatat di rantai hash. Cek kapan pun di Portal Publik → “Cek Struk Suara”.
             </p>
+            <StrukExtras code={receiptCode} />
           </div>
         )}
 
@@ -572,12 +816,14 @@ export function PemilihPortal() {
           <Check className="h-12 w-12 text-white" strokeWidth={3.5} />
         </div>
         <h1 className="font-display text-3xl font-extrabold tracking-[-0.03em] md:text-4xl">
-          {isRevote ? "Suara Anda Berhasil Diganti" : "Suara Anda Telah Tersimpan Rahasia"}
+          {practice ? "Latihan Selesai!" : isRevote ? "Suara Anda Berhasil Diganti" : "Suara Anda Telah Tersimpan Rahasia"}
         </h1>
         <p className="mt-3 max-w-md text-base leading-relaxed text-[#4A5851]">
-          {isRevote
-            ? `Ini versi ke-${voteVersion} dari suaramu. Versi sebelumnya otomatis tidak dihitung — suara TERAKHIR inilah yang sah.`
-            : "Terima kasih telah berpartisipasi. Bila berubah pikiran, Anda masih bisa mengganti suara sampai pemungutan ditutup."}
+          {practice
+            ? "Itulah rasanya memilih di Smart Pemira: pilih paslon di tiap surat suara (atau Suara Kosong), tinjau, kirim — dan suaramu tercatat rahasia."
+            : isRevote
+              ? `Ini versi ke-${voteVersion} dari suaramu. Versi sebelumnya otomatis tidak dihitung — suara TERAKHIR inilah yang sah.`
+              : "Terima kasih telah berpartisipasi. Bila berubah pikiran, Anda masih bisa mengganti suara sampai pemungutan ditutup."}
         </p>
 
         {/* ====== STRUK SUARA + AKSI RE-VOTE / KUNCI ====== */}
@@ -593,37 +839,69 @@ export function PemilihPortal() {
             </div>
             <p className="mt-3 font-mono text-[26px] font-extrabold tracking-[0.12em] text-[#141E19]">{receiptCode}</p>
             <p className="mt-2 text-[12px] leading-relaxed text-[#4A5851]">
-              <strong className="text-[#141E19]">Foto atau catat kode ini.</strong> Kode membuktikan suara masuk ke rantai
-              hash — tanpa membocorkan pilihan. Cek kapan pun di Portal Publik → “Cek Struk Suara”.
+              <strong className="text-[#141E19]">Salin, foto, atau pindai kode ini.</strong> Kode membuktikan suara masuk
+              ke rantai hash — tanpa membocorkan pilihan. Cek kapan pun di Portal Publik → “Cek Struk Suara”.
             </p>
+            <StrukExtras code={receiptCode} />
           </div>
         )}
 
-        <div className="mt-6 grid w-full max-w-md gap-3">
-          <button
-            type="button"
-            onClick={lockVote}
-            disabled={lockBusy}
-            className="tactile-btn flex h-14 items-center justify-center gap-2 text-base font-extrabold disabled:opacity-70"
-          >
-            <Lock className="h-5 w-5" />
-            {lockBusy ? "MENGUNCI..." : "KUNCI SUARAKU (FINAL)"}
-          </button>
-          <button
-            type="button"
-            onClick={revoteAgain}
-            disabled={lockBusy}
-            className="flex items-center justify-center gap-2 rounded-[10px] border-2 border-[#141E19] bg-white py-3.5 text-sm font-bold shadow-[3px_3px_0px_#141E19] transition-all hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#141E19] active:translate-y-0.5 active:shadow-none"
-          >
-            <RefreshCcw className="h-4 w-4" />
-            Ganti Suara Saya (Re-vote)
-          </button>
-        </div>
-        <p className="mt-4 max-w-md text-xs leading-relaxed text-[#7A8881]">
-          <strong className="text-[#141E19]">Kunci Suaraku</strong> menutup kemampuan ganti suara permanen — cocok bila Anda
-          yakin dan ingin melindungi suara dari tekanan pihak lain. Tanpa dikunci, token tetap bisa dipakai ganti suara
-          sampai pemungutan ditutup.
-        </p>
+        {practice ? (
+          <div className="mt-6 grid w-full max-w-md gap-3">
+            <div className="rounded-[12px] border-2 border-dashed border-[#1B7F4E] bg-[#E6F4EC] px-4 py-3 text-[13px] font-bold leading-relaxed text-[#0F5132]">
+              Ini MODE LATIHAN — tidak ada suara yang tercatat di sistem. Kembali ke gerbang, lalu masuk dengan token
+              aslimu untuk memilih sungguhan.
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelections({});
+                setStep(0);
+                setReceiptCode(null);
+                setPhase("ballot");
+              }}
+              className="flex items-center justify-center gap-2 rounded-[10px] border-2 border-[#141E19] bg-white py-3.5 text-sm font-bold shadow-[3px_3px_0px_#141E19] transition-all hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#141E19] active:translate-y-0.5 active:shadow-none"
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Latihan Lagi
+            </button>
+            <button
+              type="button"
+              onClick={resetAll}
+              className="flex items-center justify-center gap-2 rounded-[10px] border-2 border-[#141E19] bg-[#141E19] py-3.5 text-sm font-bold text-white shadow-[3px_3px_0px_#1B7F4E] transition-all hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#1B7F4E] active:translate-y-0.5 active:shadow-none"
+            >
+              Selesai Latihan
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="mt-6 grid w-full max-w-md gap-3">
+              <button
+                type="button"
+                onClick={lockVote}
+                disabled={lockBusy}
+                className="tactile-btn flex h-14 items-center justify-center gap-2 text-base font-extrabold disabled:opacity-70"
+              >
+                <Lock className="h-5 w-5" />
+                {lockBusy ? "MENGUNCI..." : "KUNCI SUARAKU (FINAL)"}
+              </button>
+              <button
+                type="button"
+                onClick={revoteAgain}
+                disabled={lockBusy}
+                className="flex items-center justify-center gap-2 rounded-[10px] border-2 border-[#141E19] bg-white py-3.5 text-sm font-bold shadow-[3px_3px_0px_#141E19] transition-all hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#141E19] active:translate-y-0.5 active:shadow-none"
+              >
+                <RefreshCcw className="h-4 w-4" />
+                Ganti Suara Saya (Re-vote)
+              </button>
+            </div>
+            <p className="mt-4 max-w-md text-xs leading-relaxed text-[#7A8881]">
+              <strong className="text-[#141E19]">Kunci Suaraku</strong> menutup kemampuan ganti suara permanen — cocok bila
+              Anda yakin dan ingin melindungi suara dari tekanan pihak lain. Tanpa dikunci, token tetap bisa dipakai ganti
+              suara sampai pemungutan ditutup.
+            </p>
+          </>
+        )}
       </div>
     );
   }
@@ -744,10 +1022,14 @@ export function PemilihPortal() {
             onClick={submitVote}
             className="tactile-btn flex h-16 w-full max-w-2xl items-center justify-center text-lg font-extrabold tracking-wide"
           >
-            {isRevote ? "KIRIM ULANG & GANTI SUARA" : "KIRIM SUARA SEKARANG"}
+            {isRevote ? "KIRIM ULANG & GANTI SUARA" : practice ? "KIRIM SIMULASI (LATIHAN)" : "KIRIM SUARA SEKARANG"}
           </button>
           {hasTtl && (
-            <div className={`flex items-center gap-2 rounded-full border px-4 py-1.5 font-mono-tabular text-sm font-bold ${timeCritical ? "border-[#E05A47] bg-[#FDE8E5] text-[#842029] pulse-terra" : "border-[#141E19] bg-white"}`}>
+            <div
+              role="timer"
+              aria-label="Sisa waktu sesi bilik suara"
+              className={`flex items-center gap-2 rounded-full border px-4 py-1.5 font-mono-tabular text-sm font-bold ${timeCritical ? "border-[#E05A47] bg-[#FDE8E5] text-[#842029] pulse-terra" : "border-[#141E19] bg-white"}`}
+            >
               <Timer className="h-4 w-4" />
               {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
             </div>
@@ -772,6 +1054,35 @@ export function PemilihPortal() {
           <p className="text-[13px] font-bold text-[#8A5200]">
             GANTI SUARA — pilihan baru akan menggantikan suara sebelumnya (suara terakhir yang dihitung).
           </p>
+        </div>
+      )}
+
+      {/* Banner MODE LATIHAN — simulasi lokal, tidak menyentuh server */}
+      {practice && (
+        <div className="mb-4 flex items-center gap-2 rounded-[10px] border-2 border-[#1B7F4E] bg-[#E6F4EC] px-4 py-2.5">
+          <GraduationCap className="h-4 w-4 shrink-0 text-[#0F5132]" />
+          <p className="text-[13px] font-bold text-[#0F5132]">
+            MODE LATIHAN — kandidat contoh; pilihanmu tidak dikirim ke mana pun. Kembali ke gerbang untuk memilih
+            sungguhan.
+          </p>
+        </div>
+      )}
+
+      {/* Notifikasi draf dipulihkan (setelah refresh tak sengaja) */}
+      {draftRestored && !practice && (
+        <div className="mb-4 flex items-center gap-2 rounded-[10px] border-2 border-[#0F766E] bg-[#E2F3F1] px-4 py-2.5">
+          <History className="h-4 w-4 shrink-0 text-[#0F766E]" />
+          <p className="flex-1 text-[13px] font-bold text-[#0F766E]">
+            Draf pilihanmu dipulihkan — lanjutkan dari tempat kamu berhenti.
+          </p>
+          <button
+            type="button"
+            onClick={() => setDraftRestored(false)}
+            aria-label="Tutup pemberitahuan draf"
+            className="rounded-full border border-[#0F766E] px-2 text-[13px] font-extrabold leading-6 text-[#0F766E]"
+          >
+            ×
+          </button>
         </div>
       )}
 
@@ -800,6 +1111,7 @@ export function PemilihPortal() {
 
       {/* Header banner dinamis per surat suara */}
       <header
+        key={`hdr-${current.category}`}
         className="anim-slide mb-6 overflow-hidden rounded-[14px] border-2 border-[#141E19] px-5 py-4 text-white sm:px-6 sm:py-5"
         style={{ background: current.color, boxShadow: "4px 4px 0px #141E19" }}
       >
@@ -818,6 +1130,8 @@ export function PemilihPortal() {
             </span>
             {hasTtl && (
               <span
+                role="timer"
+                aria-label="Sisa waktu sesi bilik suara"
                 className={`flex items-center gap-1.5 rounded-full border-2 border-[#141E19] px-3 py-1.5 font-mono-tabular text-sm font-bold ${
                   timeCritical ? "bg-[#FDE8E5] text-[#842029] pulse-terra" : "bg-[#FEF5D6] text-[#8A5200]"
                 }`}
@@ -830,10 +1144,17 @@ export function PemilihPortal() {
         </div>
       </header>
 
+      {hasTtl && timeCritical && (
+        <p role="alert" className="sr-only">
+          Sisa waktu sesi kurang dari dua menit — selesaikan pilihan Anda.
+        </p>
+      )}
+
       {/* Grid kandidat + SUARA KOSONG — opsi terakhir selalu tersedia di setiap
           surat suara (DPM/BEM/HIMA): pemilih boleh tidak mendukung siapapun. */}
       <div
-        className={`grid gap-5 ${current.candidates.length + 1 >= 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
+        key={`grid-${current.category}`}
+        className={`anim-slide grid gap-5 ${current.candidates.length + 1 >= 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
         aria-label="Kandidat dan opsi Suara Kosong"
       >
         {current.candidates.map((c) => (
@@ -843,12 +1164,12 @@ export function PemilihPortal() {
             color={current.color}
             tint={current.tint}
             selected={selectionForCurrent === c.id}
-            onClick={() => setSelections((s) => ({ ...s, [current.category]: c.id }))}
+            onClick={() => makeSelection(current.category, c.id)}
           />
         ))}
         <SuaraKosongCard
           selected={selectionForCurrent === "EMPTY"}
-          onClick={() => setSelections((s) => ({ ...s, [current.category]: "EMPTY" }))}
+          onClick={() => makeSelection(current.category, "EMPTY")}
         />
       </div>
 

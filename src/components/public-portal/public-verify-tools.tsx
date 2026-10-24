@@ -7,8 +7,8 @@
 //    perhitungan ulang dari kotak suara saat ini.
 // Tanpa identitas, tanpa isi suara — murni bukti integritas.
 // ============================================================
-import { useState } from "react";
-import { CheckCircle2, FileSearch, Loader2, ReceiptText, ShieldQuestion, XCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { CheckCircle2, FileSearch, FileText, Loader2, ReceiptText, ShieldQuestion, XCircle } from "lucide-react";
 
 interface ReceiptResult {
   ok: boolean;
@@ -38,6 +38,28 @@ export function ReceiptChecker() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ReceiptResult | null>(null);
+  const autoRanRef = useRef(false);
+
+  // Deep-link dari QR struk di bilik suara (?cek=KODE) — isi otomatis + periksa sekali
+  useEffect(() => {
+    if (autoRanRef.current) return;
+    const q = new URLSearchParams(window.location.search).get("cek")?.trim().toUpperCase() ?? "";
+    if (/^[A-Z0-9-]{12,16}$/.test(q)) {
+      autoRanRef.current = true;
+      setCode(q);
+      void (async () => {
+        setBusy(true);
+        try {
+          const res = await fetch(`/api/public/receipt?code=${encodeURIComponent(q)}`, { cache: "no-store" });
+          setResult((await res.json()) as ReceiptResult);
+        } catch {
+          setResult({ ok: false, found: false, message: "Kesalahan jaringan — coba lagi." });
+        } finally {
+          setBusy(false);
+        }
+      })();
+    }
+  }, []);
 
   async function check() {
     if (!code.trim()) return;
@@ -167,8 +189,20 @@ export function BeritaAcaraVerifier({ plenoUnlocked }: { plenoUnlocked: boolean 
 
       {!plenoUnlocked && !result && (
         <p className="mt-3 rounded-[10px] border border-dashed border-[#D8D3C8] px-3 py-2 text-[12px] text-[#7A8881]">
-          Berita Acara final terbit setelah Sidang Pleno (FR-06.3). Verifikasi dapat dilakukan setelah kotak suara dibuka.
+          Berita Acara final terbit setelah Sidang Pleno (FR-06.3). Verifikasi dan unduhan dapat dilakukan setelah kotak
+          suara dibuka.
         </p>
+      )}
+
+      {/* Unduh dokumen BA resmi (PDF) — hanya setelah Pleno Unlocking (Rekomendasi #9) */}
+      {plenoUnlocked && (
+        <a
+          href="/api/public/ba-pdf"
+          className="mt-3 flex h-11 items-center justify-center gap-2 rounded-[8px] border-2 border-[#141E19] bg-[#FEF5D6] px-4 text-[12.5px] font-extrabold text-[#8A5200] shadow-[3px_3px_0px_#141E19] transition-all hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#141E19] active:translate-y-0.5 active:shadow-none"
+        >
+          <FileText className="h-4 w-4" aria-hidden />
+          Unduh Berita Acara Resmi (PDF)
+        </a>
       )}
 
       {result && (

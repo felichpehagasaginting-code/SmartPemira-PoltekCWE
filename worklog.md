@@ -278,3 +278,27 @@ Work Log:
 
 Stage Summary:
 - KEPUTUSAN ARSITEKTUR: gerbang token tetap fisik di pos PPUR (verifikasi KTM/KRS) + voting 100% online BYOD — sistem tidak diubah; claim UI "100% Online" merujuk pada pemungutan suara, bukan penerbitan token
+
+---
+Task ID: 14 (Eksekusi 10 Rekomendasi Upgrade UI/UX)
+Agent: main (Z.ai)
+Task: Permintaan user "eksekusi semuanya" — 10 rekomendasi upgrade UI/UX berdasarkan prioritas P0-P2
+
+Work Log:
+- P0#1 Draft tahan-refresh: pemilih-portal.tsx — helper loadDraft/saveDraft/clearDraft (localStorage per-token "pemira-draft-v1-<TOKEN>"), makeSelection() menyimpan draf tiap pilih, validateToken memulihkan draf + melompat ke surat pertama yang belum terisi + banner "Draf dipulihkan" (dismissible), clearDraft otomatis saat submit sukses & Kunci Suaraku, beforeunload guard saat ballot/review dengan pilihan terisi (di luar mode latihan)
+- P0#2 PWA: public/manifest.json (start_url /pemilih, standalone, theme #1B7F4E, 3 ikon), scripts/gen-pwa-icons.ts (Playwright render SVG→PNG icon-192/512/maskable-512 — dokumen suara + centang di kotak hijau), public/sw.js (SW minimal network-first navigasi → fallback /offline; TIDAK cache data pemilu), src/app/offline/page.tsx, components/pwa/register-sw.tsx, layout.tsx (metadata.manifest + icons + appleWebApp + viewport themeColor)
+- P0#3 Boundary: src/app/error.tsx (reset + kode digest), global-error.tsx, loading.tsx, not-found.tsx (404 kustom + 2 CTA), pemilih/error.tsx (bahasa tenang khas bilik: "tidak ada suara terkirim sebelum tombol kirim, draf aman"), pemilih/loading.tsx
+- P1#4 Timer TTL ternyata sudah ada → poles: role="timer" + aria-label pada 2 chip, sr-only role="alert" sekali saat <2 menit
+- P1#5 Struk 2.0: komponen StrukExtras (tombol SALIN KODE + clipboard, QR data-URL via lib qrcode menaut /cek-struk?cek=KODE) di layar sukses & terkunci; HALAMAN BARU /cek-struk (publik tanpa login — QR ?cek= auto-isi + auto-periksa via useEffect di ReceiptChecker)
+- P1#6 Mode Latihan: buildPracticeBallots() (DPM/PRESMA/HIMA dummy 2 kandidat, DPM 3 peran), tombol gerbang "MODE LATIHAN — COBA BILIK DULU", banner latihan di bilik & review, submit simulasi lokal 700ms tanpa jaringan, layar "Latihan Selesai!" dgn Latihan Lagi/Selesai, tanpa struk & tanpa draft
+- P2#7 Aksesibilitas: globals.css @media prefers-reduced-motion (matikan animasi) + :focus-visible outline 3px #1B7F4E; keypad & HAPUS h-10→h-11 (44px); font bump login (10/10.5px → 10.5/11/12.5px)
+- P2#8 Haptik: buzz() navigator.vibrate pada pilih kandidat/suara kosong/kepad/submit/lock; header & grid surat suara key={category} + anim-slide (replay per langkah)
+- P2#9 BA PDF: bun add pdf-lib; /api/public/ba-pdf (A4, kop IKM, rekap partisipasi+turnout, hasil per kategori dgn bar # dan baris SUARA KOSONG, integritas 5 rantai + head hash, tanda tangan SHA-256 wrap, kolom ttd KPUM/Panwaslu, footer zero-knowledge; 423 sebelum Pleno Unlock); tombol "Unduh Berita Acara Resmi (PDF)" di BeritaAcaraVerifier saat plenoUnlocked
+- P2#10 Higiene: artefak { } dihapus, <img> foto kandidat → next/image (fill + sizes untuk MemberPhoto, w/h untuk CandidateAvatar), favicon via icon PNG/SVG metadata, 404 kustom
+- E2E scripts/e2e-ux-upgrades.ts: 25 PASS 0 FAIL (PWA head links, 404 kustom, mode latihan penuh 7 asersi, draft reload-restore + lompat HIMA, suara nyata → struk → SALIN + QR, deep-link /cek-struk?cek= auto-verify, revote + lock final, tanpa pageerror)
+- E2E scripts/e2e-ba-pdf.ts: unlock KPUM via UI → PDF 200 5271B %PDF- application/pdf; sample disimpan screenshots/ba-pdf-sample.pdf (2 halaman valid)
+- Regresi: seed segar → e2e-test.ts (hukum arsitektur + re-vote + RBAC) LULUS; seed → e2e-features-test.ts 37 lulus 0 gagal; tsc 0 error; eslint bersih; DB reseed demo segar
+- Temuan perbaikan di tengah jalan: QR struk semula menaut /?cek= yang mendarat di layar login petugas → dibuat halaman publik /cek-struk agar pemilih tanpa sesi tetap bisa cek struk
+
+Stage Summary:
+- Seluruh 10 rekomendasi UI/UX tereksekusi tervalidasi (UX E2E 25/25, BA-PDF 3/3, regresi inti + fitur 37/37, tsc/lint bersih); alur voting kini tahan refresh (draf), punya mode latihan tanpa risiko, struk bisa disalin/dipindai (QR → /cek-struk), installable PWA dengan fallback offline, boundary error ramah di semua level, BA resmi dapat diunduh publik sebagai PDF bertanda tangan, dan aksesibilitas (reduced-motion, focus-visible, hit-target, font) naik kelas

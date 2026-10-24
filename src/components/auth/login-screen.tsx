@@ -95,7 +95,7 @@ export function LoginScreen({ accounts, onLogin }: { accounts: DemoAccount[]; on
             </div>
             <div>
               <p className="font-display text-[22px] font-extrabold leading-none tracking-[-0.02em]">SMART PEMIRA</p>
-              <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[#9EB0A7]">Poltek CWE • Sistem E-Voting IKM</p>
+              <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.2em] text-[#9EB0A7]">Poltek CWE • Sistem E-Voting IKM</p>
             </div>
           </div>
 
@@ -115,7 +115,7 @@ export function LoginScreen({ accounts, onLogin }: { accounts: DemoAccount[]; on
 
         {/* Daftar terminal */}
         <div className="relative mt-10 lg:mt-0">
-          <p className="mb-3 flex items-center gap-2 text-[10.5px] font-extrabold uppercase tracking-[0.18em] text-[#9EB0A7]">
+          <p className="mb-3 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#9EB0A7]">
             <Fingerprint className="h-3.5 w-3.5" aria-hidden /> Peta Terminal & Kewenangan
           </p>
           <ul className="space-y-2">
@@ -156,8 +156,13 @@ export function LoginScreen({ accounts, onLogin }: { accounts: DemoAccount[]; on
 
         {/* Footer keamanan */}
         <div className="relative mt-10 flex flex-wrap items-center gap-2 lg:mt-0">
-          {["RBAC 5 Peran", "Zero-Knowledge Ballot", "Sesi HMAC-SHA256", "Password scrypt"].map((chip) => (
-            <span key={chip} className="rounded-full border border-[#39564A] bg-[#15221D] px-3 py-1 text-[10.5px] font-bold tracking-wide text-[#9EB0A7]">
+          {[
+            "RBAC 5 Peran",
+            "Zero-Knowledge Ballot",
+            "Sesi HMAC-SHA256",
+            "Password scrypt",
+          ].map((chip) => (
+            <span key={chip} className="rounded-full border border-[#39564A] bg-[#15221D] px-3 py-1 text-[11px] font-bold tracking-wide text-[#9EB0A7]">
               {chip}
             </span>
           ))}
@@ -263,7 +268,7 @@ export function LoginScreen({ accounts, onLogin }: { accounts: DemoAccount[]; on
           <div className="mt-5 rounded-[14px] border border-[#D8D3C8] bg-white/70 p-5">
             <div className="flex items-center justify-between gap-2">
               <h3 className="font-display text-[15px] font-extrabold text-[#141E19]">Matriks Akun Demo</h3>
-              <span className="rounded-full border border-[#141E19] bg-[#F2B705] px-2.5 py-0.5 font-mono text-[10px] font-extrabold text-[#141E19]">KLIK UNTUK ISI OTOMATIS</span>
+              <span className="rounded-full border border-[#141E19] bg-[#F2B705] px-2.5 py-0.5 font-mono text-[10.5px] font-extrabold text-[#141E19]">KLIK UNTUK ISI OTOMATIS</span>
             </div>
             <div className="mt-3 overflow-hidden rounded-[10px] border border-[#D8D3C8]">
               <table className="w-full text-left text-[12.5px]">
@@ -286,14 +291,14 @@ export function LoginScreen({ accounts, onLogin }: { accounts: DemoAccount[]; on
                       className="cursor-pointer border-t border-[#D8D3C8] transition-colors hover:bg-[#F6F4EE]"
                     >
                       <td className="px-3 py-2">
-                        <span className={`inline-flex items-center gap-1.5 rounded-full border border-[#141E19] px-2 py-0.5 font-mono text-[10.5px] font-extrabold text-white ${ROLE_BADGE[a.role] ?? "bg-[#3F4743]"}`}>
+                        <span className={`inline-flex items-center gap-1.5 rounded-full border border-[#141E19] px-2 py-0.5 font-mono text-[11px] font-extrabold text-white ${ROLE_BADGE[a.role] ?? "bg-[#3F4743]"}`}>
                           {a.role}
                         </span>
                       </td>
                       <td className="px-3 py-2 font-mono font-semibold text-[#141E19]">
                         {a.username} / {a.password}
                       </td>
-                      <td className="hidden px-3 py-2 text-[12px] text-[#4A5851] sm:table-cell">{a.landing}</td>
+                      <td className="hidden px-3 py-2 text-[12.5px] text-[#4A5851] sm:table-cell">{a.landing}</td>
                     </tr>
                   ))}
                 </tbody>

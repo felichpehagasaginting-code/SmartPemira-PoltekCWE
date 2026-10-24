@@ -1,0 +1,33 @@
+{
+  "name": "Smart Pemira — Poltek CWE",
+  "short_name": "Bilik Suara",
+  "description": "Bilik suara online Pemira Poltek CWE — pilih dari perangkatmu sendiri dengan token anonim. Zero-Knowledge Ballot.",
+  "start_url": "/pemilih",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F6F4EE",
+  "theme_color": "#1B7F4E",
+  "lang": "id",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
