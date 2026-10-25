@@ -302,3 +302,17 @@ Work Log:
 
 Stage Summary:
 - Seluruh 10 rekomendasi UI/UX tereksekusi tervalidasi (UX E2E 25/25, BA-PDF 3/3, regresi inti + fitur 37/37, tsc/lint bersih); alur voting kini tahan refresh (draf), punya mode latihan tanpa risiko, struk bisa disalin/dipindai (QR → /cek-struk), installable PWA dengan fallback offline, boundary error ramah di semua level, BA resmi dapat diunduh publik sebagai PDF bertanda tangan, dan aksesibilitas (reduced-motion, focus-visible, hit-target, font) naik kelas
+
+---
+Task ID: 15 (Jalankan Sandbox + Health Check Menyeluruh)
+Agent: main (Z.ai)
+Task: Permintaan user "jalankan sandbox nya dong" — hidupkan & verifikasi environment preview
+
+Work Log:
+- Dev server Next.js 16 aktif di port 3000 (proses next-server v16.1.3, HTTP 200)
+- Health check 8 route: / (200), /pemilih (200), /cek-struk (200), /offline (200), /manifest.json (200), /verify (200), /api/health (200), /api/public/ba-pdf (423 Locked = benar, Pleno masih terkunci, state demo segar)
+- Smoke test Playwright mobile 390x844 (scripts/shot-sandbox-smoke.ts): root memuat kartu pintu pemilih, gate /pemilih terlihat, 0 pageerror → PASS; screenshot sandbox-root.png & sandbox-pemilih.png
+- Probed kandidat subdomain preview-*.space-z.ai → semuanya 404 gateway (bot ID tidak terekspos di dalam sandbox); konfirmasi next.config.ts sengaja tanpa X-Frame-Options pada dev agar panel preview platform bisa embed
+
+Stage Summary:
+- Sandbox Smart Pemira LIVE dan tervalidasi penuh (semua route sehat, UI render mulus, 0 error console); state DB demo segar — Pleno terkunci, BA PDF 423, siap dipakai demonstrasi alur token → bilik → struk → re-vote → kunci
