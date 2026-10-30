@@ -316,3 +316,17 @@ Work Log:
 
 Stage Summary:
 - Sandbox Smart Pemira LIVE dan tervalidasi penuh (semua route sehat, UI render mulus, 0 error console); state DB demo segar — Pleno terkunci, BA PDF 423, siap dipakai demonstrasi alur token → bilik → struk → re-vote → kunci
+
+---
+Task ID: 16 (Insiden Restart Sandbox — Pelajaran Operasional)
+Agent: main (Z.ai)
+Task: Permintaan user "aktifkan ulang" — saya pkill server yang sebenarnya sudah jalan, lalu gagal menghidupkannya kembali dari sesi shell
+
+Work Log:
+- FAKTA KRITIS: server dev Next.js di-start oleh supervisor platform (zcode-driver) HANYA saat boot sesi (bukti: proses `next dev -p 3000 | tee dev.log` = bentuk persis script "dev" package.json, boot baru di setiap giliran pesan user: 14:25 → 16:29 → 01:39)
+- Proses background yang di-spawn dari sesi shell assistant SELALU dimatikan antar pemanggilan tool (sudah dicoba: nohup, setsid+disown, double-detach, warm-up compile penuh sampai 200 OK — tetap mati/tak reachabel di call berikutnya; indikasi reap antar-exec / netns terpisah)
+- Driver TIDAK me-restore proses yang mati (ditunggu 45s+, tetap 0 proses) — JADI: JANGAN PERNAH pkill next dev; kalau server mati, jalan keluarnya hanya boot sesi baru (user kirim pesan apa pun / refresh chat)
+- Kode & database aman total (SQLite file-based di db/custom.db, tidak ada yang hilang)
+
+Stage Summary:
+- Insiden operasional murni (bukan bug aplikasi): server hanya bisa dihidupkan oleh boot sesi platform; server akan otomatis nyala kembali saat pesan user berikutnya — tambahkan pengetahuan ini ke memori operasional semua sesi berikutnya
