@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireRole } from "@/lib/server/auth";
 import { getTallyReport } from "@/lib/db/tally-service";
 import { buildBaCanonical, collectBaTotals, computeBaSignature } from "@/lib/server/ba-canonical";
+import { getBaPublicKeyPem, signBaCanonical } from "@/lib/server/ba-signing";
 
 export async function GET() {
   const gate = await requireRole(["KPUM", "ITPO"]);
@@ -33,6 +34,23 @@ export async function GET() {
     plenoUnlockedAt: setting.plenoUnlockedAt ?? null,
   });
   const signature = computeBaSignature(canonical);
+  // Rekomendasi #2: tanda tangan Ed25519 — prioritas tanda tangan yang
+  // DIFIKSASI saat Pleno Unlock (attestation resmi); bila belum ada, tandatangani
+  // sekarang dan simpan agar dokumen berubah tidak mengubah tanda tangan resmi.
+  const storedEdSig =
+    setting.baSignatureEd25519 ??
+    (await db.electionSetting
+      .update({
+        where: { id: "main" },
+        data: { baSignatureEd25519: signBaCanonical(canonical), baSignedAt: new Date() },
+      })
+      .then((s) => s.baSignatureEd25519));
+  const ed25519Consistent = storedEdSig
+    ? (() => {
+        const { verifyBaSignature } = require("@/lib/server/ba-signing") as typeof import("@/lib/server/ba-signing");
+        return verifyBaSignature(canonical, storedEdSig);
+      })()
+    : false;
 
   return NextResponse.json({
     ok: true,

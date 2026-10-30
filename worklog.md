@@ -330,3 +330,24 @@ Work Log:
 
 Stage Summary:
 - Insiden operasional murni (bukan bug aplikasi): server hanya bisa dihidupkan oleh boot sesi platform; server akan otomatis nyala kembali saat pesan user berikutnya — tambahkan pengetahuan ini ke memori operasional semua sesi berikutnya
+
+---
+Task ID: 17 (Forensik Sandbox — Reaper Platform & Jalan Pulang)
+Agent: main (Z.ai)
+Task: Lanjutan insiden Task 16 — kenapa server tak bisa dihidupkan manual, dan bagaimana preview kembali
+
+Work Log:
+- FORENSIK LENGKAP (uji kontrol python vs node vs bun vs port):
+  (1) Proses python3 di port bebas (3999) → SELAMAT lintas sesi shell (2x terverifikasi)
+  (2) Proses python3 di port 3000 → DIMATIKAN (port 3000 dijaga absolut, binari apa pun)
+  (3) Proses node apa pun (port 3999 polos, next dev 3001, standalone node) → SELALU DIMATIKAN antar call
+  (4) Proses bun (standalone server.js port 3001, RSS cuma 141MB, health OK) → juga DIMATIKAN
+  KESIMPULAN: reaper platform memburu (a) semua proses runtime node/bun milik assistant, (b) semua proses yang bind port 3000 — hanya driver (zcode-driver) yang berhak menjalankan aplikasi. BUKAN OOM (limit cgroup 4GB, usage 2GB), bukan namespace (net/pid ns identik antar call)
+- Bukan OOM terbukti: /sys/fs/cgroup/memory.max = 4294967296 (4GB), dev.log bersih tanpa error
+- Solusi teknis yang TERBUKTI jalan (untuk dipakai bila suatu saat diizinkan): npm run build sukses → standalone .next/standalone/server.js + `PORT=3001 HOSTNAME=0.0.0.0 DATABASE_URL=... bun server.js` → 200 + /api/health ok RSS 141MB (jauh lebih hemat dari dev 900MB)
+- Uji regenerasi boot: `next dev` dengan .next campuran (artefak production + dev) → 200, compile / 4ms (cache hangat) → boot otomatis platform berikutnya AMAN, tidak rusak oleh build production
+- Pemulihan preview: satu-satunya jalan = recycle sandbox oleh platform (terjadi otomatis setelah idle ±30-60 menit, pola boot 14:25 → 16:29 → 01:39) atau user restart sandbox dari UI platform; saat boot, driver menjalankan `npm run dev` (package.json "dev") otomatis di port 3000
+- Cron one_time dipasang ±12 menit: verifikasi :3000/api/health dan laporkan ke user (jika recycle sudah terjadi, konfirmasi hidup; jika belum, ingatkan jangan start manual)
+
+Stage Summary:
+- Misteri "aktifkan ulang" tuntas: aplikasi TIDAK BISAh dijalankan permanen dari sesi assistant (reaper platform); preview pulih otomatis via recycle sandbox; semua artefak sehat (kode, DB, build production baru, cache dev hangat) — boot berikutnya langsung siap demo

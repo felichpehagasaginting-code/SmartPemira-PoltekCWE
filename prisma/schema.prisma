@@ -153,6 +153,11 @@ model ElectionSetting {
   plenoUnlocked   Boolean  @default(false) // HUKUM 5: Pleno Vault Lock
   plenoUnlockedAt DateTime?
   sessionSecret   String   @default("") // HMAC secret untuk sesi operator (RBAC)
+  // Rekomendasi #2: tanda tangan asimetris Ed25519 atas kanonikal BA —
+  // kunci privat dipegang sistem penyelenggara, kunci PUBLIK dipublikasikan
+  // sehingga siapa pun dapat memverifikasi tanpa rahasia apa pun.
+  baSignatureEd25519 String? // base64 signature Ed25519 atas kanonikal BA
+  baSignedAt         DateTime? // kapan BA ditandatangani (Pleno Unlock)
   // Siklus hidup pemira — "Segel & Reset": tiap periode/gelombang punya label
   // sendiri; reset periode mengarsipkan lembar lama lalu membuka lembar baru.
   periodLabel     String   @default("Pemira Poltek CWE 2026")
@@ -176,6 +181,7 @@ model ElectionArchive {
   summaryJson    String // rekap tally lengkap + totals + integritas rantai
   canonical      String // kanonikal BA C-KWE saat penyegelan
   signature      String // SHA-256 kanonikal (identik dgn BA yang dipublikasi)
+  signatureEd25519 String? // Rekomendasi #2: tanda tangan Ed25519 atas kanonikal arsip
   auditLogJson   String // snapshot penuh audit log periode lama (append-only)
   incidentsJson  String // snapshot laporan sengketa
   candidatesJson String // snapshot kandidat (referensi pemulihan periode baru)
@@ -196,6 +202,13 @@ model Operator {
   tpsId        String? // operator PPUR terikat TPS tertentu (FR-04.1)
   isActive     Boolean  @default(true)
   mustChangePassword Boolean @default(false) // sandi sementara dari reset ITPO — wajib diganti saat login
+  // Rekomendasi #3 — 2FA TOTP (RFC 6238). Secret disimpan TERENKRIPSI
+  // AES-256-GCM (kunci diturunkan dari sessionSecret); kode cadangan disimpan
+  // sebagai hash scrypt sehingga bocornya DB tidak membuka pintu kedua.
+  totpPendingSecret String?    // secret base32 sementara — belum terkonfirmasi
+  totpSecret        String?    // secret base32 TERENKRIPSI — aktif setelah konfirmasi
+  totpEnabledAt     DateTime?  // null = 2FA belum aktif untuk akun ini
+  backupCodesJson   String?    // JSON array hash scrypt kode cadangan sekali pakai
   lastLoginAt  DateTime?
   createdAt    DateTime @default(now())
 }
