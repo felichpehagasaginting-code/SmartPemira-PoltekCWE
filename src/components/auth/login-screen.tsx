@@ -36,6 +36,8 @@ const TERMINALS = [
 export function LoginScreen({ accounts, onLogin }: { accounts: DemoAccount[]; onLogin: () => Promise<void> }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+  const [needs2fa, setNeeds2fa] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successName, setSuccessName] = useState<string | null>(null);
@@ -52,10 +54,11 @@ export function LoginScreen({ accounts, onLogin }: { accounts: DemoAccount[]; on
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: username.trim(), password }),
+        body: JSON.stringify({ username: username.trim(), password, totpCode: totpCode.trim() }),
       });
       const body = await res.json();
       if (!res.ok || !body.ok) {
+        if (body.needs2fa) setNeeds2fa(true);
         setError(body.message ?? "Login gagal.");
         return;
       }
@@ -209,6 +212,21 @@ export function LoginScreen({ accounts, onLogin }: { accounts: DemoAccount[]; on
                   autoComplete="current-password"
                   className="mt-1 h-12 w-full rounded-[8px] border-2 border-[#141E19] bg-white px-3 font-mono text-[15px] text-[#141E19] focus:outline-none focus:ring-2 focus:ring-[#1B7F4E]"
                   placeholder="••••••••"
+                />
+              </label>
+              <label className={`block ${needs2fa ? "rounded-[8px] border-2 border-[#F2B705] bg-[#FEF5D6] p-2.5" : ""}`}>
+                <span className="flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.08em] text-[#4A5851]">
+                  <ShieldCheck className="h-3.5 w-3.5 text-[#1B7F4E]" aria-hidden />
+                  Kode 2FA {needs2fa ? <span className="text-[#8A5200]">— WAJIB untuk akun ini</span> : <span className="font-medium normal-case text-[#7A8881]">(jika 2FA aktif)</span>}
+                </span>
+                <input
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value.replace(/[^\dA-Za-z-]/g, ""))}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={10}
+                  className={`mt-1 h-12 w-full rounded-[8px] border-2 bg-white px-3 font-mono text-[15px] tracking-[0.35em] text-[#141E19] focus:outline-none focus:ring-2 focus:ring-[#1B7F4E] ${needs2fa ? "border-[#8A5200]" : "border-[#141E19]"}`}
+                  placeholder="• • • • • •"
                 />
               </label>
             </div>

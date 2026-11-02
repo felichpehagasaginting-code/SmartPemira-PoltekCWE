@@ -23,6 +23,7 @@ import { createHash, randomBytes, randomUUID } from "crypto";
 import { db } from "@/lib/db";
 import { getTallyReport } from "@/lib/db/tally-service";
 import { buildBaCanonical, collectBaTotals, computeBaSignature } from "@/lib/server/ba-canonical";
+import { signBaCanonical } from "@/lib/server/ba-signing";
 
 export type ResetMode = "DEMO" | "NEW_PERIOD";
 
@@ -144,6 +145,9 @@ async function collectSealPayload(sealedBy: string, mode: ResetMode, note: strin
     plenoUnlockedAt: setting.plenoUnlockedAt ?? null,
   });
   const signature = computeBaSignature(canonical);
+  // Rekomendasi #2: arsip penutupan juga ditandatangani Ed25519 — bukti
+  // pengarang yang terverifikasi publik, tidak hanya integritas SHA-256.
+  const signatureEd25519 = signBaCanonical(canonical);
 
   const year = new Date().getFullYear();
   const archiveCode = `ARS-${year}-${String(archiveCount + 1).padStart(4, "0")}`;
@@ -166,7 +170,8 @@ async function collectSealPayload(sealedBy: string, mode: ResetMode, note: strin
     chainHeads: tps.map((t) => ({ tpsId: t.id, name: t.name, headHash: t.lastChainHash })),
     canonical,
     signature,
-    algorithm: "SHA-256 (kanonikal rekap latest-wins + 5 head rantai prodi + statistik re-vote)",
+    signatureEd25519,
+    algorithm: "SHA-256 kanonikal + Ed25519 (rekap latest-wins + 5 head rantai prodi + statistik re-vote)",
     auditLogSnapshot: auditLogs.map((a) => ({
       event: a.event,
       detail: a.detail,
@@ -268,6 +273,7 @@ export async function sealAndReset(opts: {
         }),
         canonical: String(payload.canonical),
         signature: String(payload.signature),
+        signatureEd25519: String(payload.signatureEd25519),
         auditLogJson: JSON.stringify(payload.auditLogSnapshot),
         incidentsJson: JSON.stringify(payload.incidentsSnapshot),
         candidatesJson: JSON.stringify(payload.candidatesSnapshot),

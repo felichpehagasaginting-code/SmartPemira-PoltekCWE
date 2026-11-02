@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { requireRole } from "@/lib/server/auth";
 import { getTallyReport } from "@/lib/db/tally-service";
 import { buildBaCanonical, collectBaTotals, computeBaSignature } from "@/lib/server/ba-canonical";
-import { getBaPublicKeyPem, signBaCanonical } from "@/lib/server/ba-signing";
+import { getBaPublicKeyPem, signBaCanonical, verifyBaSignature } from "@/lib/server/ba-signing";
 
 export async function GET() {
   const gate = await requireRole(["KPUM", "ITPO"]);
@@ -34,23 +34,19 @@ export async function GET() {
     plenoUnlockedAt: setting.plenoUnlockedAt ?? null,
   });
   const signature = computeBaSignature(canonical);
-  // Rekomendasi #2: tanda tangan Ed25519 — prioritas tanda tangan yang
-  // DIFIKSASI saat Pleno Unlock (attestation resmi); bila belum ada, tandatangani
-  // sekarang dan simpan agar dokumen berubah tidak mengubah tanda tangan resmi.
-  const storedEdSig =
-    setting.baSignatureEd25519 ??
-    (await db.electionSetting
-      .update({
-        where: { id: "main" },
-        data: { baSignatureEd25519: signBaCanonical(canonical), baSignedAt: new Date() },
-      })
-      .then((s) => s.baSignatureEd25519));
-  const ed25519Consistent = storedEdSig
-    ? (() => {
-        const { verifyBaSignature } = require("@/lib/server/ba-signing") as typeof import("@/lib/server/ba-signing");
-        return verifyBaSignature(canonical, storedEdSig);
-      })()
-    : false;
+  // Rekomendasi #2: tanda tangan Ed25519 DIFIKSASI saat Pleno Unlock (attestation
+  // resmi tersimpan); BA yang dihasilkan sebelum upgrade ini ditandatangani
+  // sekarang sekali saja. Verifikasi ulang terhadap kanonikal terkini membuat
+  // pergeseran kondisi kotak suara setelah penandatanganan langsung terlihat.
+  let storedEdSig = setting.baSignatureEd25519;
+  if (!storedEdSig) {
+    storedEdSig = signBaCanonical(canonical);
+    await db.electionSetting.update({
+      where: { id: "main" },
+      data: { baSignatureEd25519: storedEdSig, baSignedAt: setting.baSignedAt ?? new Date() },
+    });
+  }
+  const ed25519Consistent = verifyBaSignature(canonical, storedEdSig);
 
   return NextResponse.json({
     ok: true,
@@ -77,7 +73,11 @@ export async function GET() {
         panwaslu: panwasluChair?.fullName ?? "Ketua Panwaslu",
       },
       signature,
-      algorithm: "SHA-256 (kanonikal rekap latest-wins + 5 head rantai prodi + statistik re-vote)",
+      signatureEd25519: storedEdSig,
+      baSignedAt: setting.baSignedAt?.toISOString() ?? null,
+      ed25519Consistent,
+      publicKeyPem: getBaPublicKeyPem(),
+      algorithm: "SHA-256 kanonikal + Ed25519 (kunci publik dipublikasikan — rekap latest-wins + 5 head rantai prodi + statistik re-vote)",
     },
   });
 }

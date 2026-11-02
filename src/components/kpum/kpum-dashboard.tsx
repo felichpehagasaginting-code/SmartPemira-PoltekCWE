@@ -7,6 +7,7 @@
 // ============================================================
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
+import { AlertCenter } from "@/components/pleno/alert-center";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -164,6 +165,8 @@ export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }
 
   return (
     <div className="space-y-6">
+      {/* Rekomendasi #7 — pusat peringatan operasional KPUM */}
+      <AlertCenter />
       {/* ---------- Bento Row: KPI ---------- */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {[

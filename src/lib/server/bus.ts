@@ -14,7 +14,10 @@ export type AuthEventType =
   | "OPERATOR_LOGOUT"
   | "OPERATOR_PASSWORD_CHANGED"
   | "OPERATOR_PASSWORD_CHANGE_FAILED"
-  | "OPERATOR_PASSWORD_RESET";
+  | "OPERATOR_PASSWORD_RESET"
+  // Rekomendasi #3 — 2FA TOTP
+  | "OPERATOR_2FA_ENABLED"
+  | "OPERATOR_2FA_DISABLED";
 
 export interface AuthEventPayload {
   type: AuthEventType;

@@ -4,6 +4,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getTallyReport } from "@/lib/db/tally-service";
+import { buildBaCanonical, collectBaTotals } from "@/lib/server/ba-canonical";
+import { signBaCanonical } from "@/lib/server/ba-signing";
 import { requireRole } from "@/lib/server/auth";
 
 export async function POST() {
@@ -35,6 +37,14 @@ export async function POST() {
     ]);
 
     const report = await getTallyReport();
+    // Rekomendasi #2: tanda tangan Ed25519 BA DIFIKSASI di detik Pleno Unlock —
+    // attestation tersimpan di ElectionSetting; dokumen berita acara yang
+    // diunduh kapan pun memverifikasi ulang tanda tangan ini.
+    const baCanonical = buildBaCanonical({ ...await collectBaTotals(), tally: report, plenoUnlockedAt: setting.plenoUnlockedAt });
+    await db.electionSetting.update({
+      where: { id: "main" },
+      data: { baSignatureEd25519: signBaCanonical(baCanonical), baSignedAt: new Date() },
+    });
     return NextResponse.json({ ok: true, report });
   } catch {
     return NextResponse.json({ ok: false, message: "Gagal membuka kotak suara digital." }, { status: 500 });

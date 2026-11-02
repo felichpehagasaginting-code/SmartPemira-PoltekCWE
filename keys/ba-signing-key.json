@@ -1,0 +1,6 @@
+{
+  "kid": "77343d01",
+  "publicPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEABt9y3rsmeGS56JiWi0fEryfSlKrOhJtwDAPns3Tsmkw=\n-----END PUBLIC KEY-----\n",
+  "privatePem": "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIF8csRCAdgcBnBsqmJtI8oF7MObpOvK9QJHrR8yPwFPK\n-----END PRIVATE KEY-----\n",
+  "createdAt": "2026-11-02T06:57:07.173Z"
+}

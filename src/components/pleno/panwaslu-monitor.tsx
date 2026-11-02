@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { AlertCenter } from "@/components/pleno/alert-center";
 import { usePolling } from "@/hooks/use-polling";
 import { useSSE } from "@/hooks/use-sse";
 import type { RealtimeSnapshot } from "@/lib/db/monitor-service";
@@ -137,6 +138,10 @@ export function PanwasluMonitor({ operatorRole }: { operatorRole?: string | null
 
   return (
     <div className="min-h-full">
+      {/* Rekomendasi #7 — pusat peringatan operasional, di atas segalanya */}
+      <div className="mb-6">
+        <AlertCenter />
+      </div>
       {/* Header */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>

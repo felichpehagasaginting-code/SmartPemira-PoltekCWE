@@ -135,8 +135,9 @@ export function KioskTerminal() {
   useEffect(() => {
     if (!session || (phase !== "ballot" && phase !== "review")) return;
     const tick = () => {
-      const left = new Date(session.expiresAt).getTime() - Date.now();
-      setRemainingMs(Math.max(0, left));
+      // expiresAt null = sesi re-vote tanpa TTL — tidak pernah kedaluwarsa di bilik.
+      const left = session.expiresAt ? new Date(session.expiresAt).getTime() - Date.now() : Number.POSITIVE_INFINITY;
+      setRemainingMs(left === Number.POSITIVE_INFINITY ? Number.MAX_SAFE_INTEGER : Math.max(0, left));
       if (left <= 0) {
         setPhase("gate");
         setSession(null);
@@ -274,9 +275,11 @@ export function KioskTerminal() {
   }, [phase, pressKey, backspace]);
 
   const fullToken = tokenChars.join("");
-  const minutes = Math.floor(remainingMs / 60000);
-  const seconds = Math.floor((remainingMs % 60000) / 1000);
-  const timeCritical = remainingMs > 0 && remainingMs < 120_000;
+  // Sesi re-vote (expiresAt null) tidak punya TTL — timer disembunyikan.
+  const noTtl = Boolean(session && !session.expiresAt);
+  const minutes = noTtl ? 0 : Math.floor(remainingMs / 60000);
+  const seconds = noTtl ? 0 : Math.floor((remainingMs % 60000) / 1000);
+  const timeCritical = !noTtl && remainingMs > 0 && remainingMs < 120_000;
 
   const keypadKeys = useMemo(() => {
     const digits = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
@@ -515,10 +518,12 @@ export function KioskTerminal() {
           >
             KIRIM SUARA SEKARANG
           </button>
-          <div className={`flex items-center gap-2 rounded-full border px-4 py-1.5 font-mono-tabular text-sm font-bold ${timeCritical ? "border-[#E05A47] bg-[#FDE8E5] text-[#842029] pulse-terra" : "border-[#141E19] bg-white"}`}>
-            <Timer className="h-4 w-4" />
-            {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
-          </div>
+          {!noTtl && (
+            <div className={`flex items-center gap-2 rounded-full border px-4 py-1.5 font-mono-tabular text-sm font-bold ${timeCritical ? "border-[#E05A47] bg-[#FDE8E5] text-[#842029] pulse-terra" : "border-[#141E19] bg-white"}`}>
+              <Timer className="h-4 w-4" />
+              {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -575,14 +580,16 @@ export function KioskTerminal() {
                 SKENARIO CALON TUNGGAL — KOTAK KOSONG AKTIF
               </span>
             )}
-            <span
-              className={`flex items-center gap-1.5 rounded-full border-2 border-[#141E19] px-3 py-1.5 font-mono-tabular text-sm font-bold ${
-                timeCritical ? "bg-[#FDE8E5] text-[#842029] pulse-terra" : "bg-[#FEF5D6] text-[#8A5200]"
-              }`}
-            >
-              <Timer className="h-4 w-4" />
-              {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
-            </span>
+            {!noTtl && (
+              <span
+                className={`flex items-center gap-1.5 rounded-full border-2 border-[#141E19] px-3 py-1.5 font-mono-tabular text-sm font-bold ${
+                  timeCritical ? "bg-[#FDE8E5] text-[#842029] pulse-terra" : "bg-[#FEF5D6] text-[#8A5200]"
+                }`}
+              >
+                <Timer className="h-4 w-4" />
+                {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+              </span>
+            )}
           </div>
         </div>
       </header>

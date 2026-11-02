@@ -36,6 +36,8 @@ export interface BallotPayload {
   /** Opsi SUARA KOSONG selalu disediakan sistem sebagai kartu TERAKHIR di setiap
    *  surat suara — tidak lagi bergantung pada skenario calon tunggal. */
   candidates: CandidateView[];
+  /** Hint UI dari server: true = tampilkan badge skenario calon tunggal (HUKUM 3). */
+  singleCandidateScenario?: boolean;
 }
 
 export interface KioskSession {
@@ -195,4 +197,47 @@ export interface IncidentRow {
   status: string;
   verdict: string | null;
   createdAt: string;
+}
+
+// ---------- DASBOR TURNOUT PPUR (Rekomendasi #9) ----------
+export interface TurnoutProdiRow {
+  id: string;
+  name: string;
+  facultyName: string;
+  dpt: number;
+  voted: number;
+  antrean: number;
+  pct: number;
+}
+
+export interface TurnoutAngkatanRow {
+  angkatan: number;
+  dpt: number;
+  voted: number;
+  pct: number;
+}
+
+export interface TurnoutTpsRow {
+  id: string;
+  name: string;
+  dpt: number;
+  voted: number;
+  antrean: number;
+  pct: number;
+}
+
+export interface TurnoutBucket {
+  label: string;
+  voted: number;
+}
+
+export interface TurnoutResponse {
+  ok: boolean;
+  updatedAt: string;
+  total: { dpt: number; voted: number; antrean: number; belum: number; pct: number };
+  momentum: { last30Min: number; ratePerMin: number; eta80PctMinutes: number | null; etaLabel: string };
+  perProdi: TurnoutProdiRow[];
+  perAngkatan: TurnoutAngkatanRow[];
+  perTps: TurnoutTpsRow[];
+  timeline: TurnoutBucket[];
 }

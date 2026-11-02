@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { TwoFactorPanel } from "@/components/auth/two-factor-panel";
 import { CheckCircle2, KeyRound, Loader2, ShieldCheck } from "lucide-react";
 
 interface Props {
@@ -195,6 +196,16 @@ export function ChangePasswordDialog({ open, onOpenChange, fullName, role, mustC
                 <strong className="text-[#141E19]">Catatan keamanan:</strong> setelah password diganti, sesi aktif diakhiri otomatis dan aksi ini tercatat
                 di audit log append-only (Panwaslu dapat mengauditnya).
               </p>
+
+              {/* Rekomendasi #3 — 2FA: bagian keamanan akun (tidak tampil saat mode wajib-ganti sandi) */}
+              {!mustChange && (
+                <div className="mt-4 border-t border-dashed border-[#D8D3C8] pt-4">
+                  <h3 className="text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-[#4A5851]">Keamanan Akun — Dua Faktor</h3>
+                  <div className="mt-2.5">
+                    <TwoFactorPanel />
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <div className="py-6 text-center">
