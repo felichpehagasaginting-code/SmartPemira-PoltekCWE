@@ -119,6 +119,9 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "ss01", "cv01";
+    /* Cegah pull-to-refresh / rubber-band tak sengaja di halaman voting (Android Chrome) —
+       reload di tengah pemilihan membebani server & mengganggu pemilih. */
+    overscroll-behavior-y: none;
   }
 }
 

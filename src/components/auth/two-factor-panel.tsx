@@ -168,9 +168,15 @@ export function TwoFactorPanel() {
         </div>
       )}
 
-      {/* ---- Pemasangan: QR + konfirmasi kode ---- */}
+      {/* ---- Pemasangan: QR + konfirmasi kode (form agar tombol Enter pada input ikut mengonfirmasi) ---- */}
       {stage === "enroll" && (
-        <div className="space-y-2.5 rounded-[10px] border-2 border-[#141E19] bg-white p-3.5">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void confirmEnroll();
+          }}
+          className="space-y-2.5 rounded-[10px] border-2 border-[#141E19] bg-white p-3.5"
+        >
           <div className="flex flex-col items-center gap-2">
             {qrDataUrl && <img src={qrDataUrl} alt="QR provisioning TOTP" className="h-[190px] w-[190px] rounded-[8px] border-2 border-[#141E19]" />}
             <p className="break-all rounded-[6px] bg-[#F6F4EE] px-2 py-1 font-mono text-[10.5px] text-[#4A5851]">{secret}</p>
@@ -186,11 +192,11 @@ export function TwoFactorPanel() {
             <Button type="button" variant="outline" disabled={busy} onClick={() => setStage("status")} className="h-11 flex-1 rounded-[10px] border-2 border-[#141E19] bg-white text-[12px] font-extrabold text-[#141E19] shadow-[3px_3px_0px_#141E19]">
               BATAL
             </Button>
-            <Button type="button" disabled={busy || code.length !== 6} onClick={confirmEnroll} className="h-11 flex-1 rounded-[10px] border-2 border-[#141E19] bg-[#1B7F4E] text-[12px] font-extrabold text-white shadow-[3px_3px_0px_#141E19] hover:bg-[#176D42] disabled:opacity-50">
+            <Button type="submit" disabled={busy || code.length !== 6} className="h-11 flex-1 rounded-[10px] border-2 border-[#141E19] bg-[#1B7F4E] text-[12px] font-extrabold text-white shadow-[3px_3px_0px_#141E19] hover:bg-[#176D42] disabled:opacity-50">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ShieldCheck className="h-4 w-4" aria-hidden />} KONFIRMASI
             </Button>
           </div>
-        </div>
+        </form>
       )}
 
       {/* ---- Kode cadangan ditampilkan SEKALI ---- */}
@@ -220,13 +226,19 @@ export function TwoFactorPanel() {
       {stage === "status" && status?.enabled && (
         <details className="rounded-[8px] border border-[#D8D3C8] bg-white px-3 py-2.5">
           <summary className="cursor-pointer text-[12px] font-bold uppercase tracking-[0.06em] text-[#7A8881]">Matikan 2FA (darurat)</summary>
-          <div className="mt-2.5 space-y-2">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void disable();
+            }}
+            className="mt-2.5 space-y-2"
+          >
             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="password Anda" autoComplete="current-password" className="h-10 rounded-[8px] border-2 border-[#141E19] font-mono" />
             <Input value={code} onChange={(e) => setCode(e.target.value.trim())} placeholder="kode TOTP / kode cadangan" className="h-10 rounded-[8px] border-2 border-[#141E19] font-mono" />
-            <Button type="button" disabled={busy || !password || !code} onClick={disable} className="h-10 w-full rounded-[8px] border-2 border-[#141E19] bg-[#E05A47] text-[11.5px] font-extrabold text-white shadow-[2px_2px_0px_#141E19] disabled:opacity-50">
+            <Button type="submit" disabled={busy || !password || !code} className="h-10 w-full rounded-[8px] border-2 border-[#141E19] bg-[#E05A47] text-[11.5px] font-extrabold text-white shadow-[2px_2px_0px_#141E19] disabled:opacity-50">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ShieldAlert className="h-4 w-4" aria-hidden />} MATIKAN 2FA
             </Button>
-          </div>
+          </form>
         </details>
       )}
 

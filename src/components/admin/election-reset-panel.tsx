@@ -316,7 +316,7 @@ export function ElectionResetPanel({ onSessionInvalidated }: { onSessionInvalida
 
       {/* ================= WIZARD 3 LANGKAH ================= */}
       <Dialog open={wizardOpen} onOpenChange={(o) => !busy && setWizardOpen(o)}>
-        <DialogContent className="max-h-[92vh] overflow-y-auto rounded-[14px] border-2 border-[#141E19] bg-white p-0 shadow-[8px_8px_0px_#141E19] sm:max-w-[560px]">
+        <DialogContent className="rounded-[14px] border-2 border-[#141E19] bg-white p-0 shadow-[8px_8px_0px_#141E19] sm:max-w-[560px]">
           <div className="p-6">
             {step < 4 && (
               <DialogHeader>

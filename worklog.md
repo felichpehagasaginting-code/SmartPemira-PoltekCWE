@@ -370,3 +370,22 @@ Work Log:
 
 Stage Summary:
 - Roadmap 10 rekomendasi Task 18 KINI LUNAS SEMUA (#1-#10). Verifikasi publik BA naik kelas dari sekadar integritas SHA-256 menjadi authentikasi pengarang kriptografis (Ed25519, kunci publik dapat dipublikasikan — dokumen palsu mustahil); akun petugas punya faktor kedua TOTP dengan kode cadangan sekali pakai; Panwaslu/KPUM punya pusat peringatan realtime 6 ambang dengan ACK ter-audit; seluruhnya diuji 43 unit + 24 e2e, tsc bersih, build produksi siap
+
+---
+Task ID: 21 (Bug UX Fatal — Dialog Ganti Sandi/2FA Tak Bisa Discroll di Ponsel)
+Agent: main (Z.ai)
+Task: User lapor "bagian sandi kenapa ga bisa di scroll" (+ screenshot HP: form ganti sandi + QR 2FA terpotong) & minta audit detail kecil UX yang fatal
+
+Work Log:
+- AKAR MASALAH: DialogContent basis (ui/dialog.tsx) `fixed top-[50%] translate-y-[-50%]` TANPA max-h/overflow — konten 1012px di viewport 844px meluber dua arah, tak bisa discroll sama sekali. Dialog ganti sandi kena parah karena memuat form password + panel 2FA (QR 190px + secret + input kode). AlertDialogContent basis punya bug identik.
+- FIX BASIS (berlaku semua dialog): Content → `flex flex-col max-h-[calc(100dvh-2rem)] overflow-hidden` + wrapper anak `[data-slot=dialog-scroll] min-h-0 flex-1 overflow-y-auto overscroll-contain` → dialog tak pernah melebihi viewport, scroll di dalam, tombol X (absolute) TETAP TERSEMAT saat scroll + diberi bg `bg-background/85 backdrop-blur-sm` agar terbaca di atas konten. dvh (bukan vh) agar ikut mengecil saat keyboard HP terbuka. Semua pemakai DialogContent terverifikasi melewatkan SATU wrapper anak (grid gap-4 tak ada yang bergantung) — refactor aman.
+- audit-x-referensi: election-reset-panel sempat di-patch lokal `max-h-[92vh] overflow-y-auto` (pola tambal-sulam penyebab dialog lain kelewat) → dihapus, kini warisi basis; CommandDialog (ui/command.tsx) TIDAK dipakai di aplikasi — nol risiko regresi.
+- DETAIL KECIL FATAL LAIN (ditemukan & dibetulkan dalam audit yang sama):
+  (1) X button di mode mustChange (sandi sementara) TAMPIL tapi mati (klik tak menutup — diblok onOpenChange) → showCloseButton={false} saat mustChange, tidak lagi menipu user
+  (2) Input kode TOTP 2FA tidak dalam <form> → tombol Enter di keyboard HP tidak mengirim → stage enroll & disable dibungkus <form onSubmit>, tombol KONFIRMASI/MATIKAN jadi type="submit"
+  (3) Pull-to-refresh tak sengaja di tengah voting (Android Chrome) → globals.css body `overscroll-behavior-y: none`
+  (4) Sudah aman terverifikasi: Input base `text-base` di mobile (bebas iOS auto-zoom), meta viewport tidak mematikan zoom (a11y OK), jalur pemilih full-page bukan modal (tak kena bug ini), semua min-h-screen bukan tinggi tetap
+- UJI: tsc --noEmit bersih; scripts/e2e-dialog-scroll.ts (Playwright 390x844, login panwaslu asli di :3000 dev): 8/8 PASS — konten enroll 2FA 1012px vs clientHeight 808, wrapper scrollable, tombol KONFIRMASI terlihat penuh (y=742 h=44), kotak dialog di dalam viewport (y=16 h=812), nol pageerror; screenshot scripts/dlg-scroll-top.png & dlg-scroll-bottom.png (label PASSWORD LAMA diverifikasi via crop — utuh)
+
+Stage Summary:
+- Bug fatal laporan user tuntas di AKAR (basis komponen), bukan tambal satu dialog: SEMUA dialog kini tak mungkin meluber dari layar HP mana pun, X tetap terjangkau, Enter mengirim kode 2FA, pull-to-refresh diblok — plus audit 4 kategori risiko kecil lain (zoom iOS, viewport meta, jalur pemilih, min-h-screen) semua bersih

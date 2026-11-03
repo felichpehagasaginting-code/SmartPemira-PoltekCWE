@@ -93,6 +93,7 @@ export function ChangePasswordDialog({ open, onOpenChange, fullName, role, mustC
       }}
     >
       <DialogContent
+        showCloseButton={!mustChange}
         className="rounded-[14px] border-2 border-[#141E19] bg-white p-0 shadow-[8px_8px_0px_#141E19] sm:max-w-[440px]"
         onInteractOutside={(e) => mustChange && e.preventDefault()}
         onEscapeKeyDown={(e) => mustChange && e.preventDefault()}
