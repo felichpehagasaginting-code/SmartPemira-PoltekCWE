@@ -12,6 +12,7 @@
     "db:generate": "prisma generate",
     "db:seed": "tsx scripts/seed.ts",
     "db:turso:push": "tsx scripts/push-turso.ts",
+    "generate:proposal": "tsx scripts/generate-proposal.ts",
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset"
   },
@@ -93,6 +94,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "bun-types": "^1.3.4",
+    "docx": "^9.15.2",
     "eslint": "^9",
     "eslint-config-next": "^16.1.1",
     "tailwindcss": "^4",
