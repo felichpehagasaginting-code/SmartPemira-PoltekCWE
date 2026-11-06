@@ -389,3 +389,39 @@ Work Log:
 
 Stage Summary:
 - Bug fatal laporan user tuntas di AKAR (basis komponen), bukan tambal satu dialog: SEMUA dialog kini tak mungkin meluber dari layar HP mana pun, X tetap terjangkau, Enter mengirim kode 2FA, pull-to-refresh diblok — plus audit 4 kategori risiko kecil lain (zoom iOS, viewport meta, jalur pemilih, min-h-screen) semua bersih
+
+
+---
+Task ID: 22 (Setup Lingkungan Windows Lokal & Push ke GitHub)
+Agent: Antigravity Assistant
+Task: Permintaan user — "pahami lalu jalankan project ini di local", dilanjutkan push ke GitHub repositori user
+
+Work Log:
+- Analisis struktur: Next.js 16 App Router, Tailwind v4, Prisma 6 (SQLite), 5 modul antarmuka (Public Portal, Bilik Kiosk, Meja PPUR, Dashboard KPUM, Monitor Panwaslu Obsidian Forest), 5 rantai hash SHA-256 prodi, 5 peran RBAC login-first.
+- Konfigurasi .env lokal: perbaikan path Linux sebelumnya (/home/z/my-project/db/custom.db) menjadi relative path standar Prisma Windows `file:../db/custom.db`.
+- Package.json dev script: penghapusan pipe `tee` berbasis Linux agar kompatibel langsung dengan Windows PowerShell/cmd.
+- Instalasi dependensi: `npm install` (889 paket terpasang bersih).
+- Prisma: `npx prisma generate` sukses; verifikasi konektivitas lokal (44 DPT, 6 operator aktif).
+- Eksekusi lokal: Next.js dev server berjalan di latar belakang pada port 3000 (status 200 OK).
+- Git & GitHub: konfigurasi git `core.filemode false`, peningkatan buffer `http.postBuffer 524288000`, remote `origin https://github.com/felichpehagasaginting-code/SmartPemira-PoltekCWE.git`. Seluruh riwayat commit dan aset ter-push sukses ke branch `main`.
+
+Stage Summary:
+- Project berjalan mulus di Windows lokal (http://localhost:3000) dan tersinkronisasi 100% di GitHub.
+
+---
+Task ID: 23 (Arsitektur Dual-Mode Turso LibSQL Cloud & Kesiapan Deploy Vercel)
+Agent: Antigravity Assistant
+Task: Permintaan user — rekomendasi & setup deployment gratis, integrasi Turso (SQLite Cloud) + Vercel, serta eksekusi DDL & seed ke database remote
+
+Work Log:
+- Evaluasi platform hosting: analisis trade-off Vercel serverless (ephemeral SQLite) vs Render vs Turso vs Supabase vs Firebase. Kesimpulan: Turso (LibSQL) adalah pilihan terbaik (native SQLite, 0% perubahan skema relasional, 9GB gratis selamanya).
+- Package installation: `@libsql/client`, `@prisma/adapter-libsql` v6, dan `tsx` untuk script TypeScript mandiri.
+- Implementasi Dual-Mode Prisma (`src/lib/db.ts`): otomatis beralih menggunakan `PrismaLibSql` adapter saat `TURSO_DATABASE_URL` tersedia, dan fallback ke SQLite lokal `db/custom.db` saat offline.
+- Perbaikan kompatibilitas test (`tests/unit/setup.ts`): isolasi DB test menggunakan `os.tmpdir()` lintas platform (menggantikan `/tmp` yang gagal izin di Windows).
+- Skrip migrasi Turso (`scripts/push-turso.ts` & script `db:turso:push`): mengekstraksi DDL SQL via Prisma migrate diff, mengeksekusi 17 statement pembuatan tabel dan indeks ke Turso remote, lalu menjalankan `seed.ts` dual-mode.
+- Eksekusi remote ke Turso pengguna (`smartpemira-poltekcwe-felichpehagasaginting-code.aws-ap-southeast-1.turso.io`): 17 tabel/indeks tercipta; 44 voter, 14 kandidat, 6 operator, dan 5 rantai hash ter-seed sempurna.
+- Kualitas & build: 43/43 unit test Vitest lulus (beban 30 submit paralel + rantai hash); `npm run build` produksi lulus 100% (39 route).
+- Dokumentasi: pembuatan `DEPLOYMENT.md` panduan langkah demi langkah dan `README.md` komprehensif di root repositori.
+
+Stage Summary:
+- Smart Pemira kini berarsitektur hybrid cloud-ready: dapat berjalan di serverless Vercel dengan database cloud Turso persisten, tanpa kehilangan kemampuan jalan secara offline lokal.
