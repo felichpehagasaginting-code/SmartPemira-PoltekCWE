@@ -5,10 +5,8 @@
 // DPT ber-NIM, suara demo pra-cast + satu demo re-vote (Estonia).
 // Jalankan: bunx tsx scripts/seed.ts
 // ============================================================
-import { PrismaClient } from "@prisma/client";
+import { db } from "../src/lib/db";
 import { createHash, randomBytes, randomUUID, scryptSync } from "crypto";
-
-const db = new PrismaClient();
 
 // --- helpers (mirror lib crypto agar script mandiri) ---
 const jitter = (base: Date, maxMs = 60_000) =>

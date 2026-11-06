@@ -7,10 +7,11 @@
 // ============================================================
 import { execSync } from "child_process";
 import path from "path";
+import os from "os";
 
 process.env["NODE_ENV" as keyof NodeJS.ProcessEnv] = "test";
 
-const tmpDb = path.join("/tmp", `pemira-vitest-${process.pid}.db`);
+const tmpDb = path.join(os.tmpdir(), `pemira-vitest-${process.pid}.db`).replace(/\\/g, "/");
 // connection_limit=1: SQLite hanya mendukung satu penulis — semua query
 // diserialisasi lewat satu koneksi sehingga uji paralel deterministik
 // (tanpa P2024 socket timeout saat 30 submit bersamaan).
