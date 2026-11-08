@@ -158,6 +158,7 @@ model ElectionSetting {
   // sehingga siapa pun dapat memverifikasi tanpa rahasia apa pun.
   baSignatureEd25519 String? // base64 signature Ed25519 atas kanonikal BA
   baSignedAt         DateTime? // kapan BA ditandatangani (Pleno Unlock)
+  baSignaturesJson   String? // Paket #5: Multi-Signature Ed25519 JSON array
   // Siklus hidup pemira — "Segel & Reset": tiap periode/gelombang punya label
   // sendiri; reset periode mengarsipkan lembar lama lalu membuka lembar baru.
   periodLabel     String   @default("Pemira Poltek CWE 2026")

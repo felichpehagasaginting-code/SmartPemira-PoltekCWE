@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { getTallyReport } from "@/lib/db/tally-service";
 import { buildBaCanonical, collectBaTotals, computeBaSignature } from "@/lib/server/ba-canonical";
 import { verifyBaSignature } from "@/lib/server/ba-signing";
+import { parseSignaturesJson, verifyMultiSignatures } from "@/lib/crypto/multisig";
 import { clientIp, generalLimit } from "@/lib/server/rate-limit";
 
 export async function GET(req: NextRequest) {
@@ -22,8 +23,9 @@ export async function GET(req: NextRequest) {
 
   const sig = (req.nextUrl.searchParams.get("sig") ?? "").trim().toLowerCase();
   const edsig = (req.nextUrl.searchParams.get("edsig") ?? "").trim();
+  const isCurrentMode = req.nextUrl.searchParams.get("current") === "true" || (!sig && !edsig);
   const hasEdsig = edsig.length > 0;
-  if (!/^[0-9a-f]{64}$/.test(sig) && !hasEdsig) {
+  if (!isCurrentMode && !/^[0-9a-f]{64}$/.test(sig) && !hasEdsig) {
     return NextResponse.json(
       { ok: false, valid: false, message: "Sertakan tanda tangan: ?sig=<64 hex> dan/atau ?edsig=<base64>." },
       { status: 400 }
@@ -65,11 +67,18 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  const multisigEntries = parseSignaturesJson(setting.baSignaturesJson);
+  const multisigVerification = verifyMultiSignatures(canonical, multisigEntries);
+
   return NextResponse.json({
     ok: true,
     locked: false,
     valid: true,
     checks: { sha256: sha256Valid, ed25519: ed25519Valid },
+    signatureSha256: recomputed,
+    signatureEd25519: setting.baSignatureEd25519,
+    multisig: multisigVerification,
+    signatures: multisigEntries,
     summary: {
       chainValid: tally.integrity.allValid,
       chains: tally.integrity.chains.map((c) => ({ id: c.tpsId, name: c.name, headHash: c.headHash, checked: c.checkedCount })),
@@ -80,6 +89,6 @@ export async function GET(req: NextRequest) {
     },
     message: ed25519Valid
       ? "TANDA TANGAN TERVERIFIKASI — sah (SHA-256 cocok + Ed25519 sahih dari kunci panitia)."
-      : "TANDA TANGAN TERVERIFIKASI — SHA-256 cocok dengan kondisi kotak suara digital (Ed25519 tidak diberikan pada pemeriksaan ini).",
+      : "TANDA TANGAN TERVERIFIKASI — SHA-256 cocok dengan kondisi kotak suara digital.",
   });
 }

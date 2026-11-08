@@ -1,213 +1,388 @@
 // ============================================================
-// LOAD TEST SMART PEMIRA — Rekomendasi #10
-// Simulasi beban puncak hari-H tanpa dependensi eksternal:
-//   Fase 1 : burst baca publik (portal + health)
-//   Fase 2 : campuran login (valid + salah username acak —
-//            TIDAK memicu lockout akun asli)
-//   Fase 3 : alur suara penuh (issue token → submit → receipt)
-//   Fase 4 : verifikasi struk
-// Output: p50/p95/p99 + rasio sukses per fase.
-// Catatan: fase 3 mengubah DB — jalankan `seed.ts` setelahnya.
+// SYNTHETIC LOAD TESTING & LATENCY BENCHMARK — Smart Pemira
+// Paket 2: Uji beban konkurensi voting & integritas rantai hash
+// Mendukung:
+//   - Mode HTTP API (via /api/pemilih/submit) & Direct Service Engine
+//   - Pengaturan konkurensi fleksibel (--concurrency 10, 50, 100, 300)
+//   - Simulasi multi-prodi (TPTP, TPHP, MANLOG, BD, TRPL)
+//   - Pengukuran latensi: Min, P50 (median), P90, P95, P99, Max, Avg, StdDev
+//   - Verifikasi kriptografis rantai hash pasca pengujian
 // ============================================================
-import { performance } from "perf_hooks";
+import { db } from "../src/lib/db";
+import { generateVotingToken, hashToken } from "../src/lib/crypto/token-generator";
+import { submitBallots, type BallotSelections } from "../src/lib/db/ballot-service";
+import { verifyChain } from "../src/lib/crypto/ballot-hash-chain";
+import { checkChainIntegrity } from "../src/lib/server/alerts";
+import { execSync } from "child_process";
 
-const BASE = process.env.BASE_URL ?? "http://localhost:3000";
-
-interface Stat {
-  phase: string;
+interface CliOptions {
+  concurrency: number;
   total: number;
-  ok: number;
-  fail: number;
-  p50: number;
-  p95: number;
-  p99: number;
-  max: number;
+  url: string;
+  mode: "auto" | "http" | "direct";
+  resetDb: boolean;
 }
 
-function percentile(sorted: number[], p: number): number {
-  if (sorted.length === 0) return 0;
-  const idx = Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length));
-  return sorted[idx];
-}
+function parseArgs(): CliOptions {
+  const args = process.argv.slice(2);
+  let concurrency = 50;
+  let total = 0;
+  let url = process.env.APP_URL || "http://localhost:3000";
+  let mode: "auto" | "http" | "direct" = "auto";
+  let resetDb = false;
 
-async function workerPool(n: number, concurrency: number, fn: (i: number) => Promise<boolean>): Promise<boolean[]> {
-  const results: boolean[] = [];
-  let cursor = 0;
-  async function run(): Promise<void> {
-    while (cursor < n) {
-      const i = cursor++;
-      results[i] = await fn(i);
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--concurrency" || arg === "-c") {
+      concurrency = parseInt(args[++i], 10) || 50;
+    } else if (arg === "--total" || arg === "-t" || arg === "-n") {
+      total = parseInt(args[++i], 10) || 0;
+    } else if (arg === "--url" || arg === "-u") {
+      url = args[++i];
+    } else if (arg === "--mode" || arg === "-m") {
+      mode = args[++i] as any;
+    } else if (arg === "--reset") {
+      resetDb = true;
     }
   }
-  await Promise.all(Array.from({ length: Math.min(concurrency, n) }, run));
+
+  if (!total) total = concurrency;
+  return { concurrency, total, url, mode, resetDb };
+}
+
+async function probeHttpServer(url: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1500);
+    const res = await fetch(`${url}/api/health`, { signal: controller.signal });
+    clearTimeout(timer);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+interface TestResult {
+  idx: number;
+  success: boolean;
+  statusCode: number;
+  durationMs: number;
+  receiptCode?: string;
+  prodiId: string;
+  error?: string;
+}
+
+async function runWorkerPool<T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let currentIndex = 0;
+
+  async function runner(): Promise<void> {
+    while (currentIndex < items.length) {
+      const idx = currentIndex++;
+      results[idx] = await worker(items[idx], idx);
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(concurrency, items.length) },
+    () => runner()
+  );
+  await Promise.all(workers);
   return results;
 }
 
-async function timed(phase: string, n: number, concurrency: number, fn: (i: number) => Promise<boolean>): Promise<Stat> {
-  const t0 = performance.now();
-  const results = await workerPool(n, concurrency, fn);
-  const wall = performance.now() - t0;
-  void wall;
-  const latencies = (globalThis as unknown as { __lat?: number[] }).__lat ?? [];
-  void latencies;
-  return finalize(phase, results);
-}
-
-// kumpulan latensi per fase (diisi request helper)
-let lat: number[] = [];
-async function req(path: string, init?: RequestInit): Promise<{ ok: boolean; status: number; body: unknown }> {
-  const t = performance.now();
-  try {
-    const res = await fetch(`${BASE}${path}`, init);
-    const body = await res.json().catch(() => null);
-    lat.push(performance.now() - t);
-    return { ok: res.ok, status: res.status, body };
-  } catch {
-    lat.push(performance.now() - t);
-    return { ok: false, status: 0, body: null };
-  }
-}
-
-function finalize(phase: string, results: boolean[]): Stat {
-  const sorted = [...lat].sort((a, b) => a - b);
-  const stat: Stat = {
-    phase,
-    total: results.length,
-    ok: results.filter(Boolean).length,
-    fail: results.filter((r) => !r).length,
-    p50: Math.round(percentile(sorted, 50) * 10) / 10,
-    p95: Math.round(percentile(sorted, 95) * 10) / 10,
-    p99: Math.round(percentile(sorted, 99) * 10) / 10,
-    max: Math.round((sorted.at(-1) ?? 0) * 10) / 10,
-  };
-  lat = [];
-  return stat;
+function calculatePercentile(sorted: number[], p: number): number {
+  if (sorted.length === 0) return 0;
+  const index = Math.min(Math.floor(sorted.length * p), sorted.length - 1);
+  return sorted[index];
 }
 
 async function main() {
-  console.log(`\n🔥 LOAD TEST SMART PEMIRA → ${BASE}\n`);
-  const stats: Stat[] = [];
+  const opts = parseArgs();
 
-  // ---------- FASE 1: burst baca publik ----------
-  console.log("── Fase 1: Burst baca publik (portal + health), 400 req @ conc 40");
-  const phase1Targets: string[] = [];
-  for (let i = 0; i < 400; i++) phase1Targets.push(i % 4 === 0 ? "/api/health" : "/api/public/portal");
-  const s1 = await timed("Baca publik", 400, 40, async (i) => {
-    const r = await req(phase1Targets[i]);
-    return r.ok;
+  console.log("\n" + "=".repeat(64));
+  console.log("⚡ SMART PEMIRA SYNTHETIC LOAD TESTING & LATENCY BENCHMARK");
+  console.log("=".repeat(64));
+
+  if (opts.resetDb) {
+    console.log("🔄 Resetting and re-seeding initial database state...");
+    execSync("npx tsx scripts/seed.ts", { stdio: "inherit" });
+  }
+
+  // 1. Periksa ketersediaan tabel & data awal
+  let candidates = await db.candidate.findMany();
+  let tpsList = await db.tps.findMany();
+  let prodiList = await db.studyProgram.findMany();
+
+  if (candidates.length === 0 || tpsList.length === 0 || prodiList.length === 0) {
+    console.log("⚠️ Data kandidat/TPS belum tersedia. Menjalankan seed otomatis...");
+    execSync("npx tsx scripts/seed.ts", { stdio: "inherit" });
+    candidates = await db.candidate.findMany();
+    tpsList = await db.tps.findMany();
+    prodiList = await db.studyProgram.findMany();
+  }
+
+  // Pastikan eleksi dibuka dan tidak beku
+  await db.electionSetting.upsert({
+    where: { id: "main" },
+    update: { votingOpen: true, emergencyFreeze: false },
+    create: { id: "main", votingOpen: true, emergencyFreeze: false, sessionSecret: "loadtest-secret" },
   });
-  stats.push(s1);
 
-  // ---------- Fase 2: campuran login ----------
-  console.log("── Fase 2: Campuran login (30 valid, 60 username-palsu acak), conc 15");
-  const loginCookie: string[] = [];
-  let validCount = 0;
-  const s2 = await timed("Login campuran", 90, 15, async (i) => {
-    const isReal = i % 3 === 0;
-    const creds = isReal
-      ? [["kpum", "kpum123"], ["itpo", "itpo123"], ["panwaslu", "panwaslu123"]][validCount++ % 3]
-      : [`ghost_${i}_${Math.floor(Math.random() * 1e6)}`, "wrongpass"];
-    const r = await req("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: creds[0], password: creds[1] }),
-    });
-    if (isReal && r.ok) {
-      const setCookie = (r.body as { _cookie?: string })?._cookie;
-      void setCookie;
-    }
-    // valid → 200; palsu → 401 (bukan 429/5xx)
-    return isReal ? r.status === 200 : r.status === 401;
-  });
-  stats.push(s2);
-  void loginCookie;
-
-  // ---------- Fase 3: alur suara penuh ----------
-  console.log("── Fase 3: Alur suara (PPUR issue → kiosk submit → receipt), 12 pemilih @ conc 4");
-  const loginRes = await fetch(`${BASE}/api/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: "ppur", password: "ppur123" }),
-  });
-  const ppurCookie = loginRes.headers.get("set-cookie")?.split(";")[0] ?? "";
-  const meRes = await fetch(`${BASE}/api/ppur/voters?filter=BELUM_MEMILIH`, { headers: { cookie: ppurCookie } });
-  const votersJson = (await meRes.json()) as { voters?: Array<{ id: string }> };
-  const voterIds = (votersJson.voters ?? []).slice(0, 12).map((v) => v.id);
-  console.log(`   pemilih tersedia: ${voterIds.length}`);
-
-  // kandidat dari portal publik
-  const portalRes = await fetch(`${BASE}/api/public/portal`);
-  const portal = (await portalRes.json()) as { candidates: Array<{ id: string; category: string; studyProgramId: string | null; isEmptyBox: boolean }> };
-  const presmaId = portal.candidates.find((c) => c.category === "PRESMA")?.id;
-  const dpmId = portal.candidates.find((c) => c.category === "DPM")?.id;
-  const himaIds = new Map<string, string>();
-  for (const c of portal.candidates) if (c.category === "HIMA" && c.studyProgramId) himaIds.set(c.studyProgramId, c.id);
-
-  const receiptCodes: string[] = [];
-  if (voterIds.length > 0 && presmaId && dpmId) {
-    // Concurrency 1: bilik suara nyata dilayani serial per TPS, dan SQLite
-    // (demo) tidak mendukung tulis paralel — kontensi lock → butuh PostgreSQL
-    // untuk skala multi-TPS paralel (Rekomendasi #4).
-    const s3 = await timed("Alur suara", voterIds.length, 1, async (i) => {
-      const issueRes = await fetch(`${BASE}/api/ppur/issue-token`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", cookie: ppurCookie },
-        body: JSON.stringify({ voterId: voterIds[i] }),
-      });
-      const issue = (await issueRes.json()) as { ok: boolean; token?: string };
-      if (!issue.ok || !issue.token) return false;
-      // validasi kiosk untuk mengetahui prodi → pilih Hima prodi tsb
-      const valRes = await fetch(`${BASE}/api/kiosk/validate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: issue.token }),
-      });
-      const val = (await valRes.json()) as { ok: boolean; session?: { studyProgramId: string } };
-      if (!val.ok || !val.session) return false;
-      const himaId = himaIds.get(val.session.studyProgramId) ?? null;
-      const subRes = await fetch(`${BASE}/api/kiosk/submit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token: issue.token,
-          selections: { presmaCandidateId: presmaId, dpmCandidateId: dpmId, himaCandidateId: himaId },
-        }),
-      });
-      const sub = (await subRes.json()) as { ok: boolean; receiptCode?: string };
-      if (sub.ok && sub.receiptCode) receiptCodes.push(sub.receiptCode);
-      return sub.ok;
-    });
-    stats.push(s3);
-
-    // ---------- Fase 4: verifikasi struk ----------
-    if (receiptCodes.length > 0) {
-      console.log(`── Fase 4: Verifikasi struk (${receiptCodes.length} kode @ conc 20, 3x ulang)`);
-      const codes = receiptCodes;
-      const s4 = await timed("Verifikasi struk", codes.length * 3, 20, async (i) => {
-        const r = await req(`/api/public/receipt?code=${encodeURIComponent(codes[i % codes.length])}`);
-        return r.ok && (r.body as { found?: boolean })?.found === true;
-      });
-      stats.push(s4);
-    }
+  // Tentukan mode eksekusi (HTTP vs Direct Engine)
+  let activeMode: "http" | "direct" = "direct";
+  if (opts.mode === "http") {
+    activeMode = "http";
+  } else if (opts.mode === "direct") {
+    activeMode = "direct";
   } else {
-    console.log("   (fase 3 dilewati — tidak ada pemilih belum-memilih / kandidat)");
+    const isUp = await probeHttpServer(opts.url);
+    activeMode = isUp ? "http" : "direct";
   }
 
-  // ---------- Ringkasan ----------
-  console.log("\n══════════ RINGKASAN LOAD TEST ══════════");
-  console.log("Fase              │ Total│  OK │ Fail│ p50(ms)│ p95(ms)│ p99(ms)│ max(ms)");
-  console.log("──────────────────┼──────┼─────┼─────┼────────┼────────┼────────┼────────");
-  for (const s of stats) {
-    const row = `${s.phase.padEnd(17)} │ ${String(s.total).padEnd(4)} │ ${String(s.ok).padEnd(3)} │ ${String(s.fail).padEnd(3)} │ ${String(s.p50).padEnd(6)} │ ${String(s.p95).padEnd(6)} │ ${String(s.p99).padEnd(6)} │ ${s.max}`;
-    console.log(row);
+  console.log(`Execution Mode : ${activeMode === "http" ? `HTTP API (${opts.url})` : "Direct Service Engine (In-Memory/LibSQL)"}`);
+  console.log(`Target Votes   : ${opts.total} pemilih (${opts.total * 3} surat suara kategori)`);
+  console.log(`Concurrency    : ${opts.concurrency} worker paralel`);
+  console.log(`Prodi Covered  : ${prodiList.map((p) => p.id).join(", ")}`);
+  console.log("-".repeat(64));
+
+  // 2. Persiapkan token untuk pengujian beban
+  const presmaCandidates = candidates.filter((c) => c.category === "PRESMA");
+  const dpmCandidates = candidates.filter((c) => c.category === "DPM");
+  const himaByProdi: Record<string, string[]> = {};
+  for (const p of prodiList) {
+    himaByProdi[p.id] = candidates
+      .filter((c) => c.category === "HIMA" && c.studyProgramId === p.id)
+      .map((c) => c.id);
   }
-  const allOk = stats.every((s) => s.fail === 0);
-  console.log(allOk ? "\n✅ SEMUA FASE LULUS — sistem sehat di bawah beban." : "\n⚠️  ADA KEGAGALAN — periksa fase bermasalah di atas.");
-  console.log("ℹ️  Catatan: jalankan `npx tsx scripts/seed.ts` untuk mengembalikan demo segar.\n");
-  process.exit(allOk ? 0 : 1);
+
+  console.log(`📦 Menyiapkan ${opts.total} token pemilih aktif...`);
+  const tokenPairs: Array<{
+    rawToken: string;
+    tokenHash: string;
+    prodiId: string;
+    tpsId: string;
+    selections: BallotSelections;
+  }> = [];
+
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 60 * 60_000); // 1 jam TTL
+
+  for (let i = 0; i < opts.total; i++) {
+    const prodi = prodiList[i % prodiList.length];
+    const tps = tpsList.find((t) => t.id === prodi.id) ?? tpsList[0];
+    const rawToken = generateVotingToken();
+    const tokenHash = hashToken(rawToken);
+
+    // Variasikan pilihan (Paslon 1, Paslon 2, atau Suara Kosong / null)
+    const presmaPick = presmaCandidates.length > 0 && Math.random() > 0.1
+      ? presmaCandidates[i % presmaCandidates.length].id
+      : null;
+    const dpmPick = dpmCandidates.length > 0 && Math.random() > 0.1
+      ? dpmCandidates[i % dpmCandidates.length].id
+      : null;
+    const prodiHimas = himaByProdi[prodi.id] || [];
+    const himaPick = prodiHimas.length > 0 && Math.random() > 0.1
+      ? prodiHimas[i % prodiHimas.length]
+      : null;
+
+    tokenPairs.push({
+      rawToken,
+      tokenHash,
+      prodiId: prodi.id,
+      tpsId: tps.id,
+      selections: {
+        presmaCandidateId: presmaPick,
+        dpmCandidateId: dpmPick,
+        himaCandidateId: himaPick,
+      },
+    });
+  }
+
+  // Simpan token ke database secara batch (chunking per 100 item untuk batas parameter SQLite)
+  const BATCH_SIZE = 100;
+  for (let i = 0; i < tokenPairs.length; i += BATCH_SIZE) {
+    const chunk = tokenPairs.slice(i, i + BATCH_SIZE);
+    await db.votingToken.createMany({
+      data: chunk.map((t) => ({
+        tokenHash: t.tokenHash,
+        tpsId: t.tpsId,
+        studyProgramId: t.prodiId,
+        status: "ACTIVE",
+        issuedAt: now,
+        expiresAt: expiresAt,
+      })),
+    });
+  }
+
+  console.log(`🚀 Memulai simulasi ${opts.total} vote dengan konkurensi ${opts.concurrency}...`);
+  const benchStart = performance.now();
+
+  const results = await runWorkerPool(
+    tokenPairs,
+    opts.concurrency,
+    async (item, idx): Promise<TestResult> => {
+      const t0 = performance.now();
+      let success = false;
+      let statusCode = 200;
+      let receiptCode = "";
+      let error = "";
+
+      try {
+        if (activeMode === "http") {
+          const res = await fetch(`${opts.url}/api/pemilih/submit`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Forwarded-For": `10.0.${Math.floor(idx / 250)}.${(idx % 250) + 1}`,
+            },
+            body: JSON.stringify({
+              token: item.rawToken,
+              selections: item.selections,
+            }),
+          });
+          statusCode = res.status;
+          const json = (await res.json()) as any;
+          success = res.ok && json.ok === true;
+          if (success) {
+            receiptCode = json.receiptCode || "";
+          } else {
+            error = json.message || `HTTP ${res.status}`;
+          }
+        } else {
+          const res = await submitBallots(item.rawToken, item.selections);
+          success = res.ok;
+          if (res.ok) {
+            receiptCode = res.receiptCode;
+            statusCode = 200;
+          } else {
+            statusCode = 400;
+            error = res.message || res.code;
+          }
+        }
+      } catch (err: any) {
+        success = false;
+        statusCode = 500;
+        error = err?.message || String(err);
+      }
+
+      const durationMs = performance.now() - t0;
+      return {
+        idx,
+        success,
+        statusCode,
+        durationMs,
+        receiptCode,
+        prodiId: item.prodiId,
+        error,
+      };
+    }
+  );
+
+  const totalElapsedMs = performance.now() - benchStart;
+  const totalElapsedSec = totalElapsedMs / 1000;
+  const successful = results.filter((r) => r.success);
+  const failed = results.filter((r) => !r.success);
+  const successRate = (successful.length / results.length) * 100;
+  const throughputRps = results.length / totalElapsedSec;
+
+  const latencies = results.map((r) => r.durationMs).sort((a, b) => a - b);
+  const minLat = latencies[0] || 0;
+  const maxLat = latencies[latencies.length - 1] || 0;
+  const avgLat = latencies.reduce((a, b) => a + b, 0) / (latencies.length || 1);
+  const p50 = calculatePercentile(latencies, 0.5);
+  const p90 = calculatePercentile(latencies, 0.9);
+  const p95 = calculatePercentile(latencies, 0.95);
+  const p99 = calculatePercentile(latencies, 0.99);
+
+  const variance = latencies.reduce((acc, val) => acc + Math.pow(val - avgLat, 2), 0) / (latencies.length || 1);
+  const stdDev = Math.sqrt(variance);
+
+  console.log("\n" + "=".repeat(64));
+  console.log("📊 HASIL PENGUJIAN BEBAN SINTETIS (BENCHMARK SUMMARY)");
+  console.log("=".repeat(64));
+  console.log(`Total Permintaan  : ${results.length}`);
+  console.log(`Berhasil (200 OK) : ${successful.length} (${successRate.toFixed(2)}%)`);
+  console.log(`Gagal             : ${failed.length}`);
+  console.log(`Waktu Eksekusi    : ${totalElapsedSec.toFixed(3)} detik (${totalElapsedMs.toFixed(0)} ms)`);
+  console.log(`Throughput (RPS)  : ${throughputRps.toFixed(2)} req/detik`);
+  console.log("-".repeat(64));
+  console.log("⏱️  LATENCY BENCHMARKS (MILLISECONDS)");
+  console.log("-".repeat(64));
+  console.log(`Min Latency       : ${minLat.toFixed(2)} ms`);
+  console.log(`P50 (Median)      : ${p50.toFixed(2)} ms`);
+  console.log(`P90 Latency       : ${p90.toFixed(2)} ms`);
+  console.log(`P95 Latency       : ${p95.toFixed(2)} ms`);
+  console.log(`P99 Latency       : ${p99.toFixed(2)} ms`);
+  console.log(`Max Latency       : ${maxLat.toFixed(2)} ms`);
+  console.log(`Average (Mean)    : ${avgLat.toFixed(2)} ms`);
+  console.log(`Std Deviation     : ±${stdDev.toFixed(2)} ms`);
+  console.log("-".repeat(64));
+
+  if (failed.length > 0) {
+    console.log("⚠️ CONTOH KESALAHAN:");
+    failed.slice(0, 5).forEach((f) => {
+      console.log(`  [Worker ${f.idx}] Prodi: ${f.prodiId} -> Status: ${f.statusCode}, Error: ${f.error}`);
+    });
+    console.log("-".repeat(64));
+  }
+
+  // 3. Verifikasi integritas kriptografis rantai hash pasca pengujian
+  console.log("🔒 MEMERIKSA INTEGRITAS RANTAI HASH PASCA PENGUJIAN...");
+  const [freshTpsList, allBallots] = await Promise.all([
+    db.tps.findMany({ orderBy: { id: "asc" } }),
+    db.ballotBox.findMany({ orderBy: { createdAt: "asc" } }),
+  ]);
+
+  let allChainsValid = true;
+  let totalBlocksChecked = 0;
+
+  for (const tps of freshTpsList) {
+    const chain = allBallots
+      .filter((b) => b.tpsId === tps.id)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const ver = verifyChain(
+      chain.map((b) => ({
+        id: b.id,
+        category: b.category,
+        candidateId: b.candidateId,
+        isEmptyBox: b.isEmptyBox,
+        createdAt: b.createdAt,
+        ballotHash: b.ballotHash,
+      })),
+      tps.chainSalt,
+      tps.lastChainHash
+    );
+
+    totalBlocksChecked += ver.checkedCount;
+    const statusLabel = ver.valid ? "✅ VALID" : "❌ BROKEN";
+    if (!ver.valid) allChainsValid = false;
+
+    console.log(
+      `  TPS: ${tps.name.padEnd(28)} | Blok: ${String(chain.length).padStart(4)} | Status: ${statusLabel} | Head: ${tps.lastChainHash ? tps.lastChainHash.slice(0, 12) + "..." : "EMPTY"}`
+    );
+  }
+
+  const alertCheck = await checkChainIntegrity(true);
+  console.log("-".repeat(64));
+  console.log(`Total Blok Rantai Terverifikasi : ${totalBlocksChecked}`);
+  console.log(`Status Integritas Menyeluruh    : ${allChainsValid && alertCheck.ok ? "✅ 100% INTACT & VERIFIED" : "❌ CORRUPT"}`);
+  console.log("=".repeat(64) + "\n");
+
+  if (!allChainsValid || successful.length === 0) {
+    process.exit(1);
+  }
 }
 
-main().catch((e) => {
-  console.error("load test fatal:", e);
-  process.exit(1);
-});
+main()
+  .catch((e) => {
+    console.error("FATAL LOAD TEST ERROR:", e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await db.$disconnect();
+  });

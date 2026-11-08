@@ -8,8 +8,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/unit/**/*.test.ts"],
-    // Proses tunggal tanpa isolasi (vitest 5: poolOptions.singleFork dihapus):
-    // setup DB cukup sekali, state modul dibagi antar file, cepat & deterministik.
+    // Single process without isolation for deterministic and fast DB test runs
     pool: "forks",
     isolate: false,
     setupFiles: ["./tests/unit/setup.ts"],

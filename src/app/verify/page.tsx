@@ -8,6 +8,7 @@
 // ============================================================
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { CheckCircle2, Loader2, Lock, ShieldCheck, XCircle } from "lucide-react";
 
 interface VerifyResult {
@@ -58,10 +59,16 @@ function VerifyContent() {
               <path d="m9 11.5 2 2 4-4" />
             </svg>
           </div>
-          <div>
+          <div className="flex-1">
             <p className="font-display text-lg font-extrabold leading-none tracking-[-0.02em] text-[#141E19]">SMART PEMIRA — Verifikasi Publik</p>
             <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7A8881]">Keaslian Berita Acara Model C-KWE</p>
           </div>
+          <Link
+            href={sig ? `/verifikasi?tab=ba&sig=${encodeURIComponent(sig)}` : "/verifikasi"}
+            className="rounded-[8px] border-2 border-[#141E19] bg-white px-3 py-1.5 text-xs font-black shadow-[2px_2px_0px_#141E19] hover:bg-[#F0FAF4] focus-visible:ring-2 focus-visible:ring-[#1B7F4E]"
+          >
+            Portal Terpadu →
+          </Link>
         </div>
       </header>
 

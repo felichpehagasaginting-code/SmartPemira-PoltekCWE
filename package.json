@@ -13,8 +13,11 @@
     "db:seed": "tsx scripts/seed.ts",
     "db:turso:push": "tsx scripts/push-turso.ts",
     "generate:proposal": "tsx scripts/generate-proposal.ts",
+    "generate:paper": "tsx scripts/generate-paper.ts",
     "db:migrate": "prisma migrate dev",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "test": "vitest run --run",
+    "test:load": "tsx scripts/load-test.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

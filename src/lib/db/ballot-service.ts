@@ -78,7 +78,11 @@ export async function submitBallots(
     let tpsNameOut = "TPS";
     let voteVersionOut = 1;
     let isRevoteOut = false;
-    await db.$transaction(async (tx) => {
+
+    const maxRetries = 8;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await db.$transaction(async (tx) => {
       // 1. Validasi token + kebijakan re-vote
       const token = await tx.votingToken.findUnique({ where: { tokenHash } });
       if (!token) throw new Error("INVALID_TOKEN");
@@ -215,7 +219,26 @@ export async function submitBallots(
           tpsId: tps.id,
         },
       });
-    });
+    }, { maxWait: 15_000, timeout: 30_000 });
+        break; // Transaksi sukses
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const isTransient =
+          msg.includes("timed out") ||
+          msg.includes("timeout") ||
+          msg.includes("P2028") ||
+          msg.includes("P2034") ||
+          msg.includes("database is locked") ||
+          msg.includes("SQLITE_BUSY");
+
+        if (isTransient && attempt < maxRetries) {
+          const jitterMs = Math.floor(Math.random() * 80) + attempt * 70;
+          await new Promise((r) => setTimeout(r, jitterMs));
+          continue;
+        }
+        throw err;
+      }
+    }
 
     return {
       ok: true,

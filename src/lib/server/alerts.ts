@@ -34,9 +34,9 @@ const g = globalThis as unknown as {
   __pemiraAlertWebhookSeen?: string;
 };
 
-async function checkChainIntegrity(): Promise<{ ok: boolean; checked: number; failures: string[] }> {
+export async function checkChainIntegrity(forceFresh = false): Promise<{ ok: boolean; checked: number; failures: string[] }> {
   const cached = g.__pemiraAlertCache;
-  if (cached && Date.now() - cached.checkedAt < CHAIN_CHECK_INTERVAL_MS) {
+  if (!forceFresh && cached && Date.now() - cached.checkedAt < CHAIN_CHECK_INTERVAL_MS) {
     return { ok: cached.chainOk, checked: cached.checkedCount, failures: cached.chainFailures };
   }
   const [tpsList, ballots] = await Promise.all([

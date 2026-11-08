@@ -67,8 +67,12 @@ Dokumentasi/
 │   ├── assets/                                             # 50 Berkas Screenshot Kunci Produksi (.png)
 │   └── DESAIN_ANTARMUKA_WIREFRAME_DAN_MOCKUP.md            # Desain Neo-Editorial Botanical, Dual-Theme, Mockup Catalog
 │
-└── 06_SOFTWARE_ARCHITECTURE_DOCUMENT_SAD/                   # [Fase 6: Arsitektur Sistem & Spesifikasi Keamanan]
-    └── DOKUMEN_ARSITEKTUR_PERANGKAT_LUNAK_SAD.md            # Kruchten 4+1 View, Kriptografi, STRIDE & Dual-Mode DB
+├── 06_SOFTWARE_ARCHITECTURE_DOCUMENT_SAD/                   # [Fase 6: Arsitektur Sistem & Spesifikasi Keamanan]
+│   └── DOKUMEN_ARSITEKTUR_PERANGKAT_LUNAK_SAD.md            # Kruchten 4+1 View, Kriptografi, STRIDE & Dual-Mode DB
+│
+└── 07_PUBLIKASI_ILMIAH/                                     # [Fase 7: Diseminasi Akademik & Publikasi IEEE]
+    ├── PAPER_IEEE_SMART_PEMIRA.md                           # Manuskrip Ilmiah Konferensi IEEE 2-Kolom
+    └── REFERENCES.bib                                       # Bibliografi BibTeX Standar Akademik (22 Referensi)
 ```
 
 ---
@@ -167,6 +171,18 @@ Dokumentasi/
   * **Analisis Keamanan STRIDE Threat Model**: Matriks ancaman (*Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege*) beserta mitigasi teknisnya.
   * **Arsitektur Mesin Basis Data Dual-Mode**: Mekanisme switching dinamis Prisma Client antara SQLite lokal (LAN terisolasi, zero latency, WAL mode) dan Turso LibSQL Cloud (replikasi terdistribusi edge).
   * Mekanisme ketahanan bencana (*Disaster Recovery*), *concurrency retry with exponential backoff*, dan prosedur "Segel & Reset" periode pemira.
+
+---
+
+### 3.7 07_PUBLIKASI_ILMIAH (Diseminasi Akademik & Paper Konferensi IEEE)
+* [**PAPER_IEEE_SMART_PEMIRA.md**](07_PUBLIKASI_ILMIAH/PAPER_IEEE_SMART_PEMIRA.md):
+  * Naskah lengkap manuskrip ilmiah standar IEEE Conference dua kolom berjudul:
+    *"Dual-Layer Zero-Knowledge Ballot Architecture with Ephemeral Hash-Chaining and Ed25519 Multi-Signature Verification for High-Integrity Campus Elections"*.
+  * Struktur 6 bab formal: Pendahuluan & Trilemma E-Voting, Legal-to-Code Framework (UUD IKM), Desain Kriptografi (CSPRNG, SHA-256 Chains, Ed25519 Multisig, Time Jitter), Evaluasi Eksperimental & Pengujian Beban Sintetis (300 pemilih simultan, P95 < 280 ms, zero fork), Diskusi Komparatif (Helios, Belenios, Estonia), serta Kesimpulan & Riset Masa Depan.
+* [**REFERENCES.bib**](07_PUBLIKASI_ILMIAH/REFERENCES.bib):
+  * Bibliografi akademis 22 referensi primer (Chaum, Adida, Bernstein, Springall, Rivest, Benaloh, Cortier, Crockford, RFC 8032, FIPS 180-4, NIST SP 800-90A, STRIDE).
+* **Generator Paper Word (`scripts/generate-paper.ts`)**:
+  * Skrip otomasi `npm run generate:paper` yang mengompilasi naskah menjadi berkas Word siap kirim (`Paper_IEEE_Smart_Pemira_PoltekCWE.docx`) berformat dua kolom standar IEEE.
 
 ---
 
