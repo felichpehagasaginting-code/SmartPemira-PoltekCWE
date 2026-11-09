@@ -52,6 +52,18 @@ async function run() {
 
   console.log("✅ Struktur tabel dan indeks berhasil dibuat di Turso!");
 
+  // Pastikan kolom baru yang ditambahkan diupgrade (ALTER TABLE) jika tabel sudah ada sebelumnya
+  try {
+    const tableInfo = await client.execute("PRAGMA table_info(ElectionSetting)");
+    const hasBaSignaturesJson = tableInfo.rows.some((r) => r.name === "baSignaturesJson");
+    if (!hasBaSignaturesJson) {
+      console.log("  ➕ Menambahkan kolom baru 'baSignaturesJson' ke ElectionSetting...");
+      await client.execute("ALTER TABLE ElectionSetting ADD COLUMN baSignaturesJson TEXT");
+    }
+  } catch (err: any) {
+    console.warn("  ℹ Info kolom ElectionSetting:", err.message);
+  }
+
   // 2. Lakukan Seeding data awal menggunakan PrismaClient (dual-mode db.ts)
   console.log("🌱 Menjalankan seeding data awal ke Turso...");
   const seedScript = path.resolve(__dirname, "seed.ts");
