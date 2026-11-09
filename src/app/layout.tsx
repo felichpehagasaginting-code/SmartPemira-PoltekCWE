@@ -6,7 +6,7 @@ import { RegisterSW } from "@/components/pwa/register-sw";
 export const metadata: Metadata = {
   title: "Smart Pemira — Poltek CWE | Pemilihan Umum Raya Mahasiswa",
   description:
-    "Sistem Informasi Pemilihan Umum Raya Terintegrasi Ikatan Keluarga Mahasiswa Politeknik Kelapa Sawit Citra Widya Edukasi. Zero-Knowledge Ballot, aman, rahasia, dan transparan.",
+    "Sistem Informasi Pemilihan Umum Raya Terintegrasi Ikatan Keluarga Mahasiswa Politeknik Kelapa Sawit Citra Widya Edukasi. Zero-Knowledge Ballot, Aman, Rahasia, dan Transparan.",
   keywords: ["Smart Pemira", "Pemira", "E-Voting", "Poltek CWE", "KPUM", "Mahasiswa"],
   manifest: "/manifest.json",
   icons: {
