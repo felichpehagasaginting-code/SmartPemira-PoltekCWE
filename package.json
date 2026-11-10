@@ -8,16 +8,21 @@
     "vercel-build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint .",
+    "studio": "tsx scripts/studio.ts",
+    "studio:offline": "tsx scripts/studio.ts --offline",
     "db:push": "prisma db push --accept-data-loss",
     "db:generate": "prisma generate",
     "db:seed": "tsx scripts/seed.ts",
     "db:turso:push": "tsx scripts/push-turso.ts",
+    "db:turso:backup": "tsx scripts/backup-turso.ts",
+    "db:turso:restore": "tsx scripts/restore-drill.ts",
     "generate:proposal": "tsx scripts/generate-proposal.ts",
     "generate:paper": "tsx scripts/generate-paper.ts",
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
     "test": "vitest run --run",
-    "test:load": "tsx scripts/load-test.ts"
+    "test:load": "tsx scripts/load-test.ts",
+    "test:smoke": "tsx scripts/smoke-test.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -2,21 +2,30 @@
 // Rekomendasi #6: respons memuat struk suara + versi suara (re-vote Estonia).
 import { NextRequest, NextResponse } from "next/server";
 import { submitBallots } from "@/lib/db/ballot-service";
-import { clientIp, generalLimit } from "@/lib/server/rate-limit";
+import { clientIp, campusNatLimit } from "@/lib/server/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
-    // Anti-abuse: maks 20 pengiriman suara/menit per IP (Rekomendasi #1)
-    const limit = generalLimit(`pemilihsbm:${clientIp(req.headers)}`, 20, 60_000);
+    const body = await req.json();
+    const token = String(body?.token ?? "").trim().toUpperCase();
+
+    // Anti-abuse sadar-NAT kampus:
+    // Toleran hingga 300 pengiriman/menit per IP publik kampus, namun maksimal 6 pengiriman/menit per token.
+    const limit = campusNatLimit("pemilihsbm", clientIp(req.headers), token, {
+      ipLimit: 300,
+      tokenLimit: 6,
+    });
     if (!limit.allowed) {
+      const pesan =
+        limit.reason === "TOKEN"
+          ? `Pengiriman untuk token ini terlalu cepat. Tunggu ${Math.ceil(limit.retryAfterSec)} detik.`
+          : `Trafik pengiriman bilik suara sedang sangat padat. Tunggu ${Math.ceil(limit.retryAfterSec)} detik.`;
       return NextResponse.json(
-        { ok: false, message: `Terlalu banyak pengiriman. Coba lagi dalam ${Math.ceil(limit.retryAfterSec)} detik.` },
+        { ok: false, message: pesan },
         { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } }
       );
     }
 
-    const body = await req.json();
-    const token = String(body?.token ?? "").trim().toUpperCase();
     const { presmaCandidateId, dpmCandidateId, himaCandidateId } = body?.selections ?? {};
 
     // Setiap kategori wajib punya pilihan EKSPLISIT: id paslon ATAU null (SUARA KOSONG).

@@ -52,3 +52,6 @@ prompt
 server.log
 # Skills directory
 /skills/
+backups/*.db
+backups/*.sha256
+db/*.db-journal

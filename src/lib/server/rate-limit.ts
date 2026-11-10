@@ -130,6 +130,50 @@ export function generalLimit(key: string, limit: number, windowMs: number): { al
   return { allowed: true, retryAfterSec: 0, remaining: limit - b.count };
 }
 
+export interface CampusNatLimitOptions {
+  ipLimit?: number;
+  tokenLimit?: number;
+  windowMs?: number;
+}
+
+/**
+ * Rate Limiter sadar-NAT Kampus (Mencegah false HTTP 429 massal pada Wi-Fi bersama kampus).
+ * Memvalidasi 2 lapisan:
+ * 1. Lapisan Token: maks 6 req/menit per token (mencegah bot membombardir token yang sama).
+ * 2. Lapisan IP Publik: batas toleran hingga 300 req/menit per IP NAT publik kampus.
+ */
+export function campusNatLimit(
+  prefix: string,
+  ip: string,
+  tokenOrIdentifier: string,
+  options?: CampusNatLimitOptions
+): { allowed: boolean; retryAfterSec: number; remaining: number; reason?: "TOKEN" | "IP" } {
+  const ipLimit = options?.ipLimit ?? 300;
+  const tokenLimit = options?.tokenLimit ?? 6;
+  const windowMs = options?.windowMs ?? 60_000;
+
+  const trimmed = (tokenOrIdentifier ?? "").trim();
+  if (trimmed.length > 0) {
+    const tokenKey = `${prefix}:tok:${trimmed.toUpperCase()}`;
+    const tokenRes = generalLimit(tokenKey, tokenLimit, windowMs);
+    if (!tokenRes.allowed) {
+      return { ...tokenRes, reason: "TOKEN" };
+    }
+  }
+
+  const ipKey = `${prefix}:ip:${ip}`;
+  const ipRes = generalLimit(ipKey, ipLimit, windowMs);
+  if (!ipRes.allowed) {
+    return { ...ipRes, reason: "IP" };
+  }
+
+  return {
+    allowed: true,
+    retryAfterSec: 0,
+    remaining: Math.min(ipRes.remaining, trimmed ? tokenLimit : ipRes.remaining),
+  };
+}
+
 /** Ekstrak IP klien dari request (proxy-aware). */
 export function clientIp(headers: Headers): string {
   return headers.get("x-forwarded-for")?.split(",")[0]?.trim() || headers.get("x-real-ip")?.trim() || "lokal";

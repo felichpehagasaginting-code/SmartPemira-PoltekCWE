@@ -9,21 +9,30 @@ import { hashToken } from "@/lib/crypto/token-generator";
 import { expireStaleTokens } from "@/lib/db/ballot-service";
 import { BALLOT_CATEGORY_COLORS } from "@/lib/constants/election";
 import { getProdiMeta } from "@/lib/constants/study-programs";
-import { clientIp, generalLimit } from "@/lib/server/rate-limit";
+import { clientIp, campusNatLimit } from "@/lib/server/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
-    // Anti-brute force: maks 30 validasi token/menit per IP (Rekomendasi #1)
-    const limit = generalLimit(`pemilihval:${clientIp(req.headers)}`, 30, 60_000);
+    const body = await req.json();
+    const rawToken = String(body?.token ?? "").trim().toUpperCase();
+
+    // Anti-brute force sadar-NAT kampus:
+    // Toleran hingga 300 req/menit per IP kampus bersama, namun maksimal 10 req/menit per token.
+    const limit = campusNatLimit("pemilihval", clientIp(req.headers), rawToken, {
+      ipLimit: 300,
+      tokenLimit: 10,
+    });
     if (!limit.allowed) {
+      const pesan =
+        limit.reason === "TOKEN"
+          ? `Terlalu banyak percobaan untuk token ini. Tunggu ${Math.ceil(limit.retryAfterSec)} detik.`
+          : `Trafik jaringan sangat padat. Coba lagi dalam ${Math.ceil(limit.retryAfterSec)} detik.`;
       return NextResponse.json(
-        { ok: false, message: `Terlalu banyak percobaan token. Coba lagi dalam ${Math.ceil(limit.retryAfterSec)} detik.` },
+        { ok: false, message: pesan },
         { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } }
       );
     }
 
-    const body = await req.json();
-    const rawToken = String(body?.token ?? "").trim().toUpperCase();
     if (rawToken.length !== 6) {
       return NextResponse.json({ ok: false, message: "Token harus 6 karakter." }, { status: 400 });
     }

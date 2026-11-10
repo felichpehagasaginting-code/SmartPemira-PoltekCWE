@@ -7,6 +7,7 @@ import {
   recordLoginFailure,
   recordLoginSuccess,
   generalLimit,
+  campusNatLimit,
   LOGIN_MAX_FAILS,
   LOGIN_FAIL_WINDOW_MS,
 } from "@/lib/server/rate-limit";
@@ -73,5 +74,29 @@ describe("Invariant: fixed-window limiter", () => {
     for (let i = 0; i < 5; i++) generalLimit(a, 5, 60_000);
     expect(generalLimit(a, 5, 60_000).allowed).toBe(false);
     expect(generalLimit(b, 5, 60_000).allowed).toBe(true);
+  });
+});
+
+describe("Invariant: campusNatLimit (anti-false-429 pada shared campus Wi-Fi)", () => {
+  it("mengizinkan banyak token berbeda dari satu IP NAT yang sama", () => {
+    const ip = `nat-${Math.random()}`;
+    // 25 pemilih berbeda dari 1 Wi-Fi kampus yang sama
+    for (let i = 0; i < 25; i++) {
+      const token = `TOK${i}`;
+      const res = campusNatLimit("nat-test", ip, token, { ipLimit: 50, tokenLimit: 3 });
+      expect(res.allowed).toBe(true);
+    }
+  });
+
+  it("memblokir token tunggal jika dibombardir melebihi tokenLimit", () => {
+    const ip = `nat2-${Math.random()}`;
+    const token = `HAMMER${Math.random().toString().slice(2, 6)}`;
+    for (let i = 0; i < 3; i++) {
+      const res = campusNatLimit("nat-test2", ip, token, { ipLimit: 100, tokenLimit: 3 });
+      expect(res.allowed).toBe(true);
+    }
+    const blocked = campusNatLimit("nat-test2", ip, token, { ipLimit: 100, tokenLimit: 3 });
+    expect(blocked.allowed).toBe(false);
+    expect(blocked.reason).toBe("TOKEN");
   });
 });

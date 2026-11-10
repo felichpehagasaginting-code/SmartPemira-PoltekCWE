@@ -400,6 +400,8 @@ export function PemilihPortal() {
   const [receiptCode, setReceiptCode] = useState<string | null>(null);
   const [voteVersion, setVoteVersion] = useState(1);
   const [lockBusy, setLockBusy] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
   const [practice, setPractice] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const activeTokenRef = useRef<string>("");
@@ -543,6 +545,10 @@ export function PemilihPortal() {
   }, []);
 
   const submitVote = useCallback(async () => {
+    if (submitLockRef.current) return;
+    submitLockRef.current = true;
+    setIsSubmitting(true);
+
     if (practice) {
       // MODE LATIHAN — simulasi lokal; tidak ada request jaringan sama sekali
       setPhase("submitting");
@@ -551,10 +557,16 @@ export function PemilihPortal() {
         buzz([40, 60, 40]);
         setReceiptCode(null);
         setPhase("success");
+        submitLockRef.current = false;
+        setIsSubmitting(false);
       }, 700);
       return;
     }
-    if (!session) return;
+    if (!session) {
+      submitLockRef.current = false;
+      setIsSubmitting(false);
+      return;
+    }
     setPhase("submitting");
     setSubmittingMsg(isRevote ? "Mengganti Suara Anda..." : "Mengenkripsi & Mengacak Suara...");
     try {
@@ -586,6 +598,9 @@ export function PemilihPortal() {
     } catch {
       setSubmitError("Koneksi gagal saat mengirim suara. Suara tidak terkirim — coba lagi atau hubungi pos bantuan.");
       setPhase("review");
+    } finally {
+      submitLockRef.current = false;
+      setIsSubmitting(false);
     }
   }, [session, selections, isRevote, practice]);
 
@@ -1020,9 +1035,21 @@ export function PemilihPortal() {
           <button
             type="button"
             onClick={submitVote}
-            className="tactile-btn flex h-16 w-full max-w-2xl items-center justify-center text-lg font-extrabold tracking-wide"
+            disabled={isSubmitting}
+            className="tactile-btn flex h-16 w-full max-w-2xl items-center justify-center text-lg font-extrabold tracking-wide disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isRevote ? "KIRIM ULANG & GANTI SUARA" : practice ? "KIRIM SIMULASI (LATIHAN)" : "KIRIM SUARA SEKARANG"}
+            {isSubmitting ? (
+              <span className="flex items-center gap-2">
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                MEMPROSES ENKRIPSI & TRANSAKSI...
+              </span>
+            ) : isRevote ? (
+              "KIRIM ULANG & GANTI SUARA"
+            ) : practice ? (
+              "KIRIM SIMULASI (LATIHAN)"
+            ) : (
+              "KIRIM SUARA SEKARANG"
+            )}
           </button>
           {hasTtl && (
             <div
