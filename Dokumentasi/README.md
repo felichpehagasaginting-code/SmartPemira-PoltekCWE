@@ -126,9 +126,11 @@ Dokumentasi/
 ---
 
 ### 3.4 04_ENTITY_RELATIONSHIP_DIAGRAM_ERD (Data Design & Dictionary)
+* [**ERD_SMART_PEMIRA_POLTEK_CWE.drawio**](04_ENTITY_RELATIONSHIP_DIAGRAM_ERD/ERD_SMART_PEMIRA_POLTEK_CWE.drawio):
+  * **Diagram ERD Format Draw.io / diagrams.net Resmi**: Berkas visual native Draw.io dengan notasi Crow's Foot lengkap (`1:N`, `N:1`, `1:1`, `M:N`), tata letak domain warna (*color-coded*), dan perimeter pemisah *Zero-Knowledge Air-Gap Barrier*.
 * [**ERD_DAN_KAMUS_DATA_ZERO_KNOWLEDGE.md**](04_ENTITY_RELATIONSHIP_DIAGRAM_ERD/ERD_DAN_KAMUS_DATA_ZERO_KNOWLEDGE.md):
   * **Conceptual Data Model (CDM) & Physical Data Model (PDM)** dengan pemisahan domain logis.
-  * **Diagram ERD Mermaid.js** yang menegaskan secara visual ketiadaan relasi *foreign key* antara `Voter` dan `BallotBox`.
+  * **Diagram ERD Mermaid.js & Matriks Kardinalitas** yang menegaskan secara visual ketiadaan relasi *foreign key* antara `Voter` dan `BallotBox`.
   * **Kamus Data Komprehensif (Data Dictionary)** mencakup 11 entitas basis data:
     1. `StudyProgram`: Master data program studi dan warna aksen surat suara.
     2. `Tps`: TPS virtual 100% online per prodi yang memelihara rantai hash mandiri.

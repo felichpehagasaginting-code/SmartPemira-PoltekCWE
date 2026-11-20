@@ -12,7 +12,11 @@
 ## DAFTAR ISI
 1. [Pendahuluan & Doktrin Kriptografis Zero-Knowledge](#1-pendahuluan--doktrin-kriptografis-zero-knowledge)
 2. [Conceptual Data Model (CDM)](#2-conceptual-data-model-cdm)
-3. [Diagram ERD Lengkap (Mermaid.js)](#3-diagram-erd-lengkap-mermaidjs)
+3. [Diagram ERD Lengkap & Notasi Kardinalitas](#3-diagram-erd-lengkap--notasi-kardinalitas)
+   - 3.1 [Berkas Visual Draw.io Resmi (`.drawio`)](#31-berkas-visual-drawio-resmi-drawio)
+   - 3.2 [Analisis & Klasifikasi Kardinalitas Relasi Basis Data](#32-analisis--klasifikasi-kardinalitas-relasi-basis-data)
+   - 3.3 [Dekomposisi Relasi Many-to-Many ($M:N$) via Junction Table](#c-relasi-banyak-ke-banyak-many-to-many--m--n-melalui-junction-table)
+   - 3.4 [Doktrin Relasi Nol (Zero-Knowledge Disconnection / $0:0$)](#d-doktrin-relasi-nol-zero-knowledge-disconnection---0--0)
 4. [Physical Data Model (PDM) & Strategi Penyimpanan](#4-physical-data-model-pdm--strategi-penyimpanan)
 5. [Kamus Data Komprehensif (Data Dictionary)](#5-kamus-data-komprehensif-data-dictionary)
    - 5.1 [Entitas `StudyProgram` (Program Studi)](#51-entitas-studyprogram-program-studi)
@@ -95,24 +99,30 @@ Model Konseptual Data (CDM) Smart Pemira memetakan entitas bisnis, batasan integ
 
 ---
 
-## 3. Diagram ERD Lengkap (Mermaid.js)
+## 3. Diagram ERD Lengkap & Notasi Kardinalitas
 
-Berikut adalah diagram relasi entitas lengkap yang menegaskan batas isolasi Zero-Knowledge. Perhatikan bahwa **garis pembatas kriptografis** memisahkan tabel `Voter` dari tabel `BallotBox` dan `VotingToken`.
+> [!TIP]
+> **Berkas Visual Draw.io (.drawio) Resmi**:
+> Diagram ERD lengkap ini tersedia dalam format standar **Draw.io / diagrams.net** yang dapat langsung dibuka, diedit, dan diekspor ke PDF/PNG resolusi tinggi melalui aplikasi Draw.io Desktop atau web [app.diagrams.net](https://app.diagrams.net):
+> 📁 **[ERD_SMART_PEMIRA_POLTEK_CWE.drawio](file:///f:/Projects/Smart-Pemira-PoltekCWE/Dokumentasi/04_ENTITY_RELATIONSHIP_DIAGRAM_ERD/ERD_SMART_PEMIRA_POLTEK_CWE.drawio)**  
+> *(Untuk membuat ulang berkas draw.io secara otomatis dari skrip: jalankan `npm run generate:erd`)*.
+
+Berikut adalah diagram relasi entitas lengkap yang menegaskan batas isolasi Zero-Knowledge dengan seluruh notasi kardinalitas Crow's Foot:
 
 ```mermaid
 erDiagram
     %% =========================================================================
     %% DOMAIN 1: PROGRAM STUDI & TPS VIRTUAL
     %% =========================================================================
-    StudyProgram ||--o{ Voter : "memiliki pemilih"
-    StudyProgram ||--o{ Candidate : "menaungi kandidat hima"
-    StudyProgram ||--o{ VotingToken : "menentukan filter ballot"
+    StudyProgram ||--o{ Voter : "1:N (One to Many) - memiliki pemilih"
+    StudyProgram ||--o{ Candidate : "1:N (One to Many, Optional) - menaungi kandidat hima"
+    StudyProgram ||--o{ VotingToken : "1:N (One to Many) - menentukan filter ballot"
     
-    Tps ||--o{ Voter : "menampung antrean"
-    Tps ||--o{ VotingToken : "menerbitkan sesi"
-    Tps ||--o{ BallotBox : "memelihara rantai hash"
-    Tps ||--o{ AuditLog : "lokasi audit"
-    Tps ||--o{ Operator : "penugasan meja ppur"
+    Tps ||--o{ Voter : "1:N (One to Many) - menampung antrean DPT"
+    Tps ||--o{ VotingToken : "1:N (One to Many) - menerbitkan sesi token"
+    Tps ||--o{ BallotBox : "1:N (One to Many) - memelihara rantai hash"
+    Tps ||--o{ AuditLog : "1:N (One to Many, Optional) - lokasi audit"
+    Tps ||--o{ Operator : "1:N (One to Many, Optional) - penugasan meja ppur"
 
     %% =========================================================================
     %% DOMAIN 2: PEMILIH (IDENTITAS MAHASISWA)
@@ -123,12 +133,12 @@ erDiagram
         string nim UK "Nomor Induk Mahasiswa BAAK"
         string name "Nama Lengkap Mahasiswa"
         int angkatan "Tahun Masuk (2023-2026)"
-        string studyProgramId FK "TPTP / TPHP / MANLOG / BD / TRPL"
-        string tpsId FK "TPS Virtual Pemilih"
+        string studyProgramId FK "TPTP / TPHP / MANLOG / BD / TRPL (N:1 ke StudyProgram)"
+        string tpsId FK "TPS Virtual Pemilih (N:1 ke Tps)"
         string status "BELUM_MEMILIH, DALAM_ANTREAN, SUDAH_MEMILIH"
         boolean hasVoted "Flag Status Penggunaan Hak Pilih"
         datetime votedAt "Waktu Verifikasi Check-in Selesai"
-        string pendingTokenHash "Hash Token Aktif (DIHAPUS SAAT SUBMIT)"
+        string pendingTokenHash "1:1 Transien ke VotingToken (DIHAPUS SAAT SUBMIT)"
         datetime createdAt "Waktu Perekaman DPT"
     }
 
@@ -136,12 +146,12 @@ erDiagram
     %% DOMAIN 3: TOKEN OTORISASI BILIK (ANONIM / EPHEMERAL)
     %% HUKUM 1: Tidak menyimpan voter_id atau nim!
     %% =========================================================================
-    VotingToken ||--o{ BallotBox : "mengotorisasi suara anonim"
+    VotingToken ||--o{ BallotBox : "1:N (One to Many) - mengotorisasi 3 surat suara/versi"
     VotingToken {
         string id PK "UUIDv4"
         string tokenHash UK "SHA-256 dari Plaintext Token 6 Karakter"
-        string tpsId FK "Rantai TPS Virtual"
-        string studyProgramId FK "Filter Surat Suara Hima"
+        string tpsId FK "Rantai TPS Virtual (N:1 ke Tps)"
+        string studyProgramId FK "Filter Surat Suara Hima (N:1 ke StudyProgram)"
         string status "ACTIVE, USED, EXPIRED, REVOKED"
         datetime issuedAt "Waktu Terbit di Meja Registrasi"
         datetime expiresAt "Batas Masuk Bilik Pertama (TTL 10 Menit)"
@@ -153,11 +163,11 @@ erDiagram
     %% =========================================================================
     %% DOMAIN 4: KOTAK SUARA ANONIM & KANDIDAT
     %% =========================================================================
-    Candidate ||--o{ BallotBox : "menerima coblosan"
+    Candidate ||--o{ BallotBox : "1:N (One to Many, Optional) - menerima coblosan sah"
     Candidate {
         string id PK "UUIDv4"
         string category "PRESMA, DPM, HIMA"
-        string studyProgramId FK "NULL jika Presma/DPM; Terisi jika Hima"
+        string studyProgramId FK "N:1 ke StudyProgram (NULL jika Presma/DPM)"
         int number "Nomor Urut Paslon / Calon"
         string presidentName "Nama Calon Presma / Ketum DPM / Ketua Hima"
         string viceName "Nama Calon Wapresma / Ketua 1 / Wakil Hima"
@@ -174,10 +184,10 @@ erDiagram
     BallotBox {
         string id PK "UUIDv4 Acak Murni"
         string category "PRESMA, DPM, HIMA"
-        string candidateId FK "ID Calon Terpilih (NULL jika Kotak Kosong)"
+        string candidateId FK "N:1 ke Candidate (NULL jika Kotak Kosong)"
         boolean isEmptyBox "Flag Pemilih Memilih Kotak Kosong"
-        string tpsId FK "Rantai Hash TPS Terkait"
-        string tokenId FK "ID Token Anonim (Untuk Logika Latest-Wins)"
+        string tpsId FK "N:1 ke Tps (Rantai Hash Terkait)"
+        string tokenId FK "N:1 ke VotingToken (Logika Latest-Wins)"
         int voteVersion "Versi Suara: 1=Asli, 2+=Hasil Re-vote"
         datetime createdAt "Waktu Simpan dengan Jitter Kriptografis"
         string ballotHash "SHA-256 Hash Rantai Integritas"
@@ -278,6 +288,88 @@ erDiagram
         datetime createdAt "Waktu Pendaftaran Akun Petugas"
     }
 ```
+
+---
+
+### 3.1 Berkas Visual Draw.io Resmi (`.drawio`)
+
+Untuk kebutuhan analisis visual resolusi tinggi, presentasi sidang tugas akhir, dan penyesuaian diagram di luar lingkungan Markdown, seluruh arsitektur ERD di atas telah diekspor ke dalam berkas biner/XML standar Draw.io:
+
+* **Lokasi Berkas**: [`Dokumentasi/04_ENTITY_RELATIONSHIP_DIAGRAM_ERD/ERD_SMART_PEMIRA_POLTEK_CWE.drawio`](file:///f:/Projects/Smart-Pemira-PoltekCWE/Dokumentasi/04_ENTITY_RELATIONSHIP_DIAGRAM_ERD/ERD_SMART_PEMIRA_POLTEK_CWE.drawio)
+* **Aplikasi Pembaca**: Draw.io Desktop, Visual Studio Code (Ekstensi *Draw.io Integration*), atau peramban web [app.diagrams.net](https://app.diagrams.net).
+* **Fitur Visual Draw.io**:
+  1. *Color-Coded Functional Domains* (Hijau: Master Prodi/TPS, Biru: Identitas DPT, Kuning: Token Bilik, Oranye: Kotak Suara & Paslon, Abu-abu: Audit & Tata Kelola).
+  2. Garis kardinalitas Crow's Foot dengan penanda ujung eksplisit (*Mandatory 1*, *Mandatory Many*, *Optional Many*).
+  3. Kotak perimeter pembatas keamanan (*Zero-Knowledge Air-Gap Barrier* bergaris putus-putus merah).
+  4. Skrip regenerasi otomatis: `npm run generate:erd`.
+
+---
+
+### 3.2 Analisis & Klasifikasi Kardinalitas Relasi Basis Data
+
+Setiap relasi dalam basis data Smart Pemira diklasifikasikan ke dalam 4 tipe kardinalitas matematis:
+
+#### A. Relasi Satu-ke-Banyak (One-to-Many / $1 : N$) dan Banyak-ke-Satu (Many-to-One / $N : 1$)
+
+Relasi ini menghubungkan satu baris induk (*parent*) ke nol atau banyak baris anak (*child*) menggunakan kunci asing (*Foreign Key*):
+
+| Entitas Induk (1) | Entitas Anak (N) | Kunci Asing (FK) | Partisipasi Induk | Partisipasi Anak | Aturan Bisnis & Integritas |
+| :--- | :--- | :--- | :---: | :---: | :--- |
+| `StudyProgram` | `Voter` | `Voter.studyProgramId` | Mandatory ($1..1$) | Optional ($0..*$) | Setiap pemilih wajib terikat pada 1 Prodi legal. Satu prodi memiliki banyak pemilih. |
+| `StudyProgram` | `Candidate` | `Candidate.studyProgramId`| Optional ($0..1$) | Optional ($0..*$) | Khusus kategori HIMA terikat pada 1 prodi; paslon PRESMA dan DPM bernilai `NULL` (lintas prodi). |
+| `StudyProgram` | `VotingToken` | `VotingToken.studyProgramId` | Mandatory ($1..1$) | Optional ($0..*$) | Token mewarisi ID prodi pemilih untuk memfilter surat suara Hima yang tampil di bilik. |
+| `Tps` | `Voter` | `Voter.tpsId` | Mandatory ($1..1$) | Optional ($0..*$) | Satu TPS virtual menampung antrean DPT dari program studi yang bersangkutan. |
+| `Tps` | `VotingToken` | `VotingToken.tpsId` | Mandatory ($1..1$) | Optional ($0..*$) | Token bilik diterbitkan di bawah yurisdiksi TPS virtual prodi terkait. |
+| `Tps` | `BallotBox` | `BallotBox.tpsId` | Mandatory ($1..1$) | Optional ($0..*$) | Setiap surat suara terikat pada rantai hash TPS prodi independen. |
+| `Tps` | `Operator` | `Operator.tpsId` | Optional ($0..1$) | Optional ($0..*$) | Operator role `PPUR` ditugaskan melayani 1 TPS prodi; role `KPUM`/`ITPO` bernilai `NULL` (global). |
+| `Tps` | `AuditLog` | `AuditLog.tpsId` | Optional ($0..1$) | Optional ($0..*$) | Catatan audit merekam konteks TPS jika kejadian terkait dengan meja registrasi tertentu. |
+| `VotingToken` | `BallotBox` | `BallotBox.tokenId` | Optional ($0..1$) | Optional ($0..*$) | Satu token menghasilkan tepat 3 baris surat suara (Presma, DPM, Hima). Jika pemilih melakukan re-vote, bertambah 3 baris lagi dengan versi lebih tinggi. |
+| `Candidate` | `BallotBox` | `BallotBox.candidateId` | Optional ($0..1$) | Optional ($0..*$) | Satu paslon dapat dicoblos oleh banyak surat suara. Bernilai `NULL` jika pemilih mencoblos opsi Suara Kotak Kosong. |
+
+#### B. Relasi Satu-ke-Satu (One-to-One / $1 : 1$)
+
+Smart Pemira menerapkan dua bentuk relasi 1:1 dengan tujuan khusus:
+
+| Entitas Asal | Entitas Tujuan | Mekanisme Relasi | Sifat Relasi | Tujuan Rekayasa |
+| :--- | :--- | :--- | :---: | :--- |
+| `ElectionSetting` | *System State* | Baris tunggal (`id = 'main'`) | Permanen ($1 : 1$) | Memastikan hanya ada 1 status pengendali gerbang voting (`votingOpen`), darurat (`emergencyFreeze`), dan kunci pleno (`plenoUnlocked`) di seluruh sistem. |
+| `Voter` | `VotingToken` | Kolom transien `Voter.pendingTokenHash` | Transien ($1 : 0..1$) | Satu pemilih maksimal hanya boleh memegang 1 token aktif pada satu waktu saat antre. Seketika suara terkirim, kolom ini **dikosongkan (NULL)** sehingga jembatan identitas terhapus permanen. |
+
+#### C. Relasi Banyak-ke-Banyak (Many-to-Many / $M : N$) melalui Junction Table
+
+Secara konseptual, hubungan antara pemilih dan kandidat adalah Many-to-Many (banyak mahasiswa memilih banyak paslon). Namun dalam basis data relasional normalisasi tahap ketiga (3NF) dan arsitektur Zero-Knowledge:
+
+```mermaid
+flowchart LR
+    subgraph TokenSide["Domain Tiket Anonim"]
+        VT["VotingToken\n(Kredensial Sesi)"]
+    end
+
+    subgraph Junction["Associative / Junction Table"]
+        BB["BallotBox\n(Surat Suara Anonim)\n---\nPK: id\nFK: tokenId\nFK: candidateId\nFK: tpsId\nAttr: category, voteVersion, ballotHash"]
+    end
+
+    subgraph CandidateSide["Domain Paslon"]
+        C["Candidate\n(Daftar Paslon)"]
+    end
+
+    VT ---|1 : N (One to Many)| BB
+    BB ---|N : 1 (Many to One)| C
+
+    style Junction fill:#FFF2CC,stroke:#B28900,stroke-width:2px;
+```
+
+* **Dekonstruksi Relasi**: Relasi konseptual $M:N$ antara `VotingToken` dan `Candidate` dipecah menjadi **dua relasi $1:N$** melalui tabel perantara (*junction table*) `BallotBox`.
+* **Semantik Bisnis**: Satu token bilik menghasilkan 3 baris `BallotBox` (1 untuk Presma, 1 untuk DPM, dan 1 untuk Hima). Satu kandidat dapat dirujuk oleh ribuan baris `BallotBox`.
+
+#### D. Doktrin Relasi Nol (Zero-Knowledge Disconnection / $0 : 0$)
+
+> [!CAUTION]
+> **Larangan Mutlak Kunci Asing (Hukum 1 Arsitektur Data Smart Pemira)**:
+> - **`Voter` $\not\leftrightarrow$ `BallotBox`**: **TIDAK ADA Foreign Key `voter_id` atau `nim`** di dalam tabel `BallotBox`.
+> - **`Voter` $\not\leftrightarrow$ `VotingToken`**: **TIDAK ADA Foreign Key permanen** antara `Voter` dan `VotingToken`.
+> 
+> Pemutusan relasi ini disengaja (*by-design air-gap*) agar tidak ada query SQL, join tabel, maupun administrator basis data yang dapat merekonstruksi korelasi antara identitas mahasiswa dan pilihan calon politiknya.
 
 ---
 
