@@ -512,6 +512,23 @@ Berikut adalah definisi struktur data terperinci untuk seluruh 11 entitas basis 
 
 ---
 
+### 5.6B Entitas `CandidatePhoto` (Penyimpanan Berkas BLOB Foto Paslon)
+* **Tujuan Entitas**: Menyimpan berkas biner gambar (BLOB) foto resmi paslon per peran anggota secara terkompresi (WebP 3:4) untuk menjamin persistensi di lingkungan serverless production (Turso LibSQL Cloud) tanpa ketergantungan pada storage lokal.
+* **Tabel Fisik**: `CandidatePhoto`
+* **Relasi**: $1:N$ dari `Candidate` ke `CandidatePhoto` (Satu kandidat dapat memiliki $0 \dots 3$ berkas foto biner: Ketua, Wakil, Ketua 2).
+
+| Nama Atribut | Tipe Data Fisik | Keys & Index | Nullable | Nilai Default | Batasan & Format (Constraint) | Deskripsi Fungsional & Aturan Bisnis |
+| :--- | :--- | :--- | :---: | :---: | :--- | :--- |
+| `id` | `VARCHAR(36)` | **PK** | Tidak | `uuid()` | Format UUIDv4 standar | Kunci primer entitas berkas foto kandidat. |
+| `candidateId`| `VARCHAR(36)` | **FK**, Index | Tidak | - | References `Candidate.id` ON DELETE CASCADE | Relasi ke entitas paslon pemilik foto. |
+| `role` | `VARCHAR(20)` | **UK (Composite)** | Tidak | - | `leader` \| `vice` \| `secondVice` | Peran kepemimpinan foto (Ketua, Wakil, Ketua 2). |
+| `mimeType` | `VARCHAR(50)` | - | Tidak | `'image/webp'` | MIME format gambar standar | Tipe konten berkas (`image/webp`, `image/jpeg`, dsb). |
+| `data` | `BLOB` | - | Tidak | - | Binary Large Object | Berkas biner gambar teroptimasi rasio 3:4. |
+| `createdAt` | `DATETIME` | - | Tidak | `CURRENT_TIMESTAMP` | Tanggal & waktu ISO-8601 | Waktu berkas foto pertama kali diunggah. |
+| `updatedAt` | `DATETIME` | - | Tidak | `CURRENT_TIMESTAMP` | Tanggal & waktu ISO-8601 | Waktu pembaruan berkas foto terakhir. |
+
+---
+
 ### 5.7 Entitas `AuditLog` (Catatan Kejadian Append-Only)
 * **Tujuan Entitas**: Mencatat seluruh peristiwa operasional sistem secara kronologis (*tamper-evident log*) untuk keperluan pengawasan Panwaslu dan audit forensik ITPO.
 * **Tabel Fisik**: `audit_logs` (dipetakan ke `AuditLog` di Prisma)

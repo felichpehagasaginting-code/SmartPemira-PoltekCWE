@@ -28,8 +28,15 @@ type Selections = Record<string, string | "EMPTY">;
 const EMPTY_BOX_COLOR = "#3F4743";
 const EMPTY_BOX_TINT = "#ECEAE4";
 
-function CandidateAvatar({ name, accent, size = 72 }: { name: string; accent: string; size?: number }) {
-  const initials = name === "KOTAK KOSONG" ? "□" : name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+function CandidateAvatar({ name, photo, accent, size = 72 }: { name: string; photo?: string | null; accent: string; size?: number }) {
+  const initials = name === "KOTAK KOSONG" || name === "SUARA KOSONG" ? "□" : name.split(" ").slice(0, 2).map((w) => w[0] || "").join("").toUpperCase();
+  if (photo) {
+    return (
+      <div className="shrink-0 overflow-hidden rounded-[10px] border-2 border-[#141E19]" style={{ width: size, height: size }}>
+        <img src={photo} alt={`Foto ${name}`} className="h-full w-full object-cover" />
+      </div>
+    );
+  }
   return (
     <div
       className="flex shrink-0 items-center justify-center rounded-[10px] border-2 border-[#141E19] font-display font-extrabold text-white select-none"
@@ -97,7 +104,7 @@ function BallotCandidateCard({
         </span>
       </div>
       <div className="flex items-center gap-3">
-        <CandidateAvatar name={candidate.presidentName} accent={candidate.isEmptyBox ? EMPTY_BOX_COLOR : color} size={56} />
+        <CandidateAvatar name={candidate.presidentName} photo={candidate.photoLeaderUrl} accent={candidate.isEmptyBox ? EMPTY_BOX_COLOR : color} size={56} />
         <div>
           <h3 className="font-display text-base font-bold leading-snug">{candidate.presidentName}</h3>
           {candidate.viceName && <p className="text-xs text-[#4A5851] font-medium">& {candidate.viceName}</p>}
@@ -474,7 +481,7 @@ export function KioskTerminal() {
                 </div>
                 {cand ? (
                   <div className="flex items-center gap-3">
-                    <CandidateAvatar name={cand.presidentName} accent={cand.isEmptyBox ? EMPTY_BOX_COLOR : b.color} size={52} />
+                    <CandidateAvatar name={cand.presidentName} photo={cand.photoLeaderUrl} accent={cand.isEmptyBox ? EMPTY_BOX_COLOR : b.color} size={52} />
                     <div>
                       <p className="font-display text-base font-bold leading-snug">{cand.presidentName}</p>
                       {cand.viceName && <p className="text-xs text-[#4A5851]">& {cand.viceName}</p>}

@@ -102,7 +102,7 @@ function CandidateAvatar({ name, photo, accent, size = 72 }: { name: string; pho
   if (photo) {
     return (
       <div className="shrink-0 overflow-hidden rounded-[10px] border-2 border-[#141E19]" style={{ width: size, height: size }}>
-        <Image src={photo} alt={`Foto ${name}`} width={size} height={size} className="h-full w-full object-cover" />
+        <Image src={photo} alt={`Foto ${name}`} width={size} height={size} unoptimized={photo.startsWith("/api/")} className="h-full w-full object-cover" />
       </div>
     );
   }
@@ -138,6 +138,7 @@ function MemberPhoto({ name, role, photo, accent }: { name: string; role: string
             src={photo}
             alt={`Foto ${name} — ${role}`}
             fill
+            unoptimized={photo.startsWith("/api/")}
             sizes="(max-width: 640px) 33vw, 180px"
             className="h-full w-full object-cover object-top"
           />

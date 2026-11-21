@@ -63,6 +63,17 @@ CREATE TABLE Candidate (
     isEmptyBox BOOLEAN DEFAULT FALSE
 );
 
+CREATE TABLE CandidatePhoto (
+    id VARCHAR(36) PRIMARY KEY, -- UUIDv4
+    candidateId VARCHAR(36) NOT NULL REFERENCES Candidate(id) ON DELETE CASCADE,
+    role VARCHAR(20) NOT NULL, -- leader, vice, secondVice
+    mimeType VARCHAR(50) DEFAULT 'image/webp',
+    data BLOB NOT NULL, -- Berkas Biner Gambar Terkompresi WebP
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT UQ_CandidatePhoto_role UNIQUE (candidateId, role)
+);
+
 CREATE TABLE BallotBox (
     id VARCHAR(36) PRIMARY KEY, -- UUIDv4 Acak Murni
     category VARCHAR(20) NOT NULL, -- PRESMA, DPM, HIMA

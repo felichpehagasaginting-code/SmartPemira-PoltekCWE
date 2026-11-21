@@ -1439,6 +1439,154 @@
             <mxRectangle width="200" height="26" as="alternateBounds" />
           </mxGeometry>
         </mxCell>
+        <!-- Table: CandidatePhoto -->
+        <mxCell id="t_candidate_photo" value="&lt;b&gt;CandidatePhoto&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size: 9px; font-weight: normal; opacity: 0.85;&quot;&gt;Penyimpanan BLOB Foto Paslon (WebP 3:4)&lt;/span&gt;" style="shape=table;startSize=36;container=1;collapsible=0;childLayout=tableLayout;fixedRows=1;rowLines=1;fontStyle=1;align=center;resizeLast=1;html=1;whiteSpace=wrap;fillColor=#107C41;strokeColor=#0B5A2F;strokeWidth=2;fontColor=#FFFFFF;fontFamily=Segoe UI,Helvetica;fontSize=12;shadow=0;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="1000" width="380" height="244" as="geometry" />
+        </mxCell>
+        <mxCell id="t_candidate_photo_hrow" value="" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;swimlaneBody=0;top=0;left=0;bottom=0;right=0;collapsible=0;dropTarget=0;fillColor=#F3F2F1;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;" vertex="1" parent="t_candidate_photo">
+          <mxGeometry y="36" width="380" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="t_candidate_photo_c_h1" value="KEY" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=1;overflow=hidden;align=center;verticalAlign=middle;html=1;whiteSpace=wrap;fontColor=#323130;fontSize=9;fontFamily=Segoe UI,Helvetica;strokeColor=#D2D0CE;" vertex="1" parent="t_candidate_photo_hrow">
+          <mxGeometry width="38" height="26" as="geometry">
+            <mxRectangle width="38" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_c_h2" value="ATRIBUT" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=1;overflow=hidden;align=left;verticalAlign=middle;spacingLeft=6;html=1;whiteSpace=wrap;fontColor=#323130;fontSize=9;fontFamily=Segoe UI,Helvetica;strokeColor=#D2D0CE;" vertex="1" parent="t_candidate_photo_hrow">
+          <mxGeometry x="38" width="142" height="26" as="geometry">
+            <mxRectangle width="142" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_c_h3" value="TIPE &amp; KETERANGAN" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=1;overflow=hidden;align=left;verticalAlign=middle;spacingLeft=6;html=1;whiteSpace=wrap;fontColor=#323130;fontSize=9;fontFamily=Segoe UI,Helvetica;strokeColor=#D2D0CE;" vertex="1" parent="t_candidate_photo_hrow">
+          <mxGeometry x="180" width="200" height="26" as="geometry">
+            <mxRectangle width="200" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_0" value="" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;swimlaneBody=0;top=0;left=0;bottom=0;right=0;collapsible=0;dropTarget=0;fillColor=#FFFFFF;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;" vertex="1" parent="t_candidate_photo">
+          <mxGeometry y="62" width="380" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_0_k" value="&lt;b style=&quot;color: #C00000;&quot;&gt;PK&lt;/b&gt;" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=1;overflow=hidden;align=center;verticalAlign=middle;html=1;whiteSpace=wrap;fontFamily=monospace;fontSize=9;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_0">
+          <mxGeometry width="38" height="26" as="geometry">
+            <mxRectangle width="38" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_0_n" value="&lt;span style=&quot;font-size: 11px; font-weight: bold; color: #201F1E;&quot;&gt;id&lt;/span&gt;" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=0;overflow=hidden;align=left;verticalAlign=middle;spacingLeft=6;html=1;whiteSpace=wrap;fontFamily=Segoe UI,Helvetica;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_0">
+          <mxGeometry x="38" width="142" height="26" as="geometry">
+            <mxRectangle width="142" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_0_t" value="&lt;span style=&quot;font-size: 10px; color: #555;&quot;&gt;String&lt;/span&gt; &lt;span style=&quot;color: #888; font-size: 9px;&quot;&gt;(UUIDv4 Kunci Primer)&lt;/span&gt;" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=0;overflow=hidden;align=left;verticalAlign=middle;spacingLeft=6;html=1;whiteSpace=wrap;fontFamily=Segoe UI,Helvetica;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_0">
+          <mxGeometry x="180" width="200" height="26" as="geometry">
+            <mxRectangle width="200" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_1" value="" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;swimlaneBody=0;top=0;left=0;bottom=0;right=0;collapsible=0;dropTarget=0;fillColor=#FAFAFA;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;" vertex="1" parent="t_candidate_photo">
+          <mxGeometry y="88" width="380" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_1_k" value="&lt;b style=&quot;color: #0078D4;&quot;&gt;FK&lt;/b&gt;" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=1;overflow=hidden;align=center;verticalAlign=middle;html=1;whiteSpace=wrap;fontFamily=monospace;fontSize=9;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_1">
+          <mxGeometry width="38" height="26" as="geometry">
+            <mxRectangle width="38" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_1_n" value="&lt;span style=&quot;font-size: 11px; font-weight: bold; color: #201F1E;&quot;&gt;candidateId&lt;/span&gt;" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=0;overflow=hidden;align=left;verticalAlign=middle;spacingLeft=6;html=1;whiteSpace=wrap;fontFamily=Segoe UI,Helvetica;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_1">
+          <mxGeometry x="38" width="142" height="26" as="geometry">
+            <mxRectangle width="142" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_1_t" value="&lt;span style=&quot;font-size: 10px; color: #555;&quot;&gt;String&lt;/span&gt; &lt;span style=&quot;color: #888; font-size: 9px;&quot;&gt;(FK -&gt; Candidate.id (ON DELETE CASCADE))&lt;/span&gt;" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=0;overflow=hidden;align=left;verticalAlign=middle;spacingLeft=6;html=1;whiteSpace=wrap;fontFamily=Segoe UI,Helvetica;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_1">
+          <mxGeometry x="180" width="200" height="26" as="geometry">
+            <mxRectangle width="200" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_2" value="" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;swimlaneBody=0;top=0;left=0;bottom=0;right=0;collapsible=0;dropTarget=0;fillColor=#FFFFFF;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;" vertex="1" parent="t_candidate_photo">
+          <mxGeometry y="114" width="380" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_2_k" value="&lt;b style=&quot;color: #B45309;&quot;&gt;UK&lt;/b&gt;" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=1;overflow=hidden;align=center;verticalAlign=middle;html=1;whiteSpace=wrap;fontFamily=monospace;fontSize=9;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_2">
+          <mxGeometry width="38" height="26" as="geometry">
+            <mxRectangle width="38" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_2_n" value="&lt;span style=&quot;font-size: 11px; font-weight: bold; color: #201F1E;&quot;&gt;role&lt;/span&gt;" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=0;overflow=hidden;align=left;verticalAlign=middle;spacingLeft=6;html=1;whiteSpace=wrap;fontFamily=Segoe UI,Helvetica;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_2">
+          <mxGeometry x="38" width="142" height="26" as="geometry">
+            <mxRectangle width="142" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_2_t" value="&lt;span style=&quot;font-size: 10px; color: #555;&quot;&gt;String&lt;/span&gt; &lt;span style=&quot;color: #888; font-size: 9px;&quot;&gt;(leader | vice | secondVice (Unique/Candidate))&lt;/span&gt;" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=0;overflow=hidden;align=left;verticalAlign=middle;spacingLeft=6;html=1;whiteSpace=wrap;fontFamily=Segoe UI,Helvetica;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_2">
+          <mxGeometry x="180" width="200" height="26" as="geometry">
+            <mxRectangle width="200" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_3" value="" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;swimlaneBody=0;top=0;left=0;bottom=0;right=0;collapsible=0;dropTarget=0;fillColor=#FAFAFA;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;" vertex="1" parent="t_candidate_photo">
+          <mxGeometry y="140" width="380" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_3_k" value="" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=1;overflow=hidden;align=center;verticalAlign=middle;html=1;whiteSpace=wrap;fontFamily=monospace;fontSize=9;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_3">
+          <mxGeometry width="38" height="26" as="geometry">
+            <mxRectangle width="38" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_3_n" value="&lt;span style=&quot;font-size: 11px; font-weight: normal; color: #201F1E;&quot;&gt;mimeType&lt;/span&gt;" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=0;overflow=hidden;align=left;verticalAlign=middle;spacingLeft=6;html=1;whiteSpace=wrap;fontFamily=Segoe UI,Helvetica;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_3">
+          <mxGeometry x="38" width="142" height="26" as="geometry">
+            <mxRectangle width="142" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_3_t" value="&lt;span style=&quot;font-size: 10px; color: #555;&quot;&gt;String&lt;/span&gt; &lt;span style=&quot;color: #888; font-size: 9px;&quot;&gt;(Format Konten (Default: image/webp))&lt;/span&gt;" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=0;overflow=hidden;align=left;verticalAlign=middle;spacingLeft=6;html=1;whiteSpace=wrap;fontFamily=Segoe UI,Helvetica;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_3">
+          <mxGeometry x="180" width="200" height="26" as="geometry">
+            <mxRectangle width="200" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_4" value="" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;swimlaneBody=0;top=0;left=0;bottom=0;right=0;collapsible=0;dropTarget=0;fillColor=#FFFFFF;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;" vertex="1" parent="t_candidate_photo">
+          <mxGeometry y="166" width="380" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_4_k" value="" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=1;overflow=hidden;align=center;verticalAlign=middle;html=1;whiteSpace=wrap;fontFamily=monospace;fontSize=9;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_4">
+          <mxGeometry width="38" height="26" as="geometry">
+            <mxRectangle width="38" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_4_n" value="&lt;span style=&quot;font-size: 11px; font-weight: normal; color: #201F1E;&quot;&gt;data&lt;/span&gt;" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=0;overflow=hidden;align=left;verticalAlign=middle;spacingLeft=6;html=1;whiteSpace=wrap;fontFamily=Segoe UI,Helvetica;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_4">
+          <mxGeometry x="38" width="142" height="26" as="geometry">
+            <mxRectangle width="142" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_4_t" value="&lt;span style=&quot;font-size: 10px; color: #555;&quot;&gt;Bytes&lt;/span&gt; &lt;span style=&quot;color: #888; font-size: 9px;&quot;&gt;(BLOB Biner Gambar Terkompresi Canvas)&lt;/span&gt;" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=0;overflow=hidden;align=left;verticalAlign=middle;spacingLeft=6;html=1;whiteSpace=wrap;fontFamily=Segoe UI,Helvetica;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_4">
+          <mxGeometry x="180" width="200" height="26" as="geometry">
+            <mxRectangle width="200" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_5" value="" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;swimlaneBody=0;top=0;left=0;bottom=0;right=0;collapsible=0;dropTarget=0;fillColor=#FAFAFA;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;" vertex="1" parent="t_candidate_photo">
+          <mxGeometry y="192" width="380" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_5_k" value="" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=1;overflow=hidden;align=center;verticalAlign=middle;html=1;whiteSpace=wrap;fontFamily=monospace;fontSize=9;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_5">
+          <mxGeometry width="38" height="26" as="geometry">
+            <mxRectangle width="38" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_5_n" value="&lt;span style=&quot;font-size: 11px; font-weight: normal; color: #201F1E;&quot;&gt;createdAt&lt;/span&gt;" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=0;overflow=hidden;align=left;verticalAlign=middle;spacingLeft=6;html=1;whiteSpace=wrap;fontFamily=Segoe UI,Helvetica;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_5">
+          <mxGeometry x="38" width="142" height="26" as="geometry">
+            <mxRectangle width="142" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_5_t" value="&lt;span style=&quot;font-size: 10px; color: #555;&quot;&gt;DateTime&lt;/span&gt; &lt;span style=&quot;color: #888; font-size: 9px;&quot;&gt;(Waktu Unggah Pertama)&lt;/span&gt;" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=0;overflow=hidden;align=left;verticalAlign=middle;spacingLeft=6;html=1;whiteSpace=wrap;fontFamily=Segoe UI,Helvetica;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_5">
+          <mxGeometry x="180" width="200" height="26" as="geometry">
+            <mxRectangle width="200" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_6" value="" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;swimlaneBody=0;top=0;left=0;bottom=0;right=0;collapsible=0;dropTarget=0;fillColor=#FFFFFF;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;" vertex="1" parent="t_candidate_photo">
+          <mxGeometry y="218" width="380" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_6_k" value="" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=1;overflow=hidden;align=center;verticalAlign=middle;html=1;whiteSpace=wrap;fontFamily=monospace;fontSize=9;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_6">
+          <mxGeometry width="38" height="26" as="geometry">
+            <mxRectangle width="38" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_6_n" value="&lt;span style=&quot;font-size: 11px; font-weight: normal; color: #201F1E;&quot;&gt;updatedAt&lt;/span&gt;" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=0;overflow=hidden;align=left;verticalAlign=middle;spacingLeft=6;html=1;whiteSpace=wrap;fontFamily=Segoe UI,Helvetica;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_6">
+          <mxGeometry x="38" width="142" height="26" as="geometry">
+            <mxRectangle width="142" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t_candidate_photo_r_6_t" value="&lt;span style=&quot;font-size: 10px; color: #555;&quot;&gt;DateTime&lt;/span&gt; &lt;span style=&quot;color: #888; font-size: 9px;&quot;&gt;(Waktu Perubahan Terakhir)&lt;/span&gt;" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=1;right=0;fontStyle=0;overflow=hidden;align=left;verticalAlign=middle;spacingLeft=6;html=1;whiteSpace=wrap;fontFamily=Segoe UI,Helvetica;strokeColor=#EDEBE9;" vertex="1" parent="t_candidate_photo_r_6">
+          <mxGeometry x="180" width="200" height="26" as="geometry">
+            <mxRectangle width="200" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
         <!-- Table: Operator -->
         <mxCell id="t_operator" value="&lt;b&gt;Operator&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size: 9px; font-weight: normal; opacity: 0.85;&quot;&gt;Akun Pengguna RBAC &amp; 2FA TOTP&lt;/span&gt;" style="shape=table;startSize=36;container=1;collapsible=0;childLayout=tableLayout;fixedRows=1;rowLines=1;fontStyle=1;align=center;resizeLast=1;html=1;whiteSpace=wrap;fillColor=#323130;strokeColor=#201F1E;strokeWidth=2;fontColor=#FFFFFF;fontFamily=Segoe UI,Helvetica;fontSize=12;shadow=0;" vertex="1" parent="1">
           <mxGeometry x="1660" y="130" width="360" height="400" as="geometry" />
@@ -2263,6 +2411,10 @@
         </mxCell>
         <!-- Edge: rel_candidate_ballot -->
         <mxCell id="rel_candidate_ballot" value="&lt;b style=&quot;font-size: 10px; color: #141E19;&quot;&gt;1 : N (Optional - Kotak Kosong)&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;startArrow=ERmandOne;startFill=0;endArrow=ERzeroToMany;endFill=0;strokeColor=#201F1E;strokeWidth=1.8;fontFamily=Segoe UI,Helvetica;fontSize=10;labelBackgroundColor=#FFFFFF;labelBorderColor=#8A8886;" edge="1" parent="1" source="t_candidate" target="t_ballot_box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- Edge: rel_candidate_photo -->
+        <mxCell id="rel_candidate_photo" value="&lt;b style=&quot;font-size: 10px; color: #141E19;&quot;&gt;1 : N (0..3 Foto Paslon)&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;startArrow=ERmandOne;startFill=0;endArrow=ERzeroToMany;endFill=0;strokeColor=#201F1E;strokeWidth=1.8;fontFamily=Segoe UI,Helvetica;fontSize=10;labelBackgroundColor=#FFFFFF;labelBorderColor=#8A8886;" edge="1" parent="1" source="t_candidate" target="t_candidate_photo">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>

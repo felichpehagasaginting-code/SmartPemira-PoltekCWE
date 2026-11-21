@@ -8,16 +8,20 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { AlertCenter } from "@/components/pleno/alert-center";
+import { CandidateFormDialog } from "@/components/kpum/candidate-form-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { usePolling } from "@/hooks/use-polling";
 import type { AdminOverviewResponse } from "@/lib/types";
+import { toast } from "sonner";
 import {
   AlertTriangle,
+  Camera,
   CheckCircle2,
   Copy,
   Database,
+  Edit3,
   FileText,
   Loader2,
   Lock,
@@ -27,6 +31,7 @@ import {
   Plus,
   ScrollText,
   ShieldAlert,
+  Trash2,
   Users,
 } from "lucide-react";
 
@@ -155,6 +160,28 @@ export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }
   const filteredVoters = dptQuery
     ? voters.filter((v) => v.nim.includes(dptQuery) || v.name.toLowerCase().includes(dptQuery.toLowerCase()))
     : voters;
+
+  const [candidateDialogOpen, setCandidateDialogOpen] = useState(false);
+  const [editingCandidate, setEditingCandidate] = useState<AdminOverviewResponse["candidates"][number] | null>(null);
+  const [deletingCandidateId, setDeletingCandidateId] = useState<string | null>(null);
+
+  const handleDeleteCandidate = async (c: AdminOverviewResponse["candidates"][number]) => {
+    if (!confirm(`Hapus paslon #${c.number} ${c.presidentName} (${c.category})? Tindakan ini tidak dapat dibatalkan.`)) {
+      return;
+    }
+    setDeletingCandidateId(c.id);
+    try {
+      const res = await fetch(`/api/admin/candidates/${c.id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Gagal menghapus kandidat");
+      toast.success(json.message || "Kandidat berhasil dihapus.");
+      refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Gagal menghapus kandidat.");
+    } finally {
+      setDeletingCandidateId(null);
+    }
+  };
 
   const tabs: Array<{ key: TabKey; label: string; icon: React.ReactNode }> = [
     { key: "tahapan", label: "Tahapan & Pleno", icon: <Lock className="h-4 w-4" /> },
@@ -373,29 +400,135 @@ export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }
       {/* ================= TAB: KANDIDAT ================= */}
       {tab === "kandidat" && (
         <div className="space-y-5">
+          {/* Action Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bento-card p-5">
+            <div>
+              <h3 className="font-display text-lg font-extrabold text-[#141E19]">
+                Manajemen Calon & Paslon Pemira
+              </h3>
+              <p className="text-xs text-[#4A5851]">
+                Kelola penetapan nomor urut, profil, visi-misi, serta berkas foto potret resmi (BLOB Turso) per peran paslon.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingCandidate(null);
+                setCandidateDialogOpen(true);
+              }}
+              className="flex items-center justify-center gap-1.5 rounded-[8px] border-2 border-[#141E19] bg-[#1B7F4E] hover:bg-[#14653D] px-4 py-2 font-display text-xs font-extrabold text-white shadow-[3px_3px_0px_#141E19] transition-all hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
+            >
+              <Plus className="h-4 w-4" /> Tambah Paslon Baru
+            </button>
+          </div>
+
           {(["PRESMA", "DPM", "HIMA"] as const).map((cat) => {
             const list = candidates.filter((c) => c.category === cat && !c.isEmptyBox);
             if (list.length === 0) return null;
             return (
               <div key={cat} className="bento-card p-5">
-                <h3 className="font-display text-lg font-bold">
-                  {cat === "PRESMA" ? "Presma & Wapresma (BEM)" : cat === "DPM" ? "Pimpinan DPM" : "Ketua Hima Prodi"}
-                </h3>
-                <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {list.map((c) => (
-                    <div key={c.id} className="rounded-[10px] border border-[#D8D3C8] bg-[#F6F4EE] p-4">
-                      <div className="flex items-center justify-between">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#141E19] font-display text-sm font-extrabold text-white" style={{ background: c.photoAccent }}>
-                          {String(c.number).padStart(2, "0")}
-                        </span>
-                        {cat === "HIMA" && <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A8881]">{c.studyProgramId}</span>}
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display text-lg font-bold">
+                    {cat === "PRESMA" ? "Presma & Wapresma (BEM)" : cat === "DPM" ? "Pimpinan DPM" : "Ketua Hima Prodi"}
+                  </h3>
+                  <span className="text-[11px] font-bold text-[#7A8881]">
+                    {list.length} Paslon Terdaftar
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {list.map((c) => {
+                    const members = [
+                      { role: cat === "DPM" ? "Ketua Umum" : cat === "PRESMA" ? "Presma" : "Ketua", name: c.presidentName, photo: c.photoLeaderUrl },
+                      ...(c.viceName ? [{ role: cat === "DPM" ? "Ketua 1" : cat === "PRESMA" ? "Wapresma" : "Wakil", name: c.viceName, photo: c.photoViceUrl }] : []),
+                      ...(c.secondViceName && cat === "DPM" ? [{ role: "Ketua 2", name: c.secondViceName, photo: c.photoSecondViceUrl }] : []),
+                    ];
+
+                    return (
+                      <div key={c.id} className="flex flex-col justify-between rounded-[10px] border-2 border-[#141E19] bg-[#F6F4EE] p-4 shadow-[3px_3px_0px_#141E19]">
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#141E19] font-display text-sm font-extrabold text-white" style={{ background: c.photoAccent }}>
+                              {String(c.number).padStart(2, "0")}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              {cat === "HIMA" && (
+                                <span className="rounded-full border border-[#141E19] bg-white px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[#141E19]">
+                                  {c.studyProgramId}
+                                </span>
+                              )}
+                              <span className="rounded-full border border-[#141E19]/30 bg-[#EAE6DF] px-2 py-0.5 text-[9.5px] font-extrabold uppercase tracking-wider text-[#7A8881]">
+                                {cat}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Member Photos Row */}
+                          <div className="mt-3 flex gap-2">
+                            {members.map((m, idx) => (
+                              <div key={idx} className="flex flex-1 flex-col items-center">
+                                <div
+                                  className="relative w-full overflow-hidden rounded-[6px] border border-[#141E19] shadow-[1px_1px_0px_#141E19]"
+                                  style={{ aspectRatio: "3 / 4", background: c.photoAccent }}
+                                >
+                                  {m.photo ? (
+                                    <img
+                                      src={m.photo}
+                                      alt={`Foto ${m.name}`}
+                                      className="h-full w-full object-cover object-top"
+                                    />
+                                  ) : (
+                                    <div className="flex h-full w-full items-center justify-center font-display text-xs font-extrabold text-white">
+                                      {m.name.split(" ").slice(0, 2).map((w) => w[0] || "").join("").toUpperCase()}
+                                    </div>
+                                  )}
+                                </div>
+                                <span className="mt-1 text-center text-[9px] font-bold text-[#7A8881] line-clamp-1">
+                                  {m.role}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Candidate Names */}
+                          <div className="mt-2.5">
+                            <p className="font-display text-sm font-extrabold leading-snug text-[#141E19]">{c.presidentName}</p>
+                            {c.viceName && <p className="text-[12px] font-semibold text-[#4A5851]">& {c.viceName}</p>}
+                            {c.secondViceName && <p className="text-[12px] font-semibold text-[#4A5851]">& {c.secondViceName}</p>}
+                          </div>
+
+                          <p className="mt-2 line-clamp-2 text-[11.5px] leading-relaxed text-[#4A5851]">{c.vision}</p>
+                        </div>
+
+                        {/* Card Actions */}
+                        <div className="mt-4 flex items-center gap-2 border-t border-[#D8D3C8] pt-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingCandidate(c);
+                              setCandidateDialogOpen(true);
+                            }}
+                            className="flex flex-1 items-center justify-center gap-1.5 rounded-[6px] border border-[#141E19] bg-white hover:bg-[#EAE6DF] py-1.5 text-[11px] font-extrabold text-[#141E19] shadow-[1px_1px_0px_#141E19]"
+                          >
+                            <Camera className="h-3 w-3" /> Kelola & Foto
+                          </button>
+                          <button
+                            type="button"
+                            disabled={deletingCandidateId === c.id}
+                            onClick={() => handleDeleteCandidate(c)}
+                            title="Hapus Paslon"
+                            className="flex h-7 w-7 items-center justify-center rounded-[6px] border border-[#D95338] bg-white hover:bg-[#FCECE8] text-[#D95338] shadow-[1px_1px_0px_#D95338] transition-colors"
+                          >
+                            {deletingCandidateId === c.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                        </div>
                       </div>
-                      <p className="mt-2 font-bold leading-snug">{c.presidentName}</p>
-                      {c.viceName && <p className="text-[12px] text-[#4A5851]">& {c.viceName}</p>}
-                      {c.secondViceName && <p className="text-[12px] text-[#4A5851]">& {c.secondViceName}</p>}
-                      <p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-[#4A5851]">{c.vision}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -536,6 +669,17 @@ export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }
           </div>
         </div>
       )}
+
+      {/* Dialog Kelola Profil & Unggah Foto Paslon (BLOB) */}
+      <CandidateFormDialog
+        open={candidateDialogOpen}
+        onOpenChange={setCandidateDialogOpen}
+        candidate={editingCandidate}
+        prodis={data.prodis}
+        onSuccess={() => {
+          refresh();
+        }}
+      />
     </div>
   );
 }

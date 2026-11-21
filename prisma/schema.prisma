@@ -120,6 +120,21 @@ model Candidate {
   photoAccent    String // warna aksen kartu kandidat
   isEmptyBox     Boolean @default(false)
   ballots        BallotBox[]
+  photos         CandidatePhoto[]
+}
+
+// ---------- DOMAIN FOTO KANDIDAT (BLOB STORAGE) ----------
+model CandidatePhoto {
+  id          String    @id @default(uuid())
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  role        String    // "leader" | "vice" | "secondVice"
+  mimeType    String    @default("image/webp")
+  data        Bytes     // binary BLOB gambar hasil kompresi WebP
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([candidateId, role])
 }
 
 // ---------- DOMAIN AUDIT LOG (append-only, tanpa pilihan kandidat) ----------

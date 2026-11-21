@@ -193,6 +193,25 @@ const entities = [
       { key: "", name: "isEmptyBox", type: "Boolean", note: "Opsi Bawaan Kotak Kosong" },
     ],
   },
+  {
+    id: "t_candidate_photo",
+    name: "CandidatePhoto",
+    subtitle: "Penyimpanan BLOB Foto Paslon (WebP 3:4)",
+    x: 1120,
+    y: 1000,
+    width: 380,
+    headerColor: "#107C41", // Forest Green
+    borderColor: "#0B5A2F",
+    fields: [
+      { key: "PK", name: "id", type: "String", note: "UUIDv4 Kunci Primer" },
+      { key: "FK", name: "candidateId", type: "String", note: "FK -> Candidate.id (ON DELETE CASCADE)" },
+      { key: "UK", name: "role", type: "String", note: "leader | vice | secondVice (Unique/Candidate)" },
+      { key: "", name: "mimeType", type: "String", note: "Format Konten (Default: image/webp)" },
+      { key: "", name: "data", type: "Bytes", note: "BLOB Biner Gambar Terkompresi Canvas" },
+      { key: "", name: "createdAt", type: "DateTime", note: "Waktu Unggah Pertama" },
+      { key: "", name: "updatedAt", type: "DateTime", note: "Waktu Perubahan Terakhir" },
+    ],
+  },
 
   // ==================== KOLOM 4: DOMAIN TATA KELOLA & ARSIP (X = 1660) ====================
   {
@@ -362,6 +381,15 @@ const relationships = [
     target: "t_ballot_box",
     exitX: "0.5", exitY: "0", entryX: "0.5", entryY: "1",
     label: "1 : N (Optional - Kotak Kosong)",
+    startArrow: "ERmandOne", endArrow: "ERzeroToMany",
+  },
+  // 1:N Candidate -> CandidatePhoto (Vertical Down in Col 3)
+  {
+    id: "rel_candidate_photo",
+    source: "t_candidate",
+    target: "t_candidate_photo",
+    exitX: "0.5", exitY: "1", entryX: "0.5", entryY: "0",
+    label: "1 : N (0..3 Foto Paslon)",
     startArrow: "ERmandOne", endArrow: "ERzeroToMany",
   },
 ];
@@ -548,6 +576,17 @@ CREATE TABLE Candidate (
     missionJson TEXT NOT NULL,
     photoAccent VARCHAR(10) NOT NULL,
     isEmptyBox BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE CandidatePhoto (
+    id VARCHAR(36) PRIMARY KEY, -- UUIDv4
+    candidateId VARCHAR(36) NOT NULL REFERENCES Candidate(id) ON DELETE CASCADE,
+    role VARCHAR(20) NOT NULL, -- leader, vice, secondVice
+    mimeType VARCHAR(50) DEFAULT 'image/webp',
+    data BLOB NOT NULL, -- Berkas Biner Gambar Terkompresi WebP
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT UQ_CandidatePhoto_role UNIQUE (candidateId, role)
 );
 
 CREATE TABLE BallotBox (
