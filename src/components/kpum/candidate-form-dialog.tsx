@@ -100,7 +100,7 @@ export function CandidateFormDialog({
   open,
   onOpenChange,
   candidate,
-  prodis,
+  prodis = [],
   onSuccess,
 }: CandidateFormDialogProps) {
   const isEdit = Boolean(candidate);
@@ -390,8 +390,8 @@ export function CandidateFormDialog({
                     onChange={(e) => setStudyProgramId(e.target.value)}
                     className="mt-1 w-full rounded-[8px] border-2 border-[#141E19] bg-white px-3 py-1.5 text-xs font-bold shadow-[2px_2px_0px_#141E19] focus:outline-none focus:ring-2 focus:ring-[#1B7F4E]"
                   >
-                    {prodis.map((p) => (
-                      <option key={p.id} value={p.id}>{p.id} â€” {p.name}</option>
+                    {(prodis || []).map((p) => (
+                      <option key={p.id} value={p.id}>{p.id} — {p.name}</option>
                     ))}
                   </select>
                 </div>

@@ -79,6 +79,9 @@ export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }
   const [baDoc, setBaDoc] = useState<BaDocument | null>(null);
   const [baLoading, setBaLoading] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [candidateDialogOpen, setCandidateDialogOpen] = useState(false);
+  const [editingCandidate, setEditingCandidate] = useState<AdminOverviewResponse["candidates"][number] | null>(null);
+  const [deletingCandidateId, setDeletingCandidateId] = useState<string | null>(null);
 
   const plenoUnlocked = data?.settings.plenoUnlocked ?? false;
 
@@ -160,10 +163,6 @@ export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }
   const filteredVoters = dptQuery
     ? voters.filter((v) => v.nim.includes(dptQuery) || v.name.toLowerCase().includes(dptQuery.toLowerCase()))
     : voters;
-
-  const [candidateDialogOpen, setCandidateDialogOpen] = useState(false);
-  const [editingCandidate, setEditingCandidate] = useState<AdminOverviewResponse["candidates"][number] | null>(null);
-  const [deletingCandidateId, setDeletingCandidateId] = useState<string | null>(null);
 
   const handleDeleteCandidate = async (c: AdminOverviewResponse["candidates"][number]) => {
     if (!confirm(`Hapus paslon #${c.number} ${c.presidentName} (${c.category})? Tindakan ini tidak dapat dibatalkan.`)) {
@@ -671,15 +670,17 @@ export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }
       )}
 
       {/* Dialog Kelola Profil & Unggah Foto Paslon (BLOB) */}
-      <CandidateFormDialog
-        open={candidateDialogOpen}
-        onOpenChange={setCandidateDialogOpen}
-        candidate={editingCandidate}
-        prodis={data.prodis}
-        onSuccess={() => {
-          refresh();
-        }}
-      />
+      {candidateDialogOpen && (
+        <CandidateFormDialog
+          open={candidateDialogOpen}
+          onOpenChange={setCandidateDialogOpen}
+          candidate={editingCandidate}
+          prodis={data?.prodis || []}
+          onSuccess={() => {
+            refresh();
+          }}
+        />
+      )}
     </div>
   );
 }
