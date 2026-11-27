@@ -427,9 +427,19 @@ export async function issueToken(
   return { ok: true, token: plaintext, expiresAt, tpsId: voter.tpsId, studyProgramId: voter.studyProgramId };
 }
 
-/** Menandai token yang lewat TTL (belum terpakai) sebagai EXPIRED + reset status pemilih. */
-export async function expireStaleTokens(): Promise<number> {
-  const now = new Date();
+let lastExpireCheckAt = 0;
+const EXPIRE_THROTTLE_MS = 30_000;
+
+/** Menandai token yang lewat TTL (belum terpakai) sebagai EXPIRED + reset status pemilih.
+ *  Di-throttle per 30 detik agar tidak memboroskan rows-read pada setiap polling GET. */
+export async function expireStaleTokens(force = false): Promise<number> {
+  const nowMs = Date.now();
+  if (!force && nowMs - lastExpireCheckAt < EXPIRE_THROTTLE_MS) {
+    return 0;
+  }
+  lastExpireCheckAt = nowMs;
+
+  const now = new Date(nowMs);
   const stale = await db.votingToken.findMany({
     where: { status: "ACTIVE", expiresAt: { lt: now } },
   });

@@ -60,6 +60,7 @@ Skrip ini akan secara otomatis:
 | `TURSO_DATABASE_URL` | `libsql://<NAMA-DB>-<ORG>.turso.io` | URL database Turso Anda |
 | `TURSO_AUTH_TOKEN` | `<TOKEN_TURSO_ANDA>` | Token autentikasi Turso |
 | `DATABASE_URL` | `libsql://<NAMA-DB>-<ORG>.turso.io?authToken=<TOKEN>` | Connection string lengkap |
+| `BLOB_READ_WRITE_TOKEN` | *(Opsional)* `vercel_blob_rw_...` | Jika diisi, foto paslon diunggah ke Vercel Blob CDN; jika kosong, otomatis memakai Turso BLOB (`CandidatePhoto`) |
 
 6. Klik tombol **Deploy**.
 7. Tunggu build selesai (~1-2 menit). Vercel akan memberikan domain publik gratis, misalnya `https://smartpemira-poltekcwe.vercel.app`.
@@ -79,3 +80,19 @@ Setelah deployment sukses, buka domain Vercel yang diberikan. Sistem langsung si
 | **SAKSI** | `saksi01` | `saksi123` | Saksi Paslon (Monitoring turnout & hash chain read-only) |
 
 > ℹ️ **Bilik Suara (Kiosk)** dapat diakses langsung oleh pemilih tanpa login operator melalui token 6-karakter acak yang diterbitkan oleh PPUR.
+
+---
+
+## 5. Checklist Security Hardening Pra-Hari-H (Wajib!)
+
+Sebelum membuka gerbang pemungutan suara resmi di *production*:
+
+1. **Ganti Seluruh Sandi Default Demo**:
+   - Login dengan masing-masing akun (`itpo`, `kpum`, `ppur`, `panwaslu`, `saksi01`) dan klik tombol **SANDI** di navbar atas untuk mengganti password default (`*123`).
+   - Atau gunakan akun `itpo` pada tab **Manajemen Operator** untuk mereset sandi petugas (petugas otomatis dipaksa ganti sandi saat login berikutnya).
+2. **Aktifkan 2FA TOTP untuk Akun Kritis**:
+   - Wajib aktifkan autentikasi dua faktor (**2FA TOTP**) pada akun `kpum`, `itpo`, dan `panwaslu` melalui dialog pengaturan keamanan agar akses pembukaan Pleno Vault & Emergency Freeze terlindungi lapis kedua.
+3. **Verifikasi Kunci Penandatanganan Ed25519**:
+   - Pastikan pasangan kunci Ed25519 untuk Berita Acara Model C-KWE telah tersedia (atau jalankan `npx tsx scripts/ba-keygen.ts` bila perlu rotasi kunci baru sebelum pemira dimulai).
+4. **Uji Backup & Restore Turso**:
+   - Jalankan `npm run db:turso:backup --sync-local` untuk memastikan salinan database offline aman sebelum hari-H.

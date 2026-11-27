@@ -264,6 +264,31 @@ Panel KPUM (`/kpum`) memusatkan kontrol pemilihan: pengelolaan master calon, sta
 +---------------------------------------------------------------------------------------------------+
 ```
 
+### 6.3B Wireframe Tab Manajemen Kandidat & Modal Upload Foto BLOB (KPUM)
+Tab **Kandidat** pada Dashboard KPUM menyediakan operasi CRUD penuh serta dialog unggah foto berbasis BLOB (*Turso `CandidatePhoto` / Vercel Blob*) dengan kompresi otomatis HTML5 Canvas 3:4 WebP.
+
+```
++---------------------------------------------------------------------------------------------------+
+| MANAJEMEN CALON & PASLON PEMIRA                                        [ + TAMBAH PASLON BARU ]   |
++---------------------------------------------------------------------------------------------------+
+| PRESMA & WAPRESMA (BEM)                                                                           |
+| +-------------------------------------------+  +-------------------------------------------+      |
+| | (01)                            [PRESMA]  |  | (02)                            [PRESMA]  |      |
+| | +----------+  +----------+                |  | +----------+  +----------+                |      |
+| | | [Foto 1] |  | [Foto 2] |  (Rasio 3:4)   |  | | [Foto 1] |  | [Foto 2] |  (Rasio 3:4)   |      |
+| | +----------+  +----------+                |  | +----------+  +----------+                |      |
+| | Muhammad Raffi Pratama                    |  | ...                                       |      |
+| | [ 📷 Kelola & Foto ]          [ 🗑 Hapus ] |  | [ 📷 Kelola & Foto ]          [ 🗑 Hapus ] |      |
+| +-------------------------------------------+  +-------------------------------------------+      |
++---------------------------------------------------------------------------------------------------+
+
+MODAL DIALOG (CandidateFormDialog):
+[ Tab: Profil & Visi Misi ]   [ Tab: Foto Anggota Paslon (BLOB) ● ]
+  - Slot Foto Ketua / Presma (3:4) -> [ Ganti Foto ] [ Hapus ] -> Kompresi WebP ~50KB -> POST /api/.../photo
+  - Slot Foto Wakil / Ketua 1 (3:4) -> [ Unggah Foto ]
+  - Slot Foto Ketua 2 (Khusus DPM)  -> [ Unggah Foto ]
+```
+
 ### 6.4 Wireframe Live Audit Panwaslu & Layar Pleno (Dark Mode)
 Dirancang khusus untuk layar gelap berwibawa (`.theme-pleno-dark` / `#0D1512`), menampilkan integritas 5 rantai hash secara langsung melalui Server-Sent Events (SSE).
 

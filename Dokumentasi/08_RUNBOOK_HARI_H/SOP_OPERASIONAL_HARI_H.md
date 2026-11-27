@@ -20,7 +20,7 @@ Dokumen ini disusun untuk menjamin pelaksanaan Pemilihan Raya Mahasiswa (Pemira)
 1. **Pemisahan Identitas Mutlak (*Zero-Knowledge Separation*)**: Database surat suara (*BallotBox*) dan token (*VotingToken*) sama sekali tidak memiliki kolom NIM, Nama, atau Voter ID. Panitia tidak dapat melacak siapa memilih siapa.
 2. **Keterikatan Rantai Hash Kriptografis (*Hash-Chain Chaining*)**: Setiap surat suara yang masuk terikat ke hash blok suara sebelumnya menggunakan SHA-256 dan salt unik prodi. Manipulasi satu suara akan merusak seluruh rantai secara matematis.
 3. **Penyediaan Opsi Suara Kosong (*Empty Box Protection*)**: Setiap surat suara menyediakan opsi "Suara Kosong" sah bagi mahasiswa yang tidak memilih paslon manapun.
-4. **Isolasi Rantai Suara Program Studi**: Rantai suara HIMA diisolasi ketat per Program Studi (D3 TPTP, D3 TPHP, D3 MANLOG, D4 BD, D4 TRPL).
+4. **Isolasi Rantai Suara Program Studi**: Rantai suara HIMA diisolasi ketat per Program Studi (D3 TPTP, D4 TPHP, D4 MANLOG, D4 BD, D4 TRPL).
 5. **Penguncian Brankas Pleno (*Pleno Vault Lock*)**: Hasil akumulasi suara (*tally*) terkunci secara kriptografis (HTTP 423) dan hanya dapat dibuka saat Sidang Pleno resmi dibuka oleh KPUM dan Panwaslu.
 
 ```mermaid
@@ -59,7 +59,7 @@ Setiap personel panitia memiliki kredensial terisolasi berbasis peran (*Role-Bas
 | **Panwaslu (Pengawas Pemilu)** | `panwaslu` | Memantau keutuhan 5 rantai hash secara *real-time* via SSE, menerima laporan sengketa, dan memegang hak intervensi *Emergency Freeze*. |
 | **PPUR (Registrasi & Verifikasi)** | `ppur` | Memverifikasi KTM/KRS fisik mahasiswa, mencocokkan status DPT, dan menerbitkan Token 6 karakter + QR code. |
 | **ITPO (Technical & SRE)** | `itpo` | Menjaga stabilitas infrastruktur cloud, mengawasi kuota rate limiter, mengeksekusi backup per jam, dan troubleshooting. |
-| **Saksi Paslon** | `saksi` | Mengawasi transparansi bilik tanpa mengakses database internal; menandatangani Berita Acara Pleno. |
+| **Saksi Paslon** | `saksi01` | Mengawasi transparansi bilik tanpa mengakses database internal; menandatangani Berita Acara Pleno. |
 
 ---
 
@@ -79,11 +79,13 @@ Setiap personel panitia memiliki kredensial terisolasi berbasis peran (*Role-Bas
    npm run db:turso:backup --sync-local
    ```
    Pastikan file `backups/turso-backup-YYYYMMDD-HHMMSS.db` terbuat dan berkas `.sha256` tersimpan aman di flashdisk panitia.
-3. **Pemeriksaan Status Awal Pemilu**:
-   Buka portal `/operator/kpum`:
+3. **Pemeriksaan Status Awal, Paslon (BLOB) & Keamanan Akun**:
+   Buka gerbang utama `/` lalu login sebagai `kpum` untuk mengakses tab **Dashboard KPUM**:
    - `votingOpen` = **NONAKTIF** (Bilik tertutup).
    - `emergencyFreeze` = **NONAKTIF**.
    - `plenoUnlocked` = **TERKUNCI**.
+   - **Verifikasi Data Paslon & Foto BLOB**: Buka tab **Kandidat**, pastikan seluruh paslon (DPM, PRESMA, HIMA) terdaftar lengkap; unggah/perbarui foto potret resmi via tombol **Kelola & Foto** (otomatis terkompresi WebP 3:4 ke Turso BLOB).
+   - **Hardening Keamanan**: Pastikan seluruh operator (`kpum`, `ppur`, `panwaslu`, `itpo`, `saksi01`) telah mengganti sandi default via tombol **SANDI** dan mengaktifkan **2FA TOTP** sebelum hari pemungutan.
 
 ---
 
@@ -93,23 +95,23 @@ Setiap personel panitia memiliki kredensial terisolasi berbasis peran (*Role-Bas
    - Pastikan laptop petugas PPUR terhubung ke internet stabil.
    - Siapkan printer thermal / printer slip token (jika menyediakan cetak fisik) atau siapkan layar tampilan QR token.
 2. **Login Petugas PPUR**:
-   - Buka `/operator/login` menggunakan username `ppur`.
+   - Buka gerbang utama `/` dan login menggunakan username `ppur` (otomatis diarahkan ke tab **Pos Bantuan PPUR**).
    - Lakukan uji coba terbit 1 token dummy untuk memastikan latensi API < 400ms.
 3. **Pemeriksaan Portal Publik**:
-   - Buka halaman utama `/` dan `/verifikasi`.
-   - Pastikan 14 profil kandidat tampil lengkap dengan foto dan nomor urut.
+   - Buka tab **Portal Publik** di `/` dan halaman `/verifikasi` (atau `/cek-struk`).
+   - Pastikan seluruh profil kandidat tampil lengkap dengan foto dan nomor urut.
 
 ---
 
 ### 3.3. Fase Pemungutan Suara (08.00 – 16.00 WIB)
 
 1. **Pukul 08.00 WIB — Pembukaan Gerbang Resmi**:
-   - Ketua KPUM masuk ke `/operator/kpum`.
+   - Ketua KPUM login di `/` dan masuk ke tab **Dashboard KPUM**.
    - Aktifkan tombol **"BUKA PEMUNGUTAN SUARA"**.
    - Sistem akan menyiarkan status `votingOpen = true` dan mencatat event di `AuditLog`.
 2. **Alur Pelayanan Pemilih di Meja PPUR**:
    - Mahasiswa menunjukkan KTM / KTP / KRS aktif ke petugas PPUR.
-   - Petugas PPUR mencari nama/NIM di daftar DPT (`/operator/ppur`).
+   - Petugas PPUR mencari nama/NIM di daftar DPT pada tab **Pos Bantuan PPUR** (`/`).
    - Petugas menekan **"TERBITKAN TOKEN + QR"**.
    - Mahasiswa menerima slip token 6 karakter (berlaku selama TTL sesi).
 3. **Alur Pencoblosan Mandiri (100% BYOD)**:
@@ -136,7 +138,7 @@ Setiap personel panitia memiliki kredensial terisolasi berbasis peran (*Role-Bas
 ### 3.4. Fase Penutupan & Sidang Pleno (16.00 – 17.30 WIB)
 
 1. **Pukul 16.00 WIB — Penguncian Pemungutan Suara**:
-   - Ketua KPUM masuk ke panel `/operator/kpum` dan menonaktifkan tombol **"BUKA PEMUNGUTAN SUARA"** (`votingOpen = false`).
+   - Ketua KPUM masuk ke tab **Dashboard KPUM** (`/`) dan menekan tombol **"TUTUP PEMUNGUTAN SUARA"** (`votingOpen = false`).
    - Seluruh token yang belum terpakai otomatis hangus; bilik suara pemilih terkunci permanen.
 2. **Pencadangan Final Kotak Suara**:
    - ITPO mengeksekusi:
@@ -146,8 +148,8 @@ Setiap personel panitia memiliki kredensial terisolasi berbasis peran (*Role-Bas
      ```
    - Rekapitulasi `drill: PASS` dibacakan di hadapan saksi dan Panwaslu.
 3. **Pukul 16.15 WIB — Pembukaan Brankas Pleno (*Unlock Pleno Vault*)**:
-   - KPUM menekan tombol **"BUKA BRANKAS SIDANG PLENO"**.
-   - Endpoint `/api/operator/pleno/tally` terbuka.
+   - KPUM menekan tombol **"BUKA BRANKAS SIDANG PLENO"** (memanggil `POST /api/tally/unlock`).
+   - Endpoint `/api/tally` dan `/api/operator/pleno` terbuka.
    - Hasil akumulasi suara tiap prodi (DPM, BEM, HIMA) dihitung secara atomik langsung dari tabel `BallotBox`.
 4. **Pukul 16.30 WIB — Penandatanganan Berita Acara Model C-KWE via Ed25519 Multisig**:
    - Ketua KPUM, Ketua Panwaslu, dan Saksi Paslon memasukkan passphrase kunci privat masing-masing di panel Pleno.
@@ -171,7 +173,7 @@ Setiap personel panitia memiliki kredensial terisolasi berbasis peran (*Role-Bas
 ### Kasus B: Mahasiswa Kehilangan Slip Token / Baterai HP Mati
 - **Gejala**: Mahasiswa melapor ke posko bahwa token belum sempat dipakai mencoblos namun kertas hilang atau gawai mati.
 - **SOP Penanganan Petugas PPUR**:
-  1. Cek identitas fisik mahasiswa di sistem DPT `/operator/ppur`.
+  1. Cek identitas fisik mahasiswa di daftar DPT pada tab **Pos Bantuan PPUR** (`/`).
   2. Periksa status token mahasiswa:
      - Jika status = `ACTIVE` (belum pernah mencoblos): Petugas menekan **"Cabut Token Lama"** (`REVOKED`) dan menerbitkan **Token Pengganti Baru**.
      - Jika status = `LOCKED` (sudah mengunci pilihan final): Hak suara sudah selesai dihitung; tidak dapat diterbitkan token baru demi netralitas pemilu.
@@ -179,7 +181,7 @@ Setiap personel panitia memiliki kredensial terisolasi berbasis peran (*Role-Bas
 ### Kasus C: Terjadi Dugaan Kecurangan Massal / Intimidasi Lapangan
 - **Gejala**: Panwaslu mendeteksi adanya intimidasi di area tertentu atau peringatan anomali pada log sistem.
 - **Prosedur *Emergency Freeze* (Hitungan Detik)**:
-  1. Petugas Panwaslu membuka `/operator/panwaslu`.
+  1. Petugas Panwaslu atau KPUM login di `/` dan membuka tab **Monitor Panwaslu & Pleno** (atau **Dashboard KPUM**).
   2. Tekan tombol **"AKTIFKAN EMERGENCY FREEZE"**.
   3. Dalam < 50 milidetik, seluruh endpoint voting (`/api/pemilih/validate` dan `/api/pemilih/submit`) langsung mengembalikan status **HTTP 423 Locked** dengan pesan:
      > *"EMERGENCY FREEZE aktif. Bilik suara ditutup sementara oleh Panwaslu/KPUM."*

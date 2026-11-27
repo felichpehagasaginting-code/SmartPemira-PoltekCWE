@@ -25,6 +25,7 @@
    - 5.4 [Entitas `VotingToken` (Token Bilik Suara Ephemeral & Sesi Re-vote)](#54-entitas-votingtoken-token-bilik-suara-ephemeral--sesi-re-vote)
    - 5.5 [Entitas `BallotBox` (Surat Suara Anonim & Hash Chaining)](#55-entitas-ballotbox-surat-suara-anonim--hash-chaining)
    - 5.6 [Entitas `Candidate` (Master Data Paslon & Calon Tunggal)](#56-entitas-candidate-master-data-paslon--calon-tunggal)
+   - 5.6B [Entitas `CandidatePhoto` (Penyimpanan Berkas BLOB Foto Paslon)](#56b-entitas-candidatephoto-penyimpanan-berkas-blob-foto-paslon)
    - 5.7 [Entitas `AuditLog` (Catatan Kejadian Append-Only)](#57-entitas-auditlog-catatan-kejadian-append-only)
    - 5.8 [Entitas `ElectionIncident` (Laporan Pelanggaran & Sengketa)](#58-entitas-electionincident-laporan-pelanggaran--sengketa)
    - 5.9 [Entitas `ElectionSetting` (Konfigurasi Global & Pleno Vault Gate)](#59-entitas-electionsetting-konfigurasi-global--pleno-vault-gate)
@@ -68,7 +69,7 @@ Model Konseptual Data (CDM) Smart Pemira memetakan entitas bisnis, batasan integ
 |  [ DOMAIN PEMILIH (DPT) ]       [ DOMAIN TOKEN BILIK ]        [ DOMAIN KOTAK SUARA ANONIM ]       |
 |  - Voter                        - VotingToken                 - BallotBox                         |
 |  - StudyProgram                 (Kredensial Anonim TTL)       - Candidate                         |
-|  - Tps (Virtual 100% Online)                                                                      |
+|  - Tps (Virtual 100% Online)                                  - CandidatePhoto (BLOB WebP 3:4)    |
 |                                                                                                   |
 |  ============================== ZERO-KNOWLEDGE BARRIER =======================================  |
 |  (Terisolasi secara kriptografis: Tidak ada Foreign Key voter_id pada VotingToken dan BallotBox)  |
@@ -92,6 +93,7 @@ Model Konseptual Data (CDM) Smart Pemira memetakan entitas bisnis, batasan integ
 | `Tps` | $1 : N$ | `BallotBox` | Membentuk rantai hash mandiri | Setiap TPS virtual memelihara rantai hash SHA-256 suara independen. |
 | `VotingToken` | $1 : N$ | `BallotBox` | Menampung versi suara (Re-vote) | Relasi anonim. Menampung 3 surat suara (Presma, DPM, Hima) per revisi pilihan. |
 | `Candidate` | $1 : N$ | `BallotBox` | Menerima coblosan suara sah | Dapat bernilai NULL apabila pemilih mencoblos opsi `is_empty_box = TRUE`. |
+| `Candidate` | $1 : N$ | `CandidatePhoto` | Menyimpan foto BLOB paslon | Satu paslon memiliki $0 \dots 3$ foto peran (`leader`, `vice`, `secondVice`). |
 | `Tps` | $0 : N$ | `AuditLog` | Mencatat jejak audit per TPS | Audit log merekam aktivitas sistem tanpa memuat pilihan kandidat pemilih. |
 | `ElectionSetting`| $1 : 1$ | *System State* | Konfigurasi tunggal | Baris tunggal (`id = 'main'`) pengendali status darurat dan pembukaan kunci pleno. |
 | `ElectionArchive`| $1 : N$ | *Period History* | Rekaman segel historis | Snapshot tidak dapat diubah (*read-only*) berisi BA digital ber-signature Ed25519. |
@@ -164,6 +166,7 @@ erDiagram
     %% DOMAIN 4: KOTAK SUARA ANONIM & KANDIDAT
     %% =========================================================================
     Candidate ||--o{ BallotBox : "1:N (One to Many, Optional) - menerima coblosan sah"
+    Candidate ||--o{ CandidatePhoto : "1:N (One to Many) - menyimpan berkas foto BLOB"
     Candidate {
         string id PK "UUIDv4"
         string category "PRESMA, DPM, HIMA"

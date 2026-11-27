@@ -70,9 +70,18 @@ Dokumentasi/
 ├── 06_SOFTWARE_ARCHITECTURE_DOCUMENT_SAD/                   # [Fase 6: Arsitektur Sistem & Spesifikasi Keamanan]
 │   └── DOKUMEN_ARSITEKTUR_PERANGKAT_LUNAK_SAD.md            # Kruchten 4+1 View, Kriptografi, STRIDE & Dual-Mode DB
 │
-└── 07_PUBLIKASI_ILMIAH/                                     # [Fase 7: Diseminasi Akademik & Publikasi IEEE]
-    ├── PAPER_IEEE_SMART_PEMIRA.md                           # Manuskrip Ilmiah Konferensi IEEE 2-Kolom
-    └── REFERENCES.bib                                       # Bibliografi BibTeX Standar Akademik (22 Referensi)
+├── 07_PUBLIKASI_ILMIAH/                                     # [Fase 7: Diseminasi Akademik & Publikasi IEEE]
+│   ├── PAPER_IEEE_SMART_PEMIRA.md                           # Manuskrip Ilmiah Konferensi IEEE 2-Kolom
+│   └── REFERENCES.bib                                       # Bibliografi BibTeX Standar Akademik (22 Referensi)
+│
+├── 08_RUNBOOK_HARI_H/                                       # [Fase 8: Operasional Lapangan & Tanggap Darurat]
+│   └── SOP_OPERASIONAL_HARI_H.md                            # SOP Hari-H, Contingency Plan & Checklist Panitia
+│
+├── 09_DOKUMENTASI_PENGUJIAN_QA/                             # [Fase 9: Pengujian Kualitas, Load Test & UAT]
+│   └── DOKUMEN_PENGUJIAN_QA_DAN_UAT.md                      # Test Plan, Hasil Vitest, Smoke/Load Test & UAT
+│
+└── 10_PANDUAN_PENGGUNA_USER_MANUAL/                         # [Fase 10: Buku Saku Mahasiswa & Panitia]
+    └── PANDUAN_PENGGUNA_SMART_PEMIRA.md                     # Panduan Pemilih BYOD & Panduan Operator RBAC
 ```
 
 ---
@@ -131,18 +140,19 @@ Dokumentasi/
 * [**ERD_DAN_KAMUS_DATA_ZERO_KNOWLEDGE.md**](04_ENTITY_RELATIONSHIP_DIAGRAM_ERD/ERD_DAN_KAMUS_DATA_ZERO_KNOWLEDGE.md):
   * **Conceptual Data Model (CDM) & Physical Data Model (PDM)** dengan pemisahan domain logis.
   * **Diagram ERD Mermaid.js & Matriks Kardinalitas** yang menegaskan secara visual ketiadaan relasi *foreign key* antara `Voter` dan `BallotBox`.
-  * **Kamus Data Komprehensif (Data Dictionary)** mencakup 11 entitas basis data:
+  * **Kamus Data Komprehensif (Data Dictionary)** mencakup 12 entitas basis data:
     1. `StudyProgram`: Master data program studi dan warna aksen surat suara.
     2. `Tps`: TPS virtual 100% online per prodi yang memelihara rantai hash mandiri.
     3. `Voter`: Daftar pemilih tetap dengan kolom transien `pendingTokenHash`.
     4. `VotingToken`: Token bilik suara ephemeral (TTL 10 menit) dan sesi re-vote model Estonia.
     5. `BallotBox`: Surat suara anonim berantai hash SHA-256 dengan penanda nomor versi (`voteVersion`).
     6. `Candidate`: Master calon pimpinan mahasiswa (BEM, DPM, Hima) dan calon tunggal.
-    7. `AuditLog`: Catatan audit *append-only* bebas pilihan calon.
-    8. `ElectionIncident`: Formulir digital laporan sengketa pemira (Pasal 65 RUU Pemira).
-    9. `ElectionSetting`: Konfigurasi singleton, kontrol pembekuan darurat, dan gembok sidang pleno.
-    10. `ElectionArchive`: Kapsul arsip segel digital penutupan periode pemira.
-    11. `Operator`: Akun pengguna multi-peran (RBAC) dengan proteksi sandi scrypt dan 2FA TOTP.
+    7. `CandidatePhoto`: Penyimpanan berkas biner gambar (BLOB WebP 3:4) per peran anggota paslon.
+    8. `AuditLog`: Catatan audit *append-only* bebas pilihan calon.
+    9. `ElectionIncident`: Formulir digital laporan sengketa pemira (Pasal 65 RUU Pemira).
+    10. `ElectionSetting`: Konfigurasi singleton, kontrol pembekuan darurat, dan gembok sidang pleno.
+    11. `ElectionArchive`: Kapsul arsip segel digital penutupan periode pemira.
+    12. `Operator`: Akun pengguna multi-peran (RBAC) dengan proteksi sandi scrypt dan 2FA TOTP.
   * Bukti matematis ketiadaan jembatan rekonstruksi identitas dan analisis entropi token 6-karakter CSPRNG.
   * Prosedur integritas transaksional atomik (ACID) dan kueri rekapitulasi *latest-ballot-wins*.
 
