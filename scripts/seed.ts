@@ -65,11 +65,11 @@ async function main() {
 
   // ---------- Operator RBAC (PRD Bab 3) — pos bantuan tidak terikat TPS ----------
   const operators: Array<{ username: string; password: string; role: string; fullName: string; tpsId?: string }> = [
-    { username: "itpo", password: "itpo123", role: "ITPO", fullName: "Rizky Ananda — Koordinator Tim ITPO" },
-    { username: "kpum", password: "kpum123", role: "KPUM", fullName: "Alifia Rahmadani — Ketua KPUM" },
+    { username: "itpo", password: "itpo123", role: "ITPO", fullName: "Felich — Koordinator Tim ITPO" },
+    { username: "kpum", password: "kpum123", role: "KPUM", fullName: "Sri Wahyuni — Ketua KPUM" },
     { username: "ppur", password: "ppur123", role: "PPUR", fullName: "Bagas Setiawan — Petugas Pos Bantuan PPUR" },
-    { username: "panwaslu", password: "panwaslu123", role: "PANWASLU", fullName: "Citra Amelia — Ketua Panwaslu" },
-    { username: "saksi01", password: "saksi123", role: "SAKSI", fullName: "Dimas Prakoso — Saksi Paslon BEM 01" },
+    { username: "panwaslu", password: "panwaslu123", role: "PANWASLU", fullName: "Richo Dwi Putra — Ketua Panwaslu" },
+    { username: "saksi01", password: "saksi123", role: "SAKSI", fullName: "Rizky Fadhilah — Saksi Paslon BEM 01" },
   ];
   for (const op of operators) {
     const salt = randomBytes(16).toString("hex");

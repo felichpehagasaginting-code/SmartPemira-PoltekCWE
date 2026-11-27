@@ -49,11 +49,11 @@ const ROLE_HOME: Record<string, ModuleKey> = {
 };
 
 const DEMO_ACCOUNTS: (DemoAccount & { landing: string })[] = [
-  { username: "itpo", password: "itpo123", role: "ITPO", fullName: "Rizky Ananda — Koordinator Tim ITPO", landing: "Portal Publik (semua modul)" },
-  { username: "kpum", password: "kpum123", role: "KPUM", fullName: "Alifia Rahmadani — Ketua KPUM", landing: "Dashboard KPUM" },
+  { username: "itpo", password: "itpo123", role: "ITPO", fullName: "Felich — Koordinator Tim ITPO", landing: "Portal Publik (semua modul)" },
+  { username: "kpum", password: "kpum123", role: "KPUM", fullName: "Sri Wahyuni — Ketua KPUM", landing: "Dashboard KPUM" },
   { username: "ppur", password: "ppur123", role: "PPUR", fullName: "Bagas Setiawan — Petugas Pos Bantuan PPUR", landing: "Pos Bantuan PPUR" },
-  { username: "panwaslu", password: "panwaslu123", role: "PANWASLU", fullName: "Citra Amelia — Ketua Panwaslu", landing: "Monitor Panwaslu & Pleno" },
-  { username: "saksi01", password: "saksi123", role: "SAKSI", fullName: "Dimas Prakoso — Saksi Paslon Presma 01", landing: "Monitor Panwaslu (baca)" },
+  { username: "panwaslu", password: "panwaslu123", role: "PANWASLU", fullName: "Richo Dwi Putra — Ketua Panwaslu", landing: "Monitor Panwaslu & Pleno" },
+  { username: "saksi01", password: "saksi123", role: "SAKSI", fullName: "Rizky Fadhilah — Saksi Paslon BEM 01", landing: "Monitor Panwaslu (baca)" },
 ];
 
 const MODULES: Array<{ key: ModuleKey; label: string; short: string; icon: React.ReactNode }> = [
