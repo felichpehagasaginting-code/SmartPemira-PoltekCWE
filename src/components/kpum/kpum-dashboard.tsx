@@ -160,8 +160,9 @@ export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }
   };
 
   const { settings, stats, candidates, voters, chains } = data;
-  const filteredVoters = dptQuery
-    ? voters.filter((v) => v.nim.includes(dptQuery) || v.name.toLowerCase().includes(dptQuery.toLowerCase()))
+  const dptQ = dptQuery.trim().toLowerCase();
+  const filteredVoters = dptQ
+    ? voters.filter((v) => v.nim.toLowerCase().includes(dptQ) || v.name.toLowerCase().includes(dptQ))
     : voters;
 
   const handleDeleteCandidate = async (c: AdminOverviewResponse["candidates"][number]) => {

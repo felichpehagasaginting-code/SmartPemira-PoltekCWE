@@ -65,12 +65,22 @@ export function PpurDesk() {
 
   const url = useMemo(() => {
     const p = new URLSearchParams({ filter });
-    if (debounced) p.set("q", debounced);
+    const qTrim = debounced.trim();
+    if (qTrim) p.set("q", qTrim);
     return `/api/ppur/voters?${p.toString()}`;
   }, [filter, debounced]);
 
   const { data: filtered, refresh: refreshFiltered } = usePolling<PpurVotersResponse>(url, 5000);
-  const rows = filtered?.voters ?? data?.voters ?? [];
+  const rows = useMemo(() => {
+    if (filtered?.voters) return filtered.voters;
+    const base = data?.voters ?? [];
+    const qLower = query.trim().toLowerCase();
+    return base.filter((v) => {
+      if (filter !== "ALL" && v.status !== filter) return false;
+      if (!qLower) return true;
+      return v.nim.toLowerCase().includes(qLower) || v.name.toLowerCase().includes(qLower);
+    });
+  }, [filtered, data, query, filter]);
   const counts = filtered?.counts ?? data?.counts ?? { all: 0, belum: 0, antrean: 0, sudah: 0 };
 
   const issueToken = useCallback(
