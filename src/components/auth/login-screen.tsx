@@ -33,7 +33,7 @@ const TERMINALS = [
   { icon: <ShieldHalf className="h-3.5 w-3.5" />, label: "Monitor Panwaslu & Pleno", access: "PANWASLU • SAKSI • KPUM • ITPO" },
 ] as Array<{ icon: React.ReactNode; label: string; access: string; href?: string }>;
 
-export function LoginScreen({ accounts, onLogin }: { accounts: DemoAccount[]; onLogin: () => Promise<void> }) {
+export function LoginScreen({ accounts, onLogin }: { accounts: DemoAccount[]; onLogin: (operator?: { username: string; role: string; fullName: string; tpsId: string | null; mustChangePassword?: boolean }) => Promise<void> }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
@@ -63,7 +63,7 @@ export function LoginScreen({ accounts, onLogin }: { accounts: DemoAccount[]; on
         return;
       }
       setSuccessName(body.operator?.fullName ?? username);
-      await onLogin();
+      await onLogin(body.operator);
     } catch {
       setError("Kesalahan jaringan — coba lagi.");
     } finally {

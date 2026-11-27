@@ -25,7 +25,7 @@ export function LoginGate({
   moduleTitle: string;
   requiredRoles: string[];
   accounts: DemoAccount[];
-  onLogin: () => Promise<void>;
+  onLogin: (operator?: { username: string; role: string; fullName: string; tpsId: string | null; mustChangePassword?: boolean }) => Promise<void>;
   dark?: boolean;
 }) {
   const [username, setUsername] = useState("");
@@ -56,7 +56,7 @@ export function LoginGate({
         setError(body.message ?? "Login gagal.");
         return;
       }
-      await onLogin();
+      await onLogin(body.operator);
     } catch {
       setError("Kesalahan jaringan — coba lagi.");
     } finally {

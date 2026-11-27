@@ -71,7 +71,12 @@ export default function Home() {
   const [pwOpen, setPwOpen] = useState(false);
   const landedFor = useRef<string | null>(null); // agar auto-landing hanya sekali per login
 
-  const refreshSession = useCallback(async () => {
+  const refreshSession = useCallback(async (directOperator?: SessionInfo) => {
+    if (directOperator) {
+      setSession(directOperator);
+      setSessionLoaded(true);
+      return;
+    }
     try {
       const res = await fetch("/api/auth/me", { cache: "no-store" });
       const body = await res.json();

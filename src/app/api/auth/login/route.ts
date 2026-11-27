@@ -83,6 +83,7 @@ export async function POST(req: NextRequest) {
     // ---------- Faktor kedua (Rekomendasi #3) ----------
     // HUKUM: password sah ≠ sesi. Akun dgn 2FA aktif hanya masuk bila kode sah.
     let twoFactorNotice: string | null = null;
+    let missing2faLog = false;
     if (operator.totpEnabledAt && operator.totpSecret) {
       if (!totpCode) {
         await db.auditLog.create({
@@ -131,28 +132,38 @@ export async function POST(req: NextRequest) {
       // Penegakan peran: pengelola inti belum mengaktifkan 2FA → diberi tanda
       // kepatuhan (tanpa memblokir login pertama, agar tidak terkunci sendiri).
       twoFactorNotice = "WAJIB KEPATUHAN: akun KPUM/ITPO diwajibkan mengaktifkan 2FA. Buka menu Keamanan Akun segera.";
-      await db.auditLog.create({
-        data: { event: "OPERATOR_2FA_MISSING", detail: `Login "${operator.username}" (${operator.role}) tanpa 2FA aktif — kepatuhan 2FA belum terpenuhi.`, tpsId: operator.tpsId },
-      });
+      missing2faLog = true;
     }
 
-    const sessionPayload = await createSessionCookiePayload({
-      operatorId: operator.id,
-      username: operator.username,
-      role: (VALID_ROLES.includes(operator.role as Role) ? operator.role : "ITPO") as Role,
-      fullName: operator.fullName,
-      tpsId: operator.tpsId,
-      mustChangePassword: operator.mustChangePassword,
-    });
+    const postLoginWrites: Promise<unknown>[] = [
+      db.operator.update({ where: { id: operator.id }, data: { lastLoginAt: new Date() } }),
+      db.auditLog.create({
+        data: {
+          event: "OPERATOR_LOGIN",
+          detail: `Petugas ${operator.fullName} (${operator.role}) login dari ${ip} — diarahkan ke terminal sesuai peran (RBAC PRD Bab 3).${operator.mustChangePassword ? " SANDI SEMENTARA AKTIF — wajib diganti." : ""}`,
+          tpsId: operator.tpsId,
+        },
+      }),
+    ];
+    if (missing2faLog) {
+      postLoginWrites.push(
+        db.auditLog.create({
+          data: { event: "OPERATOR_2FA_MISSING", detail: `Login "${operator.username}" (${operator.role}) tanpa 2FA aktif — kepatuhan 2FA belum terpenuhi.`, tpsId: operator.tpsId },
+        })
+      );
+    }
 
-    await db.operator.update({ where: { id: operator.id }, data: { lastLoginAt: new Date() } });
-    await db.auditLog.create({
-      data: {
-        event: "OPERATOR_LOGIN",
-        detail: `Petugas ${operator.fullName} (${operator.role}) login dari ${ip} — diarahkan ke terminal sesuai peran (RBAC PRD Bab 3).${operator.mustChangePassword ? " SANDI SEMENTARA AKTIF — wajib diganti." : ""}`,
+    const [sessionPayload] = await Promise.all([
+      createSessionCookiePayload({
+        operatorId: operator.id,
+        username: operator.username,
+        role: (VALID_ROLES.includes(operator.role as Role) ? operator.role : "ITPO") as Role,
+        fullName: operator.fullName,
         tpsId: operator.tpsId,
-      },
-    });
+        mustChangePassword: operator.mustChangePassword,
+      }),
+      ...postLoginWrites,
+    ]);
     publishAuthEvent({
       type: "OPERATOR_LOGIN",
       detail: `Petugas ${operator.fullName} (${operator.role}) login dari ${ip}.`,

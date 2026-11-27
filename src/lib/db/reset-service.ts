@@ -22,6 +22,7 @@
 import { createHash, randomBytes, randomUUID } from "crypto";
 import { db } from "@/lib/db";
 import { getTallyReport } from "@/lib/db/tally-service";
+import { invalidateSessionSecretCache } from "@/lib/server/auth";
 import { buildBaCanonical, collectBaTotals, computeBaSignature } from "@/lib/server/ba-canonical";
 import { signBaCanonical } from "@/lib/server/ba-signing";
 
@@ -338,6 +339,8 @@ export async function sealAndReset(opts: {
       },
     });
   });
+
+  invalidateSessionSecretCache();
 
   const sealed = await db.electionArchive.findUnique({ where: { archiveCode }, select: { id: true } });
   const [postBallots, postTokens, postDpt, postCandidates] = await Promise.all([

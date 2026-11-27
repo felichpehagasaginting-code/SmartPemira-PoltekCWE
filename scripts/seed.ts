@@ -278,22 +278,16 @@ async function main() {
     photoAccent: "#6D28D9",
   });
 
-  // ---------- DPT (44 mahasiswa ber-NIM, terbagi 5 prodi) ----------
+  // ---------- DPT (6 mahasiswa resmi TRPL) ----------
   interface SeedVoter { nim: string; name: string; angkatan: number; studyProgramId: string }
-  const quota: Record<string, number> = { TPTP: 8, TPHP: 9, MANLOG: 9, BD: 9, TRPL: 9 };
-  const voters: SeedVoter[] = [];
-  for (const prodi of prodiData) {
-    for (let i = 1; i <= quota[prodi.id]; i++) {
-      const angkatan = rand([2022, 2023, 2024, 2025]);
-      const nim = `${String(angkatan).slice(2)}${PRODI_CODE[prodi.id]}${String(i).padStart(3, "0")}`;
-      voters.push({
-        nim,
-        name: `${rand(FIRST_NAMES)} ${rand(LAST_NAMES)}`,
-        angkatan,
-        studyProgramId: prodi.id,
-      });
-    }
-  }
+  const voters: SeedVoter[] = [
+    { nim: "202515049", name: "RICHO DWI PUTRA BUKIT", angkatan: 2025, studyProgramId: "TRPL" },
+    { nim: "202515022", name: "EVANUEL SYAPUTRA SARAGIH", angkatan: 2025, studyProgramId: "TRPL" },
+    { nim: "202515056", name: "SRI WAHYUNI", angkatan: 2025, studyProgramId: "TRPL" },
+    { nim: "202515043", name: "PUTRI ABELIA", angkatan: 2025, studyProgramId: "TRPL" },
+    { nim: "202515051", name: "RIZKY FADHILAH", angkatan: 2025, studyProgramId: "TRPL" },
+    { nim: "202515026", name: "Felich Pehagasa Ginting", angkatan: 2025, studyProgramId: "TRPL" },
+  ];
 
   const createdVoters: { id: string; nim: string; studyProgramId: string }[] = [];
   for (const v of voters) {
@@ -326,38 +320,7 @@ async function main() {
     presmaPick: string | null;
     himaPick: string | null; // null = Suara Kosong HIMA
   }
-  const precastPlan: PrecastPlan[] = [
-    ...perProdi("TPTP", 2).map((v, i) => ({
-      voter: v,
-      dpmPick: i === 0 ? null : rand(dpmCands), // TPTP #1: Suara Kosong DPM
-      presmaPick: rand(presmaCands),
-      himaPick: i === 0 ? himaTptp1.id : himaTptp2.id,
-    })),
-    ...perProdi("TPHP", 2).map((v, i) => ({
-      voter: v,
-      dpmPick: rand(dpmCands),
-      presmaPick: i === 1 ? null : rand(presmaCands), // TPHP #2: Suara Kosong BEM
-      himaPick: i === 0 ? himaTphp1.id : himaTphp2.id,
-    })),
-    ...perProdi("MANLOG", 1).map((v) => ({
-      voter: v,
-      dpmPick: rand(dpmCands),
-      presmaPick: rand(presmaCands),
-      himaPick: himaManlog1.id,
-    })),
-    ...perProdi("BD", 2).map((v, i) => ({
-      voter: v,
-      dpmPick: rand(dpmCands),
-      presmaPick: rand(presmaCands),
-      himaPick: i === 0 ? himaBd2.id : null, // BD #2: Suara Kosong HIMA
-    })),
-    ...perProdi("TRPL", 2).map((v, i) => ({
-      voter: v,
-      dpmPick: rand(dpmCands),
-      presmaPick: rand(presmaCands),
-      himaPick: i === 0 ? himaTrpl1.id : himaTrpl2.id,
-    })),
-  ];
+  const precastPlan: PrecastPlan[] = [];
   // Re-vote demo: pemilih TRPL kedua mengganti suaranya (versi 2 → himaTrpl1)
   const revoter = precastPlan.find((p) => p.voter.studyProgramId === "TRPL" && p.himaPick === himaTrpl2.id)!;
   const revotePick = himaTrpl1.id;

@@ -40,10 +40,28 @@ export function verifyPassword(plain: string, stored: string): boolean {
   return candidate.length === expected.length && timingSafeEqual(candidate, expected);
 }
 
-// ---------- HMAC signing ----------
+// ---------- HMAC signing (dengan cache 60s agar tidak memboroskan round-trip DB) ----------
+let cachedSecret = "";
+let secretFetchedAt = 0;
+const SECRET_TTL_MS = 60_000;
+
+export function invalidateSessionSecretCache(): void {
+  cachedSecret = "";
+  secretFetchedAt = 0;
+}
+
 async function getSecret(): Promise<string> {
+  const now = Date.now();
+  if (cachedSecret && now - secretFetchedAt < SECRET_TTL_MS) {
+    return cachedSecret;
+  }
   const setting = await db.electionSetting.findUnique({ where: { id: "main" }, select: { sessionSecret: true } });
-  return setting?.sessionSecret ?? "";
+  const secret = setting?.sessionSecret ?? "";
+  if (secret) {
+    cachedSecret = secret;
+    secretFetchedAt = now;
+  }
+  return secret;
 }
 
 function sign(payload: string, secret: string): string {
