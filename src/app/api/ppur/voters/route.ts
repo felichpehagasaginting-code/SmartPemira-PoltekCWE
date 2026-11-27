@@ -15,17 +15,25 @@ export async function GET(req: NextRequest) {
     const filter = searchParams.get("filter") ?? "ALL";
 
     const where: Record<string, unknown> = {};
-    if (q) {
-      where.OR = [{ nim: { contains: q } }, { name: { contains: q } }];
-    }
     if (filter !== "ALL") where.status = filter;
 
-    const voters = await db.voter.findMany({
+    const allVoters = await db.voter.findMany({
       where,
       include: { studyProgram: true },
       orderBy: [{ nim: "asc" }],
-      take: 60,
+      take: q ? 500 : 60,
     });
+
+    const qLower = q.replace(/\s+/g, " ").toLowerCase();
+    const voters = qLower
+      ? allVoters
+          .filter(
+            (v) =>
+              v.nim.toLowerCase().includes(qLower) ||
+              v.name.toLowerCase().includes(qLower)
+          )
+          .slice(0, 60)
+      : allVoters;
 
     const counts = {
       all: await db.voter.count(),

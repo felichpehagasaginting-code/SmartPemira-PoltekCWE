@@ -360,12 +360,27 @@ export function KpumDashboard({ operatorRole }: { operatorRole?: string | null }
           <div className="bento-card overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D8D3C8] px-5 py-4">
               <h3 className="font-display text-lg font-bold">DPT Terkunci — {stats.dptTotal} Pemilih (FR-02.4)</h3>
-              <input
-                value={dptQuery}
-                onChange={(e) => setDptQuery(e.target.value)}
-                placeholder="Cari NIM/nama…"
-                className="h-10 w-64 rounded-[8px] border border-[#D8D3C8] bg-white px-3 text-sm outline-none focus:border-[#1B7F4E]"
-              />
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setDptQuery((q) => q.trim());
+                }}
+                className="flex items-center gap-2"
+              >
+                <input
+                  value={dptQuery}
+                  onChange={(e) => setDptQuery(e.target.value)}
+                  placeholder="Cari NIM/nama lalu Enter…"
+                  aria-label="Cari DPT berdasarkan NIM atau nama"
+                  className="h-10 w-64 rounded-[8px] border border-[#D8D3C8] bg-white px-3 text-sm outline-none focus:border-[#1B7F4E]"
+                />
+                <button
+                  type="submit"
+                  className="h-10 rounded-[8px] border border-[#141E19] bg-[#141E19] px-3.5 text-xs font-bold text-white hover:bg-[#1B7F4E]"
+                >
+                  Cari
+                </button>
+              </form>
             </div>
             <div className="nice-scroll max-h-[440px] overflow-y-auto">
               <table className="w-full text-sm">

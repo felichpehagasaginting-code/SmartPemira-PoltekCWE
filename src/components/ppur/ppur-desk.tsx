@@ -172,18 +172,38 @@ export function PpurDesk() {
           <p className="mt-1 text-[13px] text-[#4A5851]">
             Ketik NIM/nama mahasiswa (coba juga scan barcode KTM). Pencarian real-time terhadap Daftar Pemilih Tetap terkunci.
           </p>
-          <div className="relative mt-4">
-            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#7A8881]" aria-hidden />
-            <Input
-              ref={searchRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="NIM atau nama mahasiswa…"
-              autoFocus
-              className="h-[52px] rounded-[10px] border-[#D8D3C8] bg-white pl-12 text-base shadow-none focus-visible:ring-2 focus-visible:ring-[#1B7F4E]"
-              aria-label="Pencarian DPT"
-            />
-          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const qTrim = query.trim();
+              setDebounced(qTrim);
+              void refreshFiltered();
+              if (rows.length === 1) {
+                setSelected(rows[0]);
+              }
+            }}
+            className="mt-4 flex gap-2"
+          >
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#7A8881]" aria-hidden />
+              <Input
+                ref={searchRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="NIM atau nama mahasiswa lalu tekan Enter…"
+                autoFocus
+                className="h-[52px] rounded-[10px] border-[#D8D3C8] bg-white pl-12 text-base shadow-none focus-visible:ring-2 focus-visible:ring-[#1B7F4E]"
+                aria-label="Pencarian DPT"
+              />
+            </div>
+            <button
+              type="submit"
+              className="flex h-[52px] shrink-0 items-center gap-2 rounded-[10px] border-2 border-[#141E19] bg-[#141E19] px-5 text-sm font-extrabold text-white shadow-[3px_3px_0px_#1B7F4E] transition-all hover:bg-[#1B7F4E] active:translate-y-0.5 active:shadow-none"
+            >
+              <Search className="h-4 w-4" aria-hidden />
+              Cari
+            </button>
+          </form>
 
           {/* Pill Tabs */}
           <div className="mt-4 flex flex-wrap gap-2" role="tablist" aria-label="Filter status pemilih">
