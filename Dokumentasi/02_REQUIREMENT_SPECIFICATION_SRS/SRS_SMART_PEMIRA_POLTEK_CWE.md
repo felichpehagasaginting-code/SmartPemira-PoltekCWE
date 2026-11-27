@@ -194,7 +194,7 @@ Seluruh modul implementasi sistem **wajib tunduk 100% tanpa kompromi** pada lima
 ### 3.2 FR-02: Manajemen Daftar Pemilih Tetap (DPT)
 * **FR-02.1 (Impor Massal Data BAAK)**: Sistem harus mampu mengimpor berkas CSV/XLSX berisi minimal field: `NIM`, `Nama Mahasiswa`, `Program Studi`, `Angkatan`, dan `Lokasi TPS`.
 * **FR-02.2 (Pencegahan Duplikasi NIM)**: Sistem wajib memvalidasi keunikan NIM sebagai kunci primer (*Primary Key*). Jika ditemukan NIM ganda dalam berkas impor, sistem harus menolak baris duplikat dan menerbitkan laporan galat (*error report*).
-* **FR-02.3 (Pencarian Instan Meja PPUR)**: Sistem harus menyediakan antarmuka pencarian cepat DPT pada meja PPUR berdasarkan kata kunci NIM atau Nama Mahasiswa dengan waktu respon kueri $< 200$ ms.
+* **FR-02.3 (Pencarian Instan Meja PPUR & KPUM)**: Sistem harus menyediakan antarmuka pencarian cepat DPT berdasarkan kata kunci NIM atau Nama Mahasiswa secara *case-insensitive* (bebas huruf besar/kecil), mendukung eksekusi langsung dengan tombol `Enter` maupun tombol `Cari`, dengan waktu respon $< 200$ ms.
 * **FR-02.4 (Pelacakan Status Kehadiran 3-State)**: Sistem harus mencatat dan memperbarui status pemilih ke dalam 3 tingkatan status:
   1. `BELUM_MEMILIH`: Status awal mahasiswa terdaftar dalam DPT.
   2. `DALAM_ANTREAN`: Pemilih telah terverifikasi fisik di meja PPUR dan slip token telah dicetak (sedang menuju bilik Kiosk).
@@ -205,7 +205,7 @@ Seluruh modul implementasi sistem **wajib tunduk 100% tanpa kompromi** pada lima
   1. Presma & Wapresma (Tingkat Institusi / Seluruh Mahasiswa).
   2. Pimpinan DPM (Ketua Umum, Wakil Ketua I, Wakil Ketua II).
   3. Gubernur/Ketua HIMA Program Studi (Spesifik per 5 prodi: TPTP/BKS, TPHP, MANLOG, BD, TRPL).
-* **FR-03.2 (Manajemen Profil Kandidat)**: Sistem harus menyimpan nomor urut, foto resmi pimpinan & wakil, visi, misi (dalam format JSON array), dan warna aksen kartu kandidat.
+* **FR-03.2 (CRUD & Manajemen Profil/Foto BLOB Kandidat)**: Sistem harus menyediakan operasi CRUD lengkap bagi KPUM/ITPO untuk mengelola nomor urut, nama pimpinan/wakil, visi, misi (JSON array), warna aksen, serta pengunggahan berkas foto resmi per peran (*leader*, *vice*, *secondVice*) dalam format biner **BLOB** (`CandidatePhoto`) yang dikompresi otomatis ke rasio potret 3:4 WebP di sisi klien.
 * **FR-03.3 (Generator Otomatis Kotak Kosong)**: Apabila dalam suatu kategori pemilihan hanya terdapat 1 pasangan calon yang disahkan KPUM, sistem wajib membuat entitas kartu tandingan **"KOTAK KOSONG"** (`isEmptyBox = TRUE`) secara otomatis dengan nomor urut berikutnya atau format pilihan setuju/tidak setuju sesuai mandat Pasal 9 ayat 3 UUD IKM.
 * **FR-03.4 (Pilihan Suara Kosong / Abstain Sah)**: Sistem harus menyediakan opsi resmi "Suara Kosong" di posisi terakhir bilik suara bagi pemilih yang secara sadar tidak ingin memilih pasangan calon manapun; suara ini terhitung sebagai suara sah masuk kotak suara namun tidak menambah perolehan kandidat.
 

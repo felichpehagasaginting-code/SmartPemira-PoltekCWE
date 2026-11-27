@@ -494,6 +494,17 @@ Smart Pemira menyediakan prosedur pemulihan bencana (*Disaster Recovery*) dan si
 2. **Penandatanganan Arsip**: Naskah arsip disegel secara kriptografis menggunakan Ed25519.
 3. **Inisialisasi Lembar Baru**: Tabel transaksi aktif (`BallotBox`, `VotingToken`, `AuditLog`, `ElectionIncident`) dikosongkan untuk gelombang berikutnya, sementara riwayat masa lalu tersimpan abadi dan tidak dapat diubah (*tamper-proof cold archive*).
 
+### 5.4 Optimasi Performa Serverless, Penyimpanan BLOB & Efisiensi Turso
+Untuk menjamin respons antarmuka yang instan sekaligus menekan konsumsi *rows read* pada Turso LibSQL Cloud, diterapkan tiga strategi arsitektural:
+1. **Penyimpanan Media Paslon Berbasis BLOB (`CandidatePhoto`)**:
+   - Berkas foto paslon dikompresi di sisi klien menggunakan HTML5 Canvas ke rasio potret 3:4 format WebP (~40–60 KB) sebelum dikirim via `POST /api/admin/candidates/[id]/photo` (menghindari batas payload serverless 4.5 MB).
+   - Data biner disimpan terpisah pada tabel `CandidatePhoto` (`1:N` terhadap `Candidate`) agar kueri daftar kandidat tetap ringan (<10 KB), dan disajikan melalui endpoint streaming `GET /api/candidates/[id]/photo/[role]` dengan header `Cache-Control: public, max-age=86400` (mendukung *fallback* otomatis ke Vercel Blob CDN jika `BLOB_READ_WRITE_TOKEN` dikonfigurasi).
+2. **In-Memory SWR Cache & Visibility-Aware Polling (`src/hooks/use-polling.ts`)**:
+   - Seluruh modul dasbor (`PublicPortal`, `PpurDesk`, `KpumDashboard`, `PanwasluMonitor`, `OperatorManager`) berbagi cache memori klien (*stale-while-revalidate*) dan deduplikasi *in-flight*, sehingga perpindahan antar menu tampil instan (0 ms tanpa *Skeleton loading* ulang) dan *polling* berhenti otomatis ketika tab browser tidak aktif.
+   - Fungsi `expireStaleTokens()` di `src/lib/db/ballot-service.ts` di-throttle per 30 detik di memori server agar tidak mengeksekusi kueri berulang pada setiap request `GET`.
+3. **Percepatan Otentikasi RBAC (`src/lib/server/auth.ts` & `src/app/api/auth/login/route.ts`)**:
+   - `sessionSecret` di-cache selama 60 detik di memori server (dengan invalidasi otomatis saat *Segel & Reset*), penulisan pasca-login (`lastLoginAt` & `AuditLog`) dieksekusi paralel melalui `Promise.all`, dan klien langsung mengaktifkan sesi dari respons login tanpa request ganda ke `/api/auth/me`.
+
 ---
 
 ## 6. Kesimpulan Arsitektur & Rekomendasi Pemeliharaan

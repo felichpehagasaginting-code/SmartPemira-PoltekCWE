@@ -395,7 +395,7 @@ async function generate() {
           ),
           listP(
             "d.",
-            "Metode pemungutan suara mengakomodasi model hybrid on-premise (TPS Diam di lingkungan kampus dengan komputer Kiosk) serta kesiapan deployment cloud publik berbasis Next.js 16 App Router dan Turso LibSQL."
+            "Metode pemungutan suara menerapkan sistem 100% daring (BYOD — Bring Your Own Device) melalui Portal Pemilih (/pemilih) berbasis Next.js 16 App Router dan Turso LibSQL Cloud dengan 5 TPS virtual per prodi, model ganti suara (re-vote) Estonia, serta opsi resmi Suara Kosong."
           ),
           listP(
             "e.",
@@ -732,15 +732,15 @@ async function generate() {
           ),
           listP(
             "FR-02",
-            "Manajemen DPT: Import massal data mahasiswa dari berkas CSV/Excel, pencegahan NIM ganda, dan pelacakan status pemilih (BELUM_MEMILIH, DALAM_ANTREAN, SUDAH_MEMILIH)."
+            "Manajemen DPT: Import massal data mahasiswa dari berkas CSV/Excel, pencegahan NIM ganda, pencarian cepat case-insensitive berdasarkan NIM/Nama (dukungan Enter), dan pelacakan status pemilih (BELUM_MEMILIH, DALAM_ANTREAN, SUDAH_MEMILIH)."
           ),
           listP(
             "FR-03",
-            "Manajemen Kandidat & Surat Suara: Pengelolaan profil paslon Presma, DPM, dan HIMA, serta otomasi opsi Kotak Kosong pada calon tunggal."
+            "Manajemen Kandidat & Media BLOB: CRUD lengkap profil paslon Presma, DPM, dan HIMA, pengunggahan foto resmi berbasis BLOB (CandidatePhoto) dengan kompresi otomatis HTML5 Canvas (3:4 WebP), serta otomasi opsi Suara Kosong."
           ),
           listP(
             "FR-04",
-            "Otentikasi & Penerbitan Token PPUR: Pencarian DPT di meja registrasi, pencocokan KTM, dan penerbitan token acak 6-karakter CSPRNG (TTL 10 menit, single-use)."
+            "Otentikasi & Penerbitan Token PPUR: Pencarian DPT case-insensitive berbasis NIM/Nama di meja registrasi dengan eksekusi Enter, pencocokan KTM, dan penerbitan token acak 6-karakter CSPRNG (TTL 10 menit)."
           ),
           listP(
             "FR-05",
@@ -764,7 +764,7 @@ async function generate() {
             "1. Keamanan: Seluruh transaksi suara terisolasi zero-knowledge; token sensitif di-hash SHA-256; password operator di-hash scrypt; rahasia 2FA dienkripsi AES-256-GCM; integritas audit log append-only."
           ),
           bodyP(
-            "2. Kinerja & Throughput: Waktu respons pengiriman suara di bilik Kiosk berada di bawah 500 milidetik; mampu menangani transaksi pemungutan suara paralel tanpa kegagalan koneksi basis data."
+            "2. Kinerja, Caching & Efisiensi Cloud: Waktu respons pengiriman suara di bilik berada di bawah 500 milidetik; antarmuka admin menggunakan In-Memory SWR Cache (perpindahan menu 0 ms), visibility-aware polling, throttle token kedaluwarsa, serta caching sessionSecret dan paralelisasi login untuk memangkas latensi dan rows-read Turso."
           ),
           bodyP(
             "3. Aksesibilitas & Ergonomi: Memenuhi kepatuhan kontras warna WCAG AA; mendukung navigasi layar sentuh (touchscreen) dan keyboard fisik; antarmuka mobile-responsive bebas pergeseran tata letak (zero Cumulative Layout Shift)."
@@ -785,6 +785,9 @@ async function generate() {
           ),
           bodyP(
             "4. Domain Keamanan Operator: Tabel 'Operator' menyimpan akun petugas (username, passwordHash, role, fullName, tpsId, isActive, totpSecret, backupCodesJson) yang diikat dengan mekanisme otentikasi scrypt dan 2FA TOTP."
+          ),
+          bodyP(
+            "5. Domain Media Kandidat (BLOB Storage): Tabel 'CandidatePhoto' (id, candidateId, role, mimeType, data BLOB) berelasi 1:N dengan tabel 'Candidate' untuk menyimpan foto potret resmi hasil kompresi WebP 3:4 secara persisten di lingkungan serverless tanpa ketergantungan penyimpanan lokal."
           ),
 
           heading2("3.4 Transaksi Atomik Pemungutan Suara (Atomic Submission Flow)"),
