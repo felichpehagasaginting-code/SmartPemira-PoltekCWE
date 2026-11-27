@@ -1,18 +1,20 @@
 # Dual-Layer Zero-Knowledge Ballot Architecture with Ephemeral Hash-Chaining and Ed25519 Multi-Signature Verification for High-Integrity Campus Elections
 
 **Penulis:**
-1. **Arya Wicaksana, S.Kom., M.Cs.**  
-   *Program Studi Teknologi Rekayasa Perangkat Lunak, Politeknik Kelapa Sawit Citra Widya Edukasi*  
-   Email: `arya.wicaksana@cwe.ac.id`
-2. **Muhammad Fajar Pratama**  
+1. **Felich Pehagasa Ginting** *(Corresponding Author)*  
+   *Program Studi Teknologi Rekayasa Perangkat Lunak (TRPL) & Koordinator Tim ITPO, Politeknik Kelapa Sawit Citra Widya Edukasi*  
+   Email: `felich.ginting@cwe.ac.id`
+2. **Sri Wahyuni**  
    *Komisi Pemilihan Umum Mahasiswa (KPUM), Politeknik Kelapa Sawit Citra Widya Edukasi*  
    Email: `kpum@cwe.ac.id`
-3. **Siti Nurhaliza**  
+3. **Richo Dwi Putra Bukit**  
    *Panitia Pengawas Pemilu Mahasiswa (Panwaslu), Politeknik Kelapa Sawit Citra Widya Edukasi*  
    Email: `panwaslu@cwe.ac.id`
-4. **Ir. Bambang Sugiarto, M.T.**  
-   *Pusat Data dan Sistem Informasi / ITPO, Politeknik Kelapa Sawit Citra Widya Edukasi*  
-   Email: `itpo@cwe.ac.id`
+4. **Rizky Fadhilah**  
+   *Tim Saksi & Verifikasi Pemira, Politeknik Kelapa Sawit Citra Widya Edukasi*  
+   Email: `saksi@cwe.ac.id`
+5. **Evanuel Syaputra Saragih**, **Putri Abelia**  
+   *Program Studi Teknologi Rekayasa Perangkat Lunak (TRPL), Politeknik Kelapa Sawit Citra Widya Edukasi*
 
 ---
 
