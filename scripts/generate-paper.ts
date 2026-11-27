@@ -210,13 +210,13 @@ function createDoc(): Document {
       ],
     }),
 
-    // Authors Grid (3 columns or centered blocks)
+    // Authors Grid (Real Team & Roles)
     new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { after: 40 },
       children: [
         new TextRun({
-          text: "Arya Wicaksana, S.Kom., M.Cs.",
+          text: "Felich Pehagasa Ginting",
           bold: true,
           font: "Times New Roman",
           size: 22,
@@ -227,7 +227,7 @@ function createDoc(): Document {
           size: 22,
         }),
         new TextRun({
-          text: "Muhammad Fajar Pratama",
+          text: "Sri Wahyuni",
           bold: true,
           font: "Times New Roman",
           size: 22,
@@ -238,7 +238,7 @@ function createDoc(): Document {
           size: 22,
         }),
         new TextRun({
-          text: "Siti Nurhaliza",
+          text: "Richo Dwi Putra Bukit",
           bold: true,
           font: "Times New Roman",
           size: 22,
@@ -249,13 +249,35 @@ function createDoc(): Document {
           size: 22,
         }),
         new TextRun({
-          text: "Ir. Bambang Sugiarto, M.T.",
+          text: "Rizky Fadhilah",
           bold: true,
           font: "Times New Roman",
           size: 22,
         }),
         new TextRun({
-          text: "⁴",
+          text: "⁴, ",
+          font: "Times New Roman",
+          size: 22,
+        }),
+        new TextRun({
+          text: "Evanuel Syaputra Saragih",
+          bold: true,
+          font: "Times New Roman",
+          size: 22,
+        }),
+        new TextRun({
+          text: "¹, ",
+          font: "Times New Roman",
+          size: 22,
+        }),
+        new TextRun({
+          text: "Putri Abelia",
+          bold: true,
+          font: "Times New Roman",
+          size: 22,
+        }),
+        new TextRun({
+          text: "¹",
           font: "Times New Roman",
           size: 22,
         }),
@@ -267,19 +289,19 @@ function createDoc(): Document {
       spacing: { after: 40 },
       children: [
         new TextRun({
-          text: "¹Departemen Teknologi Rekayasa Perangkat Lunak, Politeknik Kelapa Sawit Citra Widya Edukasi, Bekasi, Indonesia\n",
+          text: "¹Program Studi Teknologi Rekayasa Perangkat Lunak (TRPL), Politeknik Kelapa Sawit Citra Widya Edukasi, Bekasi, Indonesia\n",
           italics: true,
           font: "Times New Roman",
           size: 19,
         }),
         new TextRun({
-          text: "²Komisi Pemilihan Umum Mahasiswa (KPUM), ³Panwaslu Mahasiswa, ⁴Pusat Data dan Sistem Informasi (ITPO)\n",
+          text: "²Komisi Pemilihan Umum Mahasiswa (KPUM), ³Panwaslu Mahasiswa, ⁴Tim Saksi & Verifikasi Pemira\n",
           italics: true,
           font: "Times New Roman",
           size: 19,
         }),
         new TextRun({
-          text: "Email: *arya.wicaksana@cwe.ac.id, kpum@cwe.ac.id, panwaslu@cwe.ac.id, itpo@cwe.ac.id",
+          text: "Email: *felich.ginting@cwe.ac.id, kpum@cwe.ac.id, panwaslu@cwe.ac.id, itpo@cwe.ac.id",
           font: "Courier New",
           size: 17,
         }),

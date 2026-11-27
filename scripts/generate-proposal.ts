@@ -263,7 +263,7 @@ async function generate() {
             spacing: { before: 100, after: 50 },
             children: [
               new TextRun({
-                text: "FELICH PEHAGA SAGINTING",
+                text: "FELICH PEHAGASA GINTING",
                 bold: true,
                 font: "Times New Roman",
                 size: 28,
@@ -276,7 +276,7 @@ async function generate() {
             spacing: { before: 50, after: 800 },
             children: [
               new TextRun({
-                text: "NIM / ID Pengusul: Mahasiswa TRPL",
+                text: "NIM: 202515026",
                 font: "Times New Roman",
                 size: 24,
                 color: "000000",
